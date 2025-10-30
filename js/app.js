@@ -1838,37 +1838,16 @@ function showAnnotatePanel() {
         <button class="close-btn" onclick="closeToolPanel()">
             <i class="ti ti-x"></i>
         </button>
-        <h3><i class="ti ti-pencil"></i> Add Annotation</h3>
+        <h3><i class="ti ti-pencil"></i> Add Text Annotation</h3>
         <div class="tool-content">
             <div class="form-group">
-                <label>Annotation Text:</label>
-                <textarea id="annotationText" rows="3" class="text-input" placeholder="Enter text..." oninput="updateAnnotationPreview()"></textarea>
-            </div>
-
-            <div class="form-group">
-                <label>Page Number:</label>
-                <input type="number" id="annotationPage" min="1" max="${viewer.totalPages}" value="${viewer.currentPage}" class="text-input" onchange="updateAnnotationPreview()">
-            </div>
-
-            <div id="annotationPreviewStatus" style="padding: 0.5rem; background: var(--background); border-radius: 6px; margin: 1rem 0; display: none;">
-                <p style="font-size: 0.875rem; color: var(--text); margin: 0;">
-                    <i class="ti ti-info-circle"></i> Use mouse to drag annotation on canvas
-                </p>
-            </div>
-
-            <div class="form-group">
-                <label>X Position:</label>
-                <input type="number" id="annotationX" value="50" class="text-input" onchange="updateAnnotationPreview()">
-            </div>
-
-            <div class="form-group">
-                <label>Y Position:</label>
-                <input type="number" id="annotationY" value="700" class="text-input" onchange="updateAnnotationPreview()">
+                <label>Text:</label>
+                <textarea id="annotationText" rows="3" class="text-input" placeholder="Enter text..."></textarea>
             </div>
 
             <div class="form-group">
                 <label>Font Size:</label>
-                <input type="number" id="annotationSize" min="6" max="72" value="14" class="text-input" onchange="updateAnnotationPreview()">
+                <input type="number" id="annotationSize" min="6" max="72" value="14" class="text-input">
             </div>
 
             <div class="form-group">
@@ -1886,18 +1865,68 @@ function showAnnotatePanel() {
                 <input type="hidden" id="annotationColor" value="0,0,1">
             </div>
 
-            <button class="action-btn" onclick="executeAnnotate()">
-                <i class="ti ti-check"></i> Add Annotation
+            <button class="action-btn" onclick="addTextAnnotationToPage()">
+                <i class="ti ti-check"></i> Add to Page
             </button>
+
+            <div class="info-box" style="background: var(--background); padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                <p style="font-size: 0.875rem; color: var(--text-muted); margin: 0;">
+                    <i class="ti ti-info-circle"></i> After entering text, click "Add to Page" then draw a box where you want to place it.
+                </p>
+            </div>
         </div>
     `;
 
     showToolPanel(panel);
-    initializeAnnotationPositioning();
+
+    // Setup color picker
+    setTimeout(() => {
+        const colorBtns = document.querySelectorAll('#annotationColorPicker .color-btn');
+        colorBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                colorBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById('annotationColor').value = btn.dataset.color;
+            });
+        });
+    }, 0);
 }
 
 /**
- * Execute annotation
+ * Add text annotation to page using draw-box system
+ */
+async function addTextAnnotationToPage() {
+    const text = document.getElementById('annotationText').value;
+    if (!text) {
+        showNotification('Please enter annotation text', 'warning');
+        return;
+    }
+
+    const fontSize = parseInt(document.getElementById('annotationSize').value);
+    const colorRGB = document.getElementById('annotationColor').value;
+
+    // Parse RGB color
+    const [r, g, b] = colorRGB.split(',').map(parseFloat);
+    const hexColor = '#' + [r, g, b].map(v => {
+        const hex = Math.round(v * 255).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+    }).join('');
+
+    // Start drawing mode
+    pendingObjects.startDrawing('text', {
+        text: text,
+        fontSize: fontSize,
+        color: hexColor,
+        colorRGB: colorRGB
+    });
+
+    showNotification('Draw a box on the PDF to place your text', 'info');
+    closeToolPanel();
+}
+
+/**
+ * Execute annotation (old system - deprecated)
  */
 async function executeAnnotate() {
     try {
@@ -1970,8 +1999,8 @@ function showSignPanel() {
                     <button class="option-btn" onclick="clearSignature()" style="flex: 1;">
                         <i class="ti ti-eraser"></i> Clear
                     </button>
-                    <button class="option-btn" onclick="previewSignatureOnCanvas()" style="flex: 1;">
-                        <i class="ti ti-eye"></i> Preview on Page
+                    <button class="option-btn" onclick="addSignatureToPage()" style="flex: 1;">
+                        <i class="ti ti-check"></i> Add to Page
                     </button>
                 </div>
             </div>
@@ -1991,40 +2020,11 @@ function showSignPanel() {
                 <input type="hidden" id="signatureColor" value="#0000FF">
             </div>
 
-            <div class="form-group">
-                <label>Page Number:</label>
-                <input type="number" id="signaturePage" min="1" max="${viewer.totalPages}" value="${viewer.currentPage}" class="text-input" onchange="updateSignaturePreview()">
-            </div>
-
-            <div id="signaturePreviewStatus" style="padding: 0.5rem; background: var(--background); border-radius: 6px; margin: 1rem 0; display: none;">
-                <p style="font-size: 0.875rem; color: var(--text); margin: 0;">
-                    <i class="ti ti-info-circle"></i> Use mouse to drag and resize signature on canvas
+            <div class="info-box" style="background: var(--background); padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                <p style="font-size: 0.875rem; color: var(--text-muted); margin: 0;">
+                    <i class="ti ti-info-circle"></i> After drawing your signature, click "Add to Page" then draw a box where you want to place it.
                 </p>
             </div>
-
-            <div class="form-group">
-                <label>X Position:</label>
-                <input type="number" id="signatureX" value="50" class="text-input" onchange="updateSignaturePreview()">
-            </div>
-
-            <div class="form-group">
-                <label>Y Position:</label>
-                <input type="number" id="signatureY" value="50" class="text-input" onchange="updateSignaturePreview()">
-            </div>
-
-            <div class="form-group">
-                <label>Width:</label>
-                <input type="number" id="signatureWidth" value="180" class="text-input" onchange="updateSignaturePreview()">
-            </div>
-
-            <div class="form-group">
-                <label>Height:</label>
-                <input type="number" id="signatureHeight" value="75" class="text-input" onchange="updateSignaturePreview()">
-            </div>
-
-            <button class="action-btn" onclick="executeSign()">
-                <i class="ti ti-check"></i> Add Signature
-            </button>
         </div>
     `;
 
@@ -2352,6 +2352,46 @@ function clearSignature() {
     const canvas = document.getElementById('signatureCanvas');
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+/**
+ * Add signature to page using draw-box system
+ */
+async function addSignatureToPage() {
+    const canvas = document.getElementById('signatureCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Check if signature is drawn
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const isBlank = !imageData.data.some(channel => channel !== 0);
+
+    if (isBlank) {
+        showNotification('Please draw a signature first', 'warning');
+        return;
+    }
+
+    try {
+        // Convert canvas to PNG blob
+        const signatureBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const signatureBuffer = await signatureBlob.arrayBuffer();
+
+        // Convert to data URL for preview
+        const signatureUrl = canvas.toDataURL('image/png');
+
+        // Start drawing mode
+        pendingObjects.startDrawing('signature', {
+            signatureUrl: signatureUrl,
+            signatureData: signatureBuffer,
+            originalWidth: canvas.width,
+            originalHeight: canvas.height
+        });
+
+        showNotification('Draw a box on the PDF to place your signature', 'info');
+        closeToolPanel();
+    } catch (error) {
+        console.error('Error preparing signature:', error);
+        showNotification('Failed to prepare signature: ' + error.message, 'error');
+    }
 }
 
 /**
