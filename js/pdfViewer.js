@@ -631,7 +631,7 @@ class PDFViewer {
         navThumbnails.innerHTML = ''; // Clear existing thumbnails
         this.thumbnails = [];
 
-        const thumbnailScale = 0.3; // Smaller scale for thumbnails
+        const thumbnailScale = 0.5; // Increased scale for better quality
 
         for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
             const page = await this.pdfDoc.getPage(pageNum);
@@ -644,6 +644,10 @@ class PDFViewer {
             if (pageNum === this.currentPage) {
                 thumbDiv.classList.add('active');
             }
+
+            // Create thumbnail wrapper (for positioning)
+            const thumbWrapper = document.createElement('div');
+            thumbWrapper.className = 'nav-thumbnail-wrapper';
 
             // Create canvas for thumbnail
             const canvas = document.createElement('canvas');
@@ -658,12 +662,20 @@ class PDFViewer {
 
             await page.render(renderContext).promise;
 
+            // Create page number overlay badge
+            const badge = document.createElement('div');
+            badge.className = 'nav-thumbnail-badge';
+            badge.textContent = pageNum;
+
+            thumbWrapper.appendChild(canvas);
+            thumbWrapper.appendChild(badge);
+
             // Create label
             const label = document.createElement('div');
             label.className = 'nav-thumbnail-label';
             label.textContent = `Page ${pageNum}`;
 
-            thumbDiv.appendChild(canvas);
+            thumbDiv.appendChild(thumbWrapper);
             thumbDiv.appendChild(label);
 
             // Click handler to navigate to page
