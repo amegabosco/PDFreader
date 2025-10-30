@@ -212,8 +212,9 @@ class PendingObjectsManager {
 
         try {
             const currentPage = viewer.currentPage;
+            const objectCount = this.objects.length;
 
-            // Insert all objects into PDF
+            // Insert all objects into PDF sequentially
             for (const obj of this.objects) {
                 await this.insertObject(obj);
             }
@@ -226,8 +227,19 @@ class PendingObjectsManager {
             viewer.currentPage = currentPage;
             await viewer.renderPage(currentPage);
 
-            addEditToHistory(`Inserted ${this.objects.length} objects`);
-            showNotification(`Successfully inserted ${this.objects.length} object(s)!`, 'success');
+            // Update cache if document is cached
+            if (currentCacheId && currentPDFData) {
+                await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
+            }
+
+            // Update document in tabs
+            const activeDoc = getActiveDocument();
+            if (activeDoc) {
+                activeDoc.pdfData = currentPDFData.slice(0);
+            }
+
+            addEditToHistory(`Inserted ${objectCount} object(s)`);
+            showNotification(`Successfully inserted ${objectCount} object(s)!`, 'success');
         } catch (error) {
             console.error('Failed to validate objects:', error);
             showNotification('Failed to insert objects: ' + error.message, 'error');
@@ -237,6 +249,8 @@ class PendingObjectsManager {
     async insertObject(obj) {
         const pageIndex = obj.page - 1;
         const pdfCopy = currentPDFData.slice(0);
+
+        console.log(`Inserting ${obj.type} on page ${obj.page}:`, obj.bounds);
 
         if (obj.type === 'image') {
             const modifiedPDF = await tools.insertImage(
@@ -248,6 +262,7 @@ class PendingObjectsManager {
             );
             const newArray = new Uint8Array(modifiedPDF);
             currentPDFData = newArray.buffer;
+            console.log(`Image inserted, new PDF size: ${currentPDFData.byteLength} bytes`);
         } else if (obj.type === 'text') {
             const modifiedPDF = await tools.addTextAnnotation(
                 pdfCopy,
@@ -262,6 +277,7 @@ class PendingObjectsManager {
             );
             const newArray = new Uint8Array(modifiedPDF);
             currentPDFData = newArray.buffer;
+            console.log(`Text inserted, new PDF size: ${currentPDFData.byteLength} bytes`);
         } else if (obj.type === 'signature') {
             const modifiedPDF = await tools.insertImage(
                 pdfCopy,
@@ -272,6 +288,7 @@ class PendingObjectsManager {
             );
             const newArray = new Uint8Array(modifiedPDF);
             currentPDFData = newArray.buffer;
+            console.log(`Signature inserted, new PDF size: ${currentPDFData.byteLength} bytes`);
         }
     }
 
