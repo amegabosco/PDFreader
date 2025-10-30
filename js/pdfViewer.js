@@ -80,6 +80,31 @@ class PDFViewer {
         document.getElementById('scrollView').addEventListener('click', () => {
             this.setViewMode('scroll');
         });
+
+        // Additional navigation buttons
+        document.getElementById('prevPageBtn').addEventListener('click', () => {
+            if (this.viewMode === 'single') {
+                if (this.currentPage > 1) {
+                    this.currentPage--;
+                    this.renderPage(this.currentPage);
+                }
+            } else {
+                // In scroll mode, scroll up one page height
+                this.scrollToPreviousPage();
+            }
+        });
+
+        document.getElementById('nextPageBtn').addEventListener('click', () => {
+            if (this.viewMode === 'single') {
+                if (this.currentPage < this.totalPages) {
+                    this.currentPage++;
+                    this.renderPage(this.currentPage);
+                }
+            } else {
+                // In scroll mode, scroll down one page height
+                this.scrollToNextPage();
+            }
+        });
     }
 
     /**
@@ -360,6 +385,10 @@ class PDFViewer {
 
             // Render all pages in scroll mode
             await this.renderScrollView();
+
+            // Scroll to top of document when entering scroll mode
+            const container = document.querySelector('.pdf-canvas-container');
+            container.scrollTop = 0;
         }
 
         console.log(`View mode changed to: ${mode}`);
@@ -458,5 +487,45 @@ class PDFViewer {
         };
 
         container.addEventListener('scroll', this.handleScrollTracking);
+    }
+
+    /**
+     * Scroll to previous page in scroll view
+     */
+    scrollToPreviousPage() {
+        if (this.viewMode !== 'scroll' || this.allPageCanvases.length === 0) return;
+
+        const container = document.querySelector('.pdf-canvas-container');
+        const currentPageIndex = this.currentPage - 1;
+
+        if (currentPageIndex > 0) {
+            const targetCanvas = this.allPageCanvases[currentPageIndex - 1];
+            const targetWrapper = targetCanvas.parentElement;
+
+            targetWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+            // Already at first page, scroll to top
+            container.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }
+
+    /**
+     * Scroll to next page in scroll view
+     */
+    scrollToNextPage() {
+        if (this.viewMode !== 'scroll' || this.allPageCanvases.length === 0) return;
+
+        const container = document.querySelector('.pdf-canvas-container');
+        const currentPageIndex = this.currentPage - 1;
+
+        if (currentPageIndex < this.allPageCanvases.length - 1) {
+            const targetCanvas = this.allPageCanvases[currentPageIndex + 1];
+            const targetWrapper = targetCanvas.parentElement;
+
+            targetWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+            // Already at last page, scroll to bottom
+            container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        }
     }
 }

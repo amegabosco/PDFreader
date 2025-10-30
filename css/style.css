@@ -540,6 +540,15 @@ body {
     text-align: center;
 }
 
+.navigation-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: 1rem;
+    padding-left: 1rem;
+    border-left: 2px solid var(--border);
+}
+
 .zoom-controls {
     display: flex;
     align-items: center;
