@@ -4,14 +4,27 @@ A minimalist, client-side JavaScript PDF reader and editor. All operations happe
 
 ## Features
 
-- **View PDFs**: Powered by PDF.js for reliable rendering
+### Viewing
+- **Two View Modes**: Single page or continuous scroll view
+- **Zoom & Pan**: Hand tool for easy navigation when zoomed
+- **Multi-Document Tabs**: Work with multiple PDFs simultaneously
+
+### Editing
 - **Merge PDFs**: Combine multiple PDF documents into one
 - **Split PDFs**: Extract individual pages as separate files
-- **Rotate Pages**: Rotate pages by 90, 180, or 270 degrees
-- **Compress**: Optimize PDF file size
-- **Insert Images**: Add images (PNG, JPG) to PDF pages
-- **Annotate**: Add text annotations and shapes
-- **Sign**: Add digital signatures
+- **Rotate Pages**: Select and rotate specific pages by 90, 180, or 270 degrees
+- **Compress**: Optimize PDF file size by removing unused resources
+
+### Content
+- **Insert Images**: Add images (PNG, JPG) with live preview and 4-corner resize handles
+- **Text Annotations**: Add text with 8-color picker and live canvas preview
+- **Digital Signatures**: Draw signatures with 8-color picker and position with handles
+
+### UX Enhancements
+- **Real-time Metadata**: View file info, memory usage, and edit history
+- **Clickable Edit History**: Click to see detailed list of all edits
+- **Tab Tooltips**: Hover over tabs to see full filenames
+- **Intuitive Controls**: Move objects by clicking inside, resize by dragging corner handles
 
 ## Technology Stack
 
@@ -100,6 +113,10 @@ const rotatedPDF = await tools.rotatePDF(
     90 // degrees
 );
 ```
+
+## Design Credit
+
+Designed with 🚀 by Yao 🇹🇬
 
 ## License
 
