@@ -23,7 +23,7 @@
                 <div class="header-content">
                     <h1>PDF Tool</h1>
                     <div class="version-info">
-                        <span class="version-badge">🧄 Version Ail</span>
+                        <span class="version-badge">🍌 Version Banane</span>
                         <span class="dev-credit">Dev par Yao</span>
                     </div>
                 </div>
@@ -154,6 +154,12 @@
                             <i class="ti ti-files"></i>
                         </button>
                     </div>
+                    <button id="undoBtn" class="control-btn" title="Undo (Ctrl+Z)" disabled onclick="undo()">
+                        <i class="ti ti-arrow-back-up"></i>
+                    </button>
+                    <button id="redoBtn" class="control-btn" title="Redo (Ctrl+Y)" disabled onclick="redo()">
+                        <i class="ti ti-arrow-forward-up"></i>
+                    </button>
                     <button id="toggleNavPanel" class="control-btn" title="Toggle Page Navigator">
                         <i class="ti ti-layout-sidebar-right"></i>
                     </button>
@@ -233,6 +239,7 @@
 
     <!-- Custom JavaScript -->
     <script src="js/pdfCache.js"></script>
+    <script src="js/signatureLibrary.js"></script>
     <script src="js/pdfViewer.js"></script>
     <script src="js/pdfTools.js"></script>
     <script src="js/app.js"></script>

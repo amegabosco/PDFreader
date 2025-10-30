@@ -399,6 +399,11 @@ let allUploadedFiles = []; // Store all uploaded files for merge
 let editHistory = []; // Track all edits made
 let originalFileSize = 0; // Store original file size
 
+// Undo/Redo system
+let undoStack = []; // Stack of previous states
+let redoStack = []; // Stack of undone states
+const MAX_UNDO_STACK = 20; // Maximum number of undo states
+
 /**
  * Show notification banner
  * @param {string} message - Message to display
@@ -456,6 +461,133 @@ function setupInfoBarToggle() {
 }
 
 /**
+ * Setup keyboard shortcuts
+ */
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Ignore if typing in input/textarea
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            return;
+        }
+
+        // Ctrl/Cmd + O: Open file
+        if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+            e.preventDefault();
+            document.getElementById('fileInput').click();
+            showNotification('Opening file picker...', 'info');
+        }
+
+        // Ctrl/Cmd + S: Download/Save
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            if (currentPDFData) {
+                tools.downloadPDF(new Uint8Array(currentPDFData), currentFileName);
+                showNotification('Downloading PDF...', 'success');
+            }
+        }
+
+        // Ctrl/Cmd + Z: Undo
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+            e.preventDefault();
+            undo();
+        }
+
+        // Ctrl/Cmd + Y or Ctrl/Cmd + Shift + Z: Redo
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+            e.preventDefault();
+            redo();
+        }
+
+        // Escape: Cancel/Close panels
+        if (e.key === 'Escape') {
+            const toolPanel = document.getElementById('toolPanel');
+            if (toolPanel.style.display !== 'none') {
+                closeToolPanel();
+            }
+            if (pendingObjects.objects.length > 0) {
+                pendingObjects.cancelAll();
+            }
+        }
+
+        // Only if PDF is loaded
+        if (!currentPDFData) return;
+
+        // Arrow keys: Navigate pages
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            document.getElementById('prevPage').click();
+        }
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            document.getElementById('nextPage').click();
+        }
+
+        // +/= : Zoom in
+        if (e.key === '+' || e.key === '=') {
+            e.preventDefault();
+            document.getElementById('zoomIn').click();
+        }
+
+        // - : Zoom out
+        if (e.key === '-') {
+            e.preventDefault();
+            document.getElementById('zoomOut').click();
+        }
+
+        // Space: Scroll down (Shift+Space: scroll up)
+        if (e.key === ' ') {
+            e.preventDefault();
+            const container = document.querySelector('.pdf-canvas-container');
+            if (e.shiftKey) {
+                container.scrollTop -= container.clientHeight * 0.8;
+            } else {
+                container.scrollTop += container.clientHeight * 0.8;
+            }
+        }
+
+        // Home: First page
+        if (e.key === 'Home') {
+            e.preventDefault();
+            viewer.currentPage = 1;
+            viewer.renderPage(1);
+        }
+
+        // End: Last page
+        if (e.key === 'End') {
+            e.preventDefault();
+            viewer.currentPage = viewer.totalPages;
+            viewer.renderPage(viewer.totalPages);
+        }
+
+        // 1: Single page view
+        if (e.key === '1') {
+            e.preventDefault();
+            document.getElementById('singlePageView').click();
+        }
+
+        // 2: Scroll view
+        if (e.key === '2') {
+            e.preventDefault();
+            document.getElementById('scrollView').click();
+        }
+
+        // Ctrl/Cmd + I: Toggle info bar
+        if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+            e.preventDefault();
+            document.getElementById('toggleInfoBar').click();
+        }
+
+        // Ctrl/Cmd + N: Toggle navigator
+        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+            e.preventDefault();
+            document.getElementById('toggleNavPanel').click();
+        }
+    });
+
+    console.log('Keyboard shortcuts initialized');
+}
+
+/**
  * Initialize the application
  */
 function init() {
@@ -463,6 +595,7 @@ function init() {
     setupToolButtons();
     setupTabsSystem();
     setupInfoBarToggle();
+    setupKeyboardShortcuts();
     updateMetadataDisplay();
 
     // Initialize pending objects manager
@@ -1993,11 +2126,23 @@ function showSignPanel() {
         <h3><i class="ti ti-signature"></i> Add Signature</h3>
         <div class="tool-content">
             <div class="form-group">
+                <label>Saved Signatures:</label>
+                <div id="savedSignaturesList" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 150px; overflow-y: auto; margin-bottom: 1rem;">
+                    <div style="text-align: center; color: var(--text-muted); font-size: 0.75rem; padding: 1rem;">
+                        Loading signatures...
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
                 <label>Draw Signature:</label>
                 <canvas id="signatureCanvas" width="360" height="150" style="border: 1px solid var(--border); border-radius: 8px; cursor: crosshair; background: white;"></canvas>
                 <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
                     <button class="option-btn" onclick="clearSignature()" style="flex: 1;">
                         <i class="ti ti-eraser"></i> Clear
+                    </button>
+                    <button class="option-btn" onclick="saveCurrentSignature()" style="flex: 1;">
+                        <i class="ti ti-device-floppy"></i> Save
                     </button>
                     <button class="option-btn" onclick="addSignatureToPage()" style="flex: 1;">
                         <i class="ti ti-check"></i> Add to Page
@@ -2022,7 +2167,7 @@ function showSignPanel() {
 
             <div class="info-box" style="background: var(--background); padding: 1rem; border-radius: 8px; margin: 1rem 0;">
                 <p style="font-size: 0.875rem; color: var(--text-muted); margin: 0;">
-                    <i class="ti ti-info-circle"></i> After drawing your signature, click "Add to Page" then draw a box where you want to place it.
+                    <i class="ti ti-info-circle"></i> Draw your signature, save it to library, then click "Add to Page" to place it on the PDF.
                 </p>
             </div>
         </div>
@@ -2030,6 +2175,7 @@ function showSignPanel() {
 
     showToolPanel(panel);
     initSignatureCanvas();
+    loadSavedSignatures();
 }
 
 // State for signature positioning
@@ -2395,7 +2541,116 @@ async function addSignatureToPage() {
 }
 
 /**
- * Execute signature
+ * Load saved signatures from library
+ */
+async function loadSavedSignatures() {
+    try {
+        const signatures = await signatureLibrary.getAllSignatures();
+        const container = document.getElementById('savedSignaturesList');
+
+        if (!container) return;
+
+        if (signatures.length === 0) {
+            container.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.75rem; padding: 0.5rem;">No saved signatures</div>';
+            return;
+        }
+
+        container.innerHTML = signatures.map(sig => `
+            <div class="saved-signature-item" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: var(--white); border: 1px solid var(--border); border-radius: 6px;">
+                <img src="${sig.dataUrl}" style="height: 40px; border: 1px solid var(--border); border-radius: 4px; background: white; flex-shrink: 0;" alt="${sig.name}">
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 0.75rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${sig.name}</div>
+                    <div style="font-size: 0.625rem; color: var(--text-muted);">${signatureLibrary.formatDate(sig.timestamp)}</div>
+                </div>
+                <button class="option-btn" onclick="loadSignatureToCanvas(${sig.id})" title="Load to canvas" style="padding: 0.25rem 0.5rem;">
+                    <i class="ti ti-download"></i>
+                </button>
+                <button class="option-btn" onclick="deleteSignature(${sig.id})" title="Delete" style="padding: 0.25rem 0.5rem; color: #EF4444;">
+                    <i class="ti ti-trash"></i>
+                </button>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading signatures:', error);
+    }
+}
+
+/**
+ * Save current signature to library
+ */
+async function saveCurrentSignature() {
+    const canvas = document.getElementById('signatureCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Check if signature is drawn
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const isBlank = !imageData.data.some(channel => channel !== 0);
+
+    if (isBlank) {
+        showNotification('Please draw a signature first', 'warning');
+        return;
+    }
+
+    // Prompt for name
+    const name = prompt('Enter a name for this signature:', `Signature ${Date.now().toString().slice(-4)}`);
+    if (!name) return;
+
+    try {
+        const dataUrl = canvas.toDataURL('image/png');
+        await signatureLibrary.saveSignature(name, dataUrl);
+        await loadSavedSignatures();
+        showNotification('Signature saved to library', 'success');
+    } catch (error) {
+        console.error('Error saving signature:', error);
+        showNotification('Failed to save signature: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Load a saved signature to canvas
+ */
+async function loadSignatureToCanvas(id) {
+    try {
+        const signature = await signatureLibrary.getSignature(id);
+        if (!signature) return;
+
+        const canvas = document.getElementById('signatureCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Load image
+        const img = new Image();
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0);
+            showNotification('Signature loaded', 'success');
+        };
+        img.src = signature.dataUrl;
+    } catch (error) {
+        console.error('Error loading signature:', error);
+        showNotification('Failed to load signature: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Delete a signature from library
+ */
+async function deleteSignature(id) {
+    if (!confirm('Delete this signature?')) return;
+
+    try {
+        await signatureLibrary.removeSignature(id);
+        await loadSavedSignatures();
+        showNotification('Signature deleted', 'success');
+    } catch (error) {
+        console.error('Error deleting signature:', error);
+        showNotification('Failed to delete signature: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Execute signature (old system - deprecated)
  */
 async function executeSign() {
     try {
@@ -2650,9 +2905,161 @@ function updateMemoryUsage() {
 }
 
 /**
+ * Save current state to undo stack
+ */
+function saveStateForUndo() {
+    if (!currentPDFData) return;
+
+    // Save current state
+    const state = {
+        pdfData: currentPDFData.slice(0), // Create a copy
+        fileName: currentFileName,
+        editHistory: [...editHistory],
+        timestamp: Date.now()
+    };
+
+    undoStack.push(state);
+
+    // Limit stack size
+    if (undoStack.length > MAX_UNDO_STACK) {
+        undoStack.shift(); // Remove oldest
+    }
+
+    // Clear redo stack when new action is performed
+    redoStack = [];
+
+    // Update undo/redo button states
+    updateUndoRedoButtons();
+}
+
+/**
+ * Undo last action
+ */
+async function undo() {
+    if (undoStack.length === 0) {
+        showNotification('Nothing to undo', 'warning');
+        return;
+    }
+
+    // Save current state to redo stack
+    const currentState = {
+        pdfData: currentPDFData.slice(0),
+        fileName: currentFileName,
+        editHistory: [...editHistory],
+        timestamp: Date.now()
+    };
+    redoStack.push(currentState);
+
+    // Restore previous state
+    const previousState = undoStack.pop();
+    currentPDFData = previousState.pdfData;
+    currentFileName = previousState.fileName;
+    editHistory = previousState.editHistory;
+
+    // Update active document
+    const activeDoc = getActiveDocument();
+    if (activeDoc) {
+        activeDoc.pdfData = currentPDFData;
+        activeDoc.editHistory = [...editHistory];
+    }
+
+    // Reload viewer
+    await viewer.loadPDF(currentPDFData.slice(0));
+
+    // Auto-save to cache
+    if (currentCacheId && currentPDFData) {
+        try {
+            await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
+            await updateRecentDocuments();
+        } catch (error) {
+            console.error('Failed to auto-save after undo:', error);
+        }
+    }
+
+    updateMetadataDisplay();
+    updateTabsUI();
+    updateUndoRedoButtons();
+    showNotification('Action undone', 'success');
+}
+
+/**
+ * Redo last undone action
+ */
+async function redo() {
+    if (redoStack.length === 0) {
+        showNotification('Nothing to redo', 'warning');
+        return;
+    }
+
+    // Save current state back to undo stack
+    const currentState = {
+        pdfData: currentPDFData.slice(0),
+        fileName: currentFileName,
+        editHistory: [...editHistory],
+        timestamp: Date.now()
+    };
+    undoStack.push(currentState);
+
+    // Restore redo state
+    const redoState = redoStack.pop();
+    currentPDFData = redoState.pdfData;
+    currentFileName = redoState.fileName;
+    editHistory = redoState.editHistory;
+
+    // Update active document
+    const activeDoc = getActiveDocument();
+    if (activeDoc) {
+        activeDoc.pdfData = currentPDFData;
+        activeDoc.editHistory = [...editHistory];
+    }
+
+    // Reload viewer
+    await viewer.loadPDF(currentPDFData.slice(0));
+
+    // Auto-save to cache
+    if (currentCacheId && currentPDFData) {
+        try {
+            await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
+            await updateRecentDocuments();
+        } catch (error) {
+            console.error('Failed to auto-save after redo:', error);
+        }
+    }
+
+    updateMetadataDisplay();
+    updateTabsUI();
+    updateUndoRedoButtons();
+    showNotification('Action redone', 'success');
+}
+
+/**
+ * Update undo/redo button states
+ */
+function updateUndoRedoButtons() {
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
+
+    if (undoBtn) {
+        undoBtn.disabled = undoStack.length === 0;
+        undoBtn.title = undoStack.length > 0
+            ? `Undo (${undoStack.length} actions available)`
+            : 'Nothing to undo';
+    }
+
+    if (redoBtn) {
+        redoBtn.disabled = redoStack.length === 0;
+        redoBtn.title = redoStack.length > 0
+            ? `Redo (${redoStack.length} actions available)`
+            : 'Nothing to redo';
+    }
+}
+
+/**
  * Add edit to history
  */
 async function addEditToHistory(editType) {
+    // Save state before adding to history
+    saveStateForUndo();
     const timestamp = new Date().toLocaleTimeString();
     editHistory.push(`${editType} (${timestamp})`);
 
@@ -2827,6 +3234,7 @@ if (document.readyState === 'loading') {
 (async function() {
     try {
         await pdfCache.init();
+        await signatureLibrary.init();
         await updateRecentDocuments();
 
         // Setup clear cache button
