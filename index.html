@@ -26,52 +26,52 @@
             <div class="tools-menu">
                 <h2>Tools</h2>
 
-                <button class="tool-btn" data-tool="upload">
+                <button class="tool-btn" data-tool="upload" title="Upload one or more PDF files from your computer">
                     <i class="ti ti-upload"></i>
                     <span>Upload PDF</span>
                 </button>
 
-                <button class="tool-btn" data-tool="merge" disabled>
+                <button class="tool-btn" data-tool="merge" disabled title="Combine multiple PDF files into one document">
                     <i class="ti ti-files"></i>
                     <span>Merge PDFs</span>
                 </button>
 
-                <button class="tool-btn" data-tool="split" disabled>
+                <button class="tool-btn" data-tool="split" disabled title="Split PDF into two parts at a specific page">
                     <i class="ti ti-cut"></i>
                     <span>Split PDF</span>
                 </button>
 
-                <button class="tool-btn" data-tool="rotate" disabled>
+                <button class="tool-btn" data-tool="rotate" disabled title="Rotate selected pages 90° clockwise">
                     <i class="ti ti-rotate-clockwise"></i>
                     <span>Rotate Pages</span>
                 </button>
 
-                <button class="tool-btn" data-tool="compress" disabled>
+                <button class="tool-btn" data-tool="compress" disabled title="Reduce PDF file size by optimizing images">
                     <i class="ti ti-file-zip"></i>
                     <span>Compress</span>
                 </button>
 
-                <button class="tool-btn" data-tool="image" disabled>
+                <button class="tool-btn" data-tool="image" disabled title="Insert an image (PNG/JPG) onto a PDF page">
                     <i class="ti ti-photo-plus"></i>
                     <span>Insert Image</span>
                 </button>
 
-                <button class="tool-btn" data-tool="annotate" disabled>
+                <button class="tool-btn" data-tool="annotate" disabled title="Add text annotations to PDF pages">
                     <i class="ti ti-pencil"></i>
                     <span>Annotate</span>
                 </button>
 
-                <button class="tool-btn" data-tool="sign" disabled>
+                <button class="tool-btn" data-tool="sign" disabled title="Draw or insert your signature on the PDF">
                     <i class="ti ti-signature"></i>
                     <span>Sign</span>
                 </button>
 
-                <button class="tool-btn" id="handToolBtn" data-tool="hand" disabled>
+                <button class="tool-btn" id="handToolBtn" data-tool="hand" disabled title="Pan and move around zoomed PDF pages">
                     <i class="ti ti-hand-grab"></i>
                     <span>Hand Tool</span>
                 </button>
 
-                <button class="tool-btn download-btn" data-tool="download" disabled>
+                <button class="tool-btn download-btn" data-tool="download" disabled title="Download the current PDF with all edits">
                     <i class="ti ti-download"></i>
                     <span>Download</span>
                 </button>
@@ -135,7 +135,7 @@
                     <h2>Drop PDF files here</h2>
                     <p>or click to browse</p>
                     <input type="file" id="fileInput" accept=".pdf" multiple hidden>
-                    <button class="browse-btn">
+                    <button class="browse-btn" title="Browse and select PDF files from your computer">
                         Browse Files
                     </button>
                 </div>
@@ -154,11 +154,11 @@
                 </div>
 
                 <div class="viewer-controls">
-                    <button id="prevPage" class="control-btn">
+                    <button id="prevPage" class="control-btn" title="Go to previous page">
                         <i class="ti ti-chevron-left"></i>
                     </button>
                     <span id="pageInfo">Page <span id="currentPage">1</span> of <span id="totalPages">1</span></span>
-                    <button id="nextPage" class="control-btn">
+                    <button id="nextPage" class="control-btn" title="Go to next page">
                         <i class="ti ti-chevron-right"></i>
                     </button>
                     <div class="navigation-controls">
@@ -170,11 +170,11 @@
                         </button>
                     </div>
                     <div class="zoom-controls">
-                        <button id="zoomOut" class="control-btn">
+                        <button id="zoomOut" class="control-btn" title="Zoom out">
                             <i class="ti ti-zoom-out"></i>
                         </button>
                         <span id="zoomLevel">100%</span>
-                        <button id="zoomIn" class="control-btn">
+                        <button id="zoomIn" class="control-btn" title="Zoom in">
                             <i class="ti ti-zoom-in"></i>
                         </button>
                     </div>
@@ -199,11 +199,11 @@
 
                 <!-- Validate All Button (shown when pending objects exist) -->
                 <div id="validateAllContainer" class="validate-all-container" style="display: none;">
-                    <button id="validateAllBtn" class="validate-all-btn">
+                    <button id="validateAllBtn" class="validate-all-btn" title="Insert all pending objects into the PDF">
                         <i class="ti ti-check"></i>
                         <span id="validateAllText">Validate All (0)</span>
                     </button>
-                    <button id="cancelAllBtn" class="cancel-all-btn">
+                    <button id="cancelAllBtn" class="cancel-all-btn" title="Remove all pending objects without inserting">
                         <i class="ti ti-x"></i>
                         Cancel All
                     </button>

@@ -601,17 +601,24 @@ class PDFViewer {
      * Open navigator panel
      */
     async openNavigator() {
-        if (!this.pdfDoc) return;
+        console.log('Opening navigator...');
+        if (!this.pdfDoc) {
+            console.error('No PDF document loaded');
+            return;
+        }
 
         const navPanel = document.getElementById('navPanel');
         const container = document.querySelector('.container');
         const toggleBtn = document.getElementById('toggleNavPanel');
+
+        console.log('Navigator elements:', { navPanel, container, toggleBtn });
 
         navPanel.style.display = 'flex';
         this.navPanelOpen = true;
         container.classList.add('nav-open');
         toggleBtn.classList.add('active');
 
+        console.log('Navigator panel opened, generating thumbnails...');
         // Generate thumbnails if not already generated
         await this.generateThumbnails();
     }
@@ -652,8 +659,10 @@ class PDFViewer {
         console.log(`Generating ${this.totalPages} thumbnails...`);
 
         for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
+            console.log(`Rendering thumbnail for page ${pageNum}`);
             const page = await this.pdfDoc.getPage(pageNum);
             const viewport = page.getViewport({ scale: thumbnailScale });
+            console.log(`Page ${pageNum} viewport:`, viewport.width, 'x', viewport.height);
 
             // Create thumbnail container
             const thumbDiv = document.createElement('div');
@@ -671,6 +680,7 @@ class PDFViewer {
             const canvas = document.createElement('canvas');
             canvas.width = viewport.width;
             canvas.height = viewport.height;
+            console.log(`Canvas created: ${canvas.width}x${canvas.height}`);
 
             const ctx = canvas.getContext('2d');
             const renderContext = {
@@ -678,7 +688,9 @@ class PDFViewer {
                 viewport: viewport
             };
 
+            console.log(`Starting render for page ${pageNum}...`);
             await page.render(renderContext).promise;
+            console.log(`Page ${pageNum} rendered successfully`);
 
             // Create page number overlay badge
             const badge = document.createElement('div');
