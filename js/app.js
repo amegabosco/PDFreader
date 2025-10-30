@@ -284,6 +284,11 @@ class PendingObjectsManager {
 
     // Draw box interaction
     startDrawing(type, data) {
+        // Switch to single page view for insertion
+        if (viewer.viewMode !== 'single') {
+            viewer.setViewMode('single');
+        }
+
         this.drawingState = {
             type,
             data,

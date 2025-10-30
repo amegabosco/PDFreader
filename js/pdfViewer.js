@@ -272,8 +272,16 @@ class PDFViewer {
             // If switching from scroll view to single page, restore the main canvas
             const container = document.querySelector('.pdf-canvas-container');
             if (this.viewMode === 'single' && !container.contains(this.canvas)) {
+                // Preserve the insertion overlay
+                const insertionOverlay = document.getElementById('insertionOverlay');
+
                 container.innerHTML = '';
                 container.appendChild(this.canvas);
+
+                // Re-add the overlay
+                if (insertionOverlay) {
+                    container.appendChild(insertionOverlay);
+                }
             }
 
             const page = await this.pdfDoc.getPage(pageNum);
@@ -397,8 +405,11 @@ class PDFViewer {
             await this.renderScrollView();
 
             // Scroll to top of document when entering scroll mode
+            // Use requestAnimationFrame to ensure DOM is fully updated
             const container = document.querySelector('.pdf-canvas-container');
-            container.scrollTop = 0;
+            requestAnimationFrame(() => {
+                container.scrollTop = 0;
+            });
         }
 
         console.log(`View mode changed to: ${mode}`);
@@ -412,9 +423,17 @@ class PDFViewer {
 
         const container = document.querySelector('.pdf-canvas-container');
 
-        // Clear existing content
+        // Preserve the insertion overlay
+        const insertionOverlay = document.getElementById('insertionOverlay');
+
+        // Clear existing content but keep overlay
         container.innerHTML = '';
         this.allPageCanvases = [];
+
+        // Re-add the overlay
+        if (insertionOverlay) {
+            container.appendChild(insertionOverlay);
+        }
 
         // Create a wrapper for all pages
         const pagesWrapper = document.createElement('div');
@@ -424,6 +443,8 @@ class PDFViewer {
         pagesWrapper.style.alignItems = 'center';
         pagesWrapper.style.gap = '1rem';
         pagesWrapper.style.padding = '2rem 0';
+        pagesWrapper.style.width = '100%';
+        pagesWrapper.style.minHeight = '100%';
 
         // Render each page
         for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
