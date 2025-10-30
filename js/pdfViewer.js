@@ -608,15 +608,19 @@ class PDFViewer {
         }
 
         const navPanel = document.getElementById('navPanel');
-        const container = document.querySelector('.container');
+        const container = document.querySelector('.app-container');
         const toggleBtn = document.getElementById('toggleNavPanel');
 
         console.log('Navigator elements:', { navPanel, container, toggleBtn });
 
         navPanel.style.display = 'flex';
         this.navPanelOpen = true;
-        container.classList.add('nav-open');
-        toggleBtn.classList.add('active');
+        if (container) {
+            container.classList.add('nav-open');
+        }
+        if (toggleBtn) {
+            toggleBtn.classList.add('active');
+        }
 
         console.log('Navigator panel opened, generating thumbnails...');
         // Generate thumbnails if not already generated
@@ -628,13 +632,17 @@ class PDFViewer {
      */
     closeNavigator() {
         const navPanel = document.getElementById('navPanel');
-        const container = document.querySelector('.container');
+        const container = document.querySelector('.app-container');
         const toggleBtn = document.getElementById('toggleNavPanel');
 
         navPanel.style.display = 'none';
         this.navPanelOpen = false;
-        container.classList.remove('nav-open');
-        toggleBtn.classList.remove('active');
+        if (container) {
+            container.classList.remove('nav-open');
+        }
+        if (toggleBtn) {
+            toggleBtn.classList.remove('active');
+        }
     }
 
     /**

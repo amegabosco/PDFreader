@@ -1419,11 +1419,11 @@ textarea.text-input {
 }
 
 /* Adjust main content when nav panel is visible */
-.container {
+.app-container {
     transition: padding-right 0.3s ease;
 }
 
-.container.nav-open {
+.app-container.nav-open {
     padding-right: 260px;
 }
 
@@ -1448,7 +1448,7 @@ textarea.text-input {
         width: 200px;
     }
 
-    .container.nav-open {
+    .app-container.nav-open {
         padding-right: 200px;
     }
 
