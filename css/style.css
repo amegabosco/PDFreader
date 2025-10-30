@@ -570,6 +570,7 @@ body {
     justify-content: center;
     padding: 2rem;
     background-color: var(--background);
+    position: relative;
 }
 
 #pdfCanvas {
@@ -585,6 +586,208 @@ body {
 
 .pdf-canvas-container.hand-tool-active:active {
     cursor: grabbing !important;
+}
+
+/* ===================================
+   Insertion Overlay System
+   =================================== */
+
+.insertion-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.insertion-overlay.active {
+    pointer-events: auto;
+}
+
+/* Pending Objects */
+.pending-object {
+    position: absolute;
+    border: 2px solid var(--primary);
+    background: rgba(37, 99, 235, 0.1);
+    cursor: move;
+    z-index: 11;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.pending-object.selected {
+    border-color: var(--primary-hover);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.5);
+}
+
+.pending-object.drawing {
+    border-style: dashed;
+    background: rgba(37, 99, 235, 0.05);
+}
+
+/* Pending Image */
+.pending-image {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.pending-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+/* Pending Text */
+.pending-text {
+    padding: 0.5rem;
+    display: flex;
+    align-items: flex-start;
+    overflow: hidden;
+}
+
+.pending-text .text-content {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: none;
+    font-family: inherit;
+    overflow-wrap: break-word;
+    pointer-events: auto;
+}
+
+.pending-text .text-content:focus {
+    background: rgba(255, 255, 255, 0.9);
+}
+
+/* Pending Signature */
+.pending-signature {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: white;
+}
+
+.pending-signature img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+/* Resize Handles */
+.resize-handle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: var(--primary);
+    border: 2px solid white;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    z-index: 12;
+}
+
+.resize-handle.nw { top: -5px; left: -5px; cursor: nwse-resize; }
+.resize-handle.ne { top: -5px; right: -5px; cursor: nesw-resize; }
+.resize-handle.sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
+.resize-handle.se { bottom: -5px; right: -5px; cursor: nwse-resize; }
+
+/* Delete Button */
+.delete-btn {
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    width: 24px;
+    height: 24px;
+    background: #EF4444;
+    color: white;
+    border: 2px solid white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    z-index: 12;
+    transition: all 0.2s ease;
+}
+
+.delete-btn:hover {
+    background: #DC2626;
+    transform: scale(1.1);
+}
+
+.delete-btn i {
+    font-size: 0.875rem;
+}
+
+/* Validate All Container */
+.validate-all-container {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    background: white;
+    border-top: 2px solid var(--border);
+    box-shadow: 0 -4px 12px var(--shadow);
+}
+
+.validate-all-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.5rem;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.validate-all-btn:hover {
+    background: var(--primary-hover);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+    transform: translateY(-1px);
+}
+
+.validate-all-btn i {
+    font-size: 1.25rem;
+}
+
+.cancel-all-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.5rem;
+    background: var(--background);
+    color: var(--text);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cancel-all-btn:hover {
+    background: var(--background-darker);
+    border-color: var(--text-muted);
+}
+
+.cancel-all-btn i {
+    font-size: 1.25rem;
 }
 
 /* ===================================

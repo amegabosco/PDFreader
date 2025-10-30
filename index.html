@@ -166,6 +166,20 @@
 
                 <div class="pdf-canvas-container">
                     <canvas id="pdfCanvas"></canvas>
+                    <!-- Insertion Overlay for pending objects -->
+                    <div id="insertionOverlay" class="insertion-overlay"></div>
+                </div>
+
+                <!-- Validate All Button (shown when pending objects exist) -->
+                <div id="validateAllContainer" class="validate-all-container" style="display: none;">
+                    <button id="validateAllBtn" class="validate-all-btn">
+                        <i class="ti ti-check"></i>
+                        <span id="validateAllText">Validate All (0)</span>
+                    </button>
+                    <button id="cancelAllBtn" class="cancel-all-btn">
+                        <i class="ti ti-x"></i>
+                        Cancel All
+                    </button>
                 </div>
             </div>
 

@@ -3,9 +3,383 @@
  * Handles file uploads, user interactions, and coordination between modules
  */
 
+/**
+ * Pending Objects Manager
+ * Manages objects waiting to be inserted into PDF
+ */
+class PendingObjectsManager {
+    constructor() {
+        this.objects = [];
+        this.nextId = 1;
+        this.overlay = null;
+        this.drawingState = null;
+    }
+
+    initialize() {
+        this.overlay = document.getElementById('insertionOverlay');
+        this.setupValidateButtons();
+    }
+
+    setupValidateButtons() {
+        document.getElementById('validateAllBtn').addEventListener('click', () => this.validateAll());
+        document.getElementById('cancelAllBtn').addEventListener('click', () => this.cancelAll());
+    }
+
+    addObject(type, page, bounds, data) {
+        const id = `obj-${this.nextId++}`;
+        const obj = {
+            id,
+            type, // 'image', 'text', 'signature'
+            page,
+            bounds, // { x, y, width, height }
+            data, // type-specific data
+            element: null
+        };
+
+        this.objects.push(obj);
+        this.renderObject(obj);
+        this.updateUI();
+        return obj;
+    }
+
+    renderObject(obj) {
+        const element = document.createElement('div');
+        element.className = `pending-object pending-${obj.type}`;
+        element.dataset.id = obj.id;
+        element.style.left = obj.bounds.x + 'px';
+        element.style.top = obj.bounds.y + 'px';
+        element.style.width = obj.bounds.width + 'px';
+        element.style.height = obj.bounds.height + 'px';
+
+        // Add content based on type
+        if (obj.type === 'image') {
+            const img = document.createElement('img');
+            img.src = obj.data.imageUrl;
+            element.appendChild(img);
+        } else if (obj.type === 'text') {
+            const textarea = document.createElement('textarea');
+            textarea.className = 'text-content';
+            textarea.value = obj.data.text || '';
+            textarea.style.fontSize = obj.data.fontSize + 'px';
+            textarea.style.color = obj.data.color;
+            textarea.addEventListener('input', (e) => {
+                obj.data.text = e.target.value;
+            });
+            element.appendChild(textarea);
+        } else if (obj.type === 'signature') {
+            const img = document.createElement('img');
+            img.src = obj.data.signatureUrl;
+            element.appendChild(img);
+        }
+
+        // Add resize handles
+        ['nw', 'ne', 'sw', 'se'].forEach(corner => {
+            const handle = document.createElement('div');
+            handle.className = `resize-handle ${corner}`;
+            handle.dataset.corner = corner;
+            element.appendChild(handle);
+        });
+
+        // Add delete button
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.innerHTML = '<i class="ti ti-x"></i>';
+        deleteBtn.onclick = () => this.removeObject(obj.id);
+        element.appendChild(deleteBtn);
+
+        // Add interaction handlers
+        this.setupObjectInteraction(element, obj);
+
+        obj.element = element;
+        this.overlay.appendChild(element);
+    }
+
+    setupObjectInteraction(element, obj) {
+        let isDragging = false;
+        let isResizing = false;
+        let startPos = { x: 0, y: 0 };
+        let startBounds = null;
+        let resizeCorner = null;
+
+        element.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('resize-handle')) {
+                isResizing = true;
+                resizeCorner = e.target.dataset.corner;
+                startBounds = { ...obj.bounds };
+            } else if (!e.target.classList.contains('text-content') && !e.target.classList.contains('delete-btn')) {
+                isDragging = true;
+            }
+
+            startPos = { x: e.clientX, y: e.clientY };
+            e.stopPropagation();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging && !isResizing) return;
+
+            const deltaX = e.clientX - startPos.x;
+            const deltaY = e.clientY - startPos.y;
+
+            if (isDragging) {
+                obj.bounds.x = Math.max(0, startBounds ? startBounds.x + deltaX : obj.bounds.x + deltaX);
+                obj.bounds.y = Math.max(0, startBounds ? startBounds.y + deltaY : obj.bounds.y + deltaY);
+
+                if (!startBounds) startBounds = { ...obj.bounds };
+
+                element.style.left = obj.bounds.x + 'px';
+                element.style.top = obj.bounds.y + 'px';
+            } else if (isResizing) {
+                this.resizeObject(obj, element, resizeCorner, deltaX, deltaY, startBounds);
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            isResizing = false;
+            startBounds = null;
+        });
+    }
+
+    resizeObject(obj, element, corner, deltaX, deltaY, startBounds) {
+        const minSize = 20;
+
+        switch (corner) {
+            case 'se': // Bottom-right
+                obj.bounds.width = Math.max(minSize, startBounds.width + deltaX);
+                obj.bounds.height = Math.max(minSize, startBounds.height + deltaY);
+                break;
+            case 'sw': // Bottom-left
+                obj.bounds.x = Math.max(0, startBounds.x + deltaX);
+                obj.bounds.width = Math.max(minSize, startBounds.width - deltaX);
+                obj.bounds.height = Math.max(minSize, startBounds.height + deltaY);
+                break;
+            case 'ne': // Top-right
+                obj.bounds.y = Math.max(0, startBounds.y + deltaY);
+                obj.bounds.width = Math.max(minSize, startBounds.width + deltaX);
+                obj.bounds.height = Math.max(minSize, startBounds.height - deltaY);
+                break;
+            case 'nw': // Top-left
+                obj.bounds.x = Math.max(0, startBounds.x + deltaX);
+                obj.bounds.y = Math.max(0, startBounds.y + deltaY);
+                obj.bounds.width = Math.max(minSize, startBounds.width - deltaX);
+                obj.bounds.height = Math.max(minSize, startBounds.height - deltaY);
+                break;
+        }
+
+        element.style.left = obj.bounds.x + 'px';
+        element.style.top = obj.bounds.y + 'px';
+        element.style.width = obj.bounds.width + 'px';
+        element.style.height = obj.bounds.height + 'px';
+    }
+
+    removeObject(id) {
+        const index = this.objects.findIndex(obj => obj.id === id);
+        if (index === -1) return;
+
+        const obj = this.objects[index];
+        if (obj.element) {
+            obj.element.remove();
+        }
+
+        this.objects.splice(index, 1);
+        this.updateUI();
+    }
+
+    clear() {
+        this.objects.forEach(obj => {
+            if (obj.element) obj.element.remove();
+        });
+        this.objects = [];
+        this.updateUI();
+    }
+
+    updateUI() {
+        const container = document.getElementById('validateAllContainer');
+        const countText = document.getElementById('validateAllText');
+
+        if (this.objects.length > 0) {
+            container.style.display = 'flex';
+            countText.textContent = `Validate All (${this.objects.length})`;
+            this.overlay.classList.add('active');
+        } else {
+            container.style.display = 'none';
+            this.overlay.classList.remove('active');
+        }
+    }
+
+    async validateAll() {
+        if (this.objects.length === 0) return;
+
+        try {
+            const currentPage = viewer.currentPage;
+
+            // Insert all objects into PDF
+            for (const obj of this.objects) {
+                await this.insertObject(obj);
+            }
+
+            // Clear pending objects
+            this.clear();
+
+            // Refresh the current page view
+            await viewer.loadPDF(currentPDFData.slice(0));
+            viewer.currentPage = currentPage;
+            await viewer.renderPage(currentPage);
+
+            addEditToHistory(`Inserted ${this.objects.length} objects`);
+            alert(`Successfully inserted ${this.objects.length} object(s)!`);
+        } catch (error) {
+            console.error('Failed to validate objects:', error);
+            alert('Failed to insert objects: ' + error.message);
+        }
+    }
+
+    async insertObject(obj) {
+        const pageIndex = obj.page - 1;
+        const pdfCopy = currentPDFData.slice(0);
+
+        if (obj.type === 'image') {
+            const modifiedPDF = await tools.insertImage(
+                pdfCopy,
+                obj.data.imageData,
+                obj.data.imageType,
+                pageIndex,
+                obj.bounds
+            );
+            const newArray = new Uint8Array(modifiedPDF);
+            currentPDFData = newArray.buffer;
+        } else if (obj.type === 'text') {
+            const modifiedPDF = await tools.addTextAnnotation(
+                pdfCopy,
+                pageIndex,
+                obj.data.text,
+                {
+                    x: obj.bounds.x,
+                    y: obj.bounds.y,
+                    size: obj.data.fontSize,
+                    color: obj.data.colorRGB
+                }
+            );
+            const newArray = new Uint8Array(modifiedPDF);
+            currentPDFData = newArray.buffer;
+        } else if (obj.type === 'signature') {
+            const modifiedPDF = await tools.insertImage(
+                pdfCopy,
+                obj.data.signatureData,
+                'png',
+                pageIndex,
+                obj.bounds
+            );
+            const newArray = new Uint8Array(modifiedPDF);
+            currentPDFData = newArray.buffer;
+        }
+    }
+
+    cancelAll() {
+        if (this.objects.length === 0) return;
+        if (confirm(`Cancel all ${this.objects.length} pending object(s)?`)) {
+            this.clear();
+        }
+    }
+
+    // Draw box interaction
+    startDrawing(type, data) {
+        this.drawingState = {
+            type,
+            data,
+            startX: 0,
+            startY: 0,
+            element: null
+        };
+
+        this.overlay.style.cursor = 'crosshair';
+        this.overlay.classList.add('active');
+    }
+
+    handleDrawMouseDown(e) {
+        if (!this.drawingState) return;
+
+        const rect = this.overlay.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        this.drawingState.startX = x;
+        this.drawingState.startY = y;
+
+        // Create drawing element
+        const element = document.createElement('div');
+        element.className = 'pending-object drawing';
+        element.style.left = x + 'px';
+        element.style.top = y + 'px';
+        element.style.width = '0px';
+        element.style.height = '0px';
+
+        this.drawingState.element = element;
+        this.overlay.appendChild(element);
+    }
+
+    handleDrawMouseMove(e) {
+        if (!this.drawingState || !this.drawingState.element) return;
+
+        const rect = this.overlay.getBoundingClientRect();
+        const currentX = e.clientX - rect.left;
+        const currentY = e.clientY - rect.top;
+
+        const width = Math.abs(currentX - this.drawingState.startX);
+        const height = Math.abs(currentY - this.drawingState.startY);
+        const left = Math.min(currentX, this.drawingState.startX);
+        const top = Math.min(currentY, this.drawingState.startY);
+
+        this.drawingState.element.style.left = left + 'px';
+        this.drawingState.element.style.top = top + 'px';
+        this.drawingState.element.style.width = width + 'px';
+        this.drawingState.element.style.height = height + 'px';
+    }
+
+    handleDrawMouseUp(e) {
+        if (!this.drawingState || !this.drawingState.element) return;
+
+        const rect = this.overlay.getBoundingClientRect();
+        const currentX = e.clientX - rect.left;
+        const currentY = e.clientY - rect.top;
+
+        const width = Math.abs(currentX - this.drawingState.startX);
+        const height = Math.abs(currentY - this.drawingState.startY);
+
+        // Minimum size check
+        if (width < 20 || height < 20) {
+            this.drawingState.element.remove();
+            this.drawingState = null;
+            this.overlay.style.cursor = '';
+            return;
+        }
+
+        const left = Math.min(currentX, this.drawingState.startX);
+        const top = Math.min(currentY, this.drawingState.startY);
+
+        const bounds = { x: left, y: top, width, height };
+
+        // Remove drawing element
+        this.drawingState.element.remove();
+
+        // Add actual object
+        this.addObject(
+            this.drawingState.type,
+            viewer.currentPage,
+            bounds,
+            this.drawingState.data
+        );
+
+        this.drawingState = null;
+        this.overlay.style.cursor = '';
+        this.overlay.classList.remove('active');
+    }
+}
+
 // Initialize modules
 const viewer = new PDFViewer();
 const tools = new PDFTools();
+const pendingObjects = new PendingObjectsManager();
 
 // Multi-document state
 let documents = []; // Array of open documents
@@ -28,10 +402,33 @@ function init() {
     setupTabsSystem();
     updateMetadataDisplay();
 
+    // Initialize pending objects manager
+    pendingObjects.initialize();
+    setupDrawingHandlers();
+
     // Update memory usage periodically
     setInterval(updateMemoryUsage, 2000);
 
     console.log('PDF Power-Tool initialized');
+}
+
+/**
+ * Setup drawing handlers for the overlay
+ */
+function setupDrawingHandlers() {
+    const overlay = document.getElementById('insertionOverlay');
+
+    overlay.addEventListener('mousedown', (e) => {
+        pendingObjects.handleDrawMouseDown(e);
+    });
+
+    overlay.addEventListener('mousemove', (e) => {
+        pendingObjects.handleDrawMouseMove(e);
+    });
+
+    overlay.addEventListener('mouseup', (e) => {
+        pendingObjects.handleDrawMouseUp(e);
+    });
 }
 
 /**
