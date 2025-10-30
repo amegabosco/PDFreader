@@ -1247,6 +1247,51 @@ function showImagePanel() {
     }, 0);
 }
 
+/**
+ * Handle image file selection for draw-box insertion
+ */
+async function handleImageFileSelection(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+        // Read image as data URL for preview
+        const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
+        // Read image as ArrayBuffer for insertion
+        const imageBuffer = await readFileAsArrayBuffer(file);
+        const imageType = file.type.includes('png') ? 'png' : 'jpg';
+
+        // Load image to get dimensions
+        const img = new Image();
+        await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = dataUrl;
+        });
+
+        // Start drawing mode
+        pendingObjects.startDrawing('image', {
+            imageUrl: dataUrl,
+            imageData: imageBuffer,
+            imageType: imageType,
+            originalWidth: img.width,
+            originalHeight: img.height
+        });
+
+        showNotification('Draw a box on the PDF to place your image', 'info');
+        closeToolPanel();
+    } catch (error) {
+        console.error('Error loading image:', error);
+        showNotification('Failed to load image: ' + error.message, 'error');
+    }
+}
+
 // State for image positioning
 let imagePreviewState = {
     image: null,
