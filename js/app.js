@@ -18,6 +18,26 @@ class PendingObjectsManager {
     initialize() {
         this.overlay = document.getElementById('insertionOverlay');
         this.setupValidateButtons();
+        this.syncOverlayWithCanvas();
+
+        // Sync overlay when window resizes or canvas changes
+        window.addEventListener('resize', () => this.syncOverlayWithCanvas());
+    }
+
+    syncOverlayWithCanvas() {
+        const canvas = document.getElementById('pdfCanvas');
+        const container = document.querySelector('.pdf-canvas-container');
+
+        if (!canvas || !container) return;
+
+        const canvasRect = canvas.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+
+        // Position overlay to match canvas exactly
+        this.overlay.style.left = (canvasRect.left - containerRect.left) + 'px';
+        this.overlay.style.top = (canvasRect.top - containerRect.top) + 'px';
+        this.overlay.style.width = canvas.offsetWidth + 'px';
+        this.overlay.style.height = canvas.offsetHeight + 'px';
     }
 
     setupValidateButtons() {
@@ -306,25 +326,8 @@ class PendingObjectsManager {
     }
 
     async convertOverlayToPDFCoordinates(overlayBounds, pageIndex) {
-        // Get canvas and overlay positions
+        // Since overlay is now synced with canvas, overlay coordinates = canvas coordinates
         const canvas = document.getElementById('pdfCanvas');
-        const overlay = document.getElementById('insertionOverlay');
-
-        // Get bounding rectangles
-        const canvasRect = canvas.getBoundingClientRect();
-        const overlayRect = overlay.getBoundingClientRect();
-
-        // Calculate offset between overlay and canvas
-        const offsetX = canvasRect.left - overlayRect.left;
-        const offsetY = canvasRect.top - overlayRect.top;
-
-        // Adjust bounds to be relative to canvas
-        const canvasRelativeBounds = {
-            x: overlayBounds.x + offsetX,
-            y: overlayBounds.y + offsetY,
-            width: overlayBounds.width,
-            height: overlayBounds.height
-        };
 
         // Get PDF page dimensions using PDF-lib
         const pdfDoc = await PDFLib.PDFDocument.load(currentPDFData);
@@ -336,12 +339,18 @@ class PendingObjectsManager {
         const scaleX = pageWidth / canvas.offsetWidth;
         const scaleY = pageHeight / canvas.offsetHeight;
 
-        // Convert coordinates
+        console.log('Conversion debug:');
+        console.log('  Overlay bounds:', overlayBounds);
+        console.log('  Canvas display size:', canvas.offsetWidth, 'x', canvas.offsetHeight);
+        console.log('  PDF page size:', pageWidth, 'x', pageHeight);
+        console.log('  Scale factors:', scaleX, scaleY);
+
+        // Convert coordinates from display pixels to PDF points
         return {
-            x: canvasRelativeBounds.x * scaleX,
-            y: canvasRelativeBounds.y * scaleY,
-            width: canvasRelativeBounds.width * scaleX,
-            height: canvasRelativeBounds.height * scaleY
+            x: overlayBounds.x * scaleX,
+            y: overlayBounds.y * scaleY,
+            width: overlayBounds.width * scaleX,
+            height: overlayBounds.height * scaleY
         };
     }
 
@@ -358,6 +367,9 @@ class PendingObjectsManager {
         if (viewer.viewMode !== 'single') {
             viewer.setViewMode('single');
         }
+
+        // Sync overlay with canvas before starting
+        this.syncOverlayWithCanvas();
 
         this.drawingState = {
             type,
