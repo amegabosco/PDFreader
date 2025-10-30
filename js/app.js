@@ -2106,6 +2106,11 @@ async function previewSignatureOnCanvas() {
         return;
     }
 
+    // Switch to single page view for insertion
+    if (viewer.viewMode !== 'single') {
+        await viewer.setViewMode('single');
+    }
+
     // Convert canvas to image
     const img = new Image();
     img.onload = () => {
@@ -2414,6 +2419,41 @@ function closeToolPanel() {
     const panel = document.getElementById('toolPanel');
     panel.style.display = 'none';
     panel.innerHTML = '';
+
+    // Clear any active preview states
+    if (imagePreviewState.image || imagePreviewState.isActive) {
+        imagePreviewState = {
+            image: null,
+            imageData: null,
+            isDragging: false,
+            isResizing: false,
+            dragStart: { x: 0, y: 0 },
+            resizeCorner: null,
+            originalBounds: null,
+            originalImageSize: null,
+            isActive: false
+        };
+        // Re-render current page to clear preview
+        if (viewer && viewer.currentPage) {
+            viewer.renderPage(viewer.currentPage);
+        }
+    }
+
+    if (signaturePreviewState.image || signaturePreviewState.isActive) {
+        signaturePreviewState = {
+            image: null,
+            isActive: false,
+            isDragging: false,
+            isResizing: false,
+            dragStart: { x: 0, y: 0 },
+            resizeCorner: null,
+            originalBounds: null
+        };
+        // Re-render current page to clear preview
+        if (viewer && viewer.currentPage) {
+            viewer.renderPage(viewer.currentPage);
+        }
+    }
 }
 
 /**
