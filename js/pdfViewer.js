@@ -861,21 +861,28 @@ class PDFViewer {
                         }
                     }
 
-                    // Calculate position
+                    // Calculate position and dimensions more accurately
                     const transform = item.transform;
-                    const x = transform[4];
+                    const fontSize = Math.sqrt(transform[2] * transform[2] + transform[3] * transform[3]);
+
+                    // Calculate character width (approximate)
+                    const charWidth = item.width / text.length;
+
+                    // Calculate offset for the matched substring
+                    const offsetX = charWidth * index;
+                    const matchWidth = charWidth * searchQuery.length;
+
+                    const x = transform[4] + offsetX;
                     const y = transform[5];
-                    const width = item.width;
-                    const height = item.height;
 
                     matches.push({
                         pageNum,
                         text: text.substring(index, index + searchQuery.length),
                         bounds: {
                             x: x,
-                            y: viewport.height - y,
-                            width: width * (searchQuery.length / text.length),
-                            height: height
+                            y: viewport.height - y - fontSize,
+                            width: matchWidth,
+                            height: fontSize * 1.2  // Add some padding
                         }
                     });
 
@@ -910,14 +917,18 @@ class PDFViewer {
         const highlightLayer = document.createElement('div');
         highlightLayer.className = 'search-highlight-layer';
 
-        // Position layer over canvas
+        // Position layer over canvas (using display dimensions, not canvas pixels)
         const canvasRect = this.canvas.getBoundingClientRect();
         const containerRect = this.canvas.parentElement.getBoundingClientRect();
 
         highlightLayer.style.left = (canvasRect.left - containerRect.left) + 'px';
         highlightLayer.style.top = (canvasRect.top - containerRect.top) + 'px';
-        highlightLayer.style.width = this.canvas.width + 'px';
-        highlightLayer.style.height = this.canvas.height + 'px';
+        highlightLayer.style.width = this.canvas.offsetWidth + 'px';
+        highlightLayer.style.height = this.canvas.offsetHeight + 'px';
+
+        // Calculate scale factors from PDF coordinates to display pixels
+        const scaleX = this.canvas.offsetWidth / this.canvas.width;
+        const scaleY = this.canvas.offsetHeight / this.canvas.height;
 
         // Add highlights
         currentPageMatches.forEach((match, index) => {
@@ -935,14 +946,11 @@ class PDFViewer {
                 highlight.classList.add('current');
             }
 
-            // Position highlight
-            const scaleX = this.canvas.width / this.canvas.offsetWidth;
-            const scaleY = this.canvas.height / this.canvas.offsetHeight;
-
-            highlight.style.left = (match.bounds.x / scaleX) + 'px';
-            highlight.style.top = (match.bounds.y / scaleY) + 'px';
-            highlight.style.width = (match.bounds.width / scaleX) + 'px';
-            highlight.style.height = (match.bounds.height / scaleY) + 'px';
+            // Position highlight (convert from PDF coordinates to display pixels)
+            highlight.style.left = (match.bounds.x * scaleX) + 'px';
+            highlight.style.top = (match.bounds.y * scaleY) + 'px';
+            highlight.style.width = (match.bounds.width * scaleX) + 'px';
+            highlight.style.height = (match.bounds.height * scaleY) + 'px';
 
             highlightLayer.appendChild(highlight);
         });
