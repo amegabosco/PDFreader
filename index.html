@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Power-Tool</title>
+
+    <!-- Tabler Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar with Tools -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="ti ti-file-type-pdf"></i>
+                <h1>PDF Tool</h1>
+            </div>
+
+            <div class="tools-menu">
+                <h2>Tools</h2>
+
+                <button class="tool-btn" data-tool="upload">
+                    <i class="ti ti-upload"></i>
+                    <span>Upload PDF</span>
+                </button>
+
+                <button class="tool-btn" data-tool="merge" disabled>
+                    <i class="ti ti-files"></i>
+                    <span>Merge PDFs</span>
+                </button>
+
+                <button class="tool-btn" data-tool="split" disabled>
+                    <i class="ti ti-cut"></i>
+                    <span>Split PDF</span>
+                </button>
+
+                <button class="tool-btn" data-tool="rotate" disabled>
+                    <i class="ti ti-rotate-clockwise"></i>
+                    <span>Rotate Pages</span>
+                </button>
+
+                <button class="tool-btn" data-tool="compress" disabled>
+                    <i class="ti ti-file-zip"></i>
+                    <span>Compress</span>
+                </button>
+
+                <button class="tool-btn" data-tool="image" disabled>
+                    <i class="ti ti-photo-plus"></i>
+                    <span>Insert Image</span>
+                </button>
+
+                <button class="tool-btn" data-tool="annotate" disabled>
+                    <i class="ti ti-pencil"></i>
+                    <span>Annotate</span>
+                </button>
+
+                <button class="tool-btn" data-tool="sign" disabled>
+                    <i class="ti ti-signature"></i>
+                    <span>Sign</span>
+                </button>
+
+                <button class="tool-btn" id="handToolBtn" data-tool="hand" disabled>
+                    <i class="ti ti-hand-grab"></i>
+                    <span>Hand Tool</span>
+                </button>
+
+                <button class="tool-btn download-btn" data-tool="download" disabled>
+                    <i class="ti ti-download"></i>
+                    <span>Download</span>
+                </button>
+            </div>
+
+            <!-- Metadata Display Box -->
+            <div id="metadataBox" class="metadata-box">
+                <div class="metadata-header">
+                    <i class="ti ti-info-circle"></i>
+                    <span>Info</span>
+                </div>
+                <div class="metadata-content">
+                    <div class="metadata-item">
+                        <span class="metadata-label">File:</span>
+                        <span class="metadata-value" id="metaFileName">No file loaded</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Pages:</span>
+                        <span class="metadata-value" id="metaPages">-</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Size:</span>
+                        <span class="metadata-value" id="metaFileSize">-</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Memory:</span>
+                        <span class="metadata-value" id="metaMemory">-</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Edits:</span>
+                        <span class="metadata-value" id="metaEdits">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Design Credit -->
+            <div class="design-credit">
+                <p>designed with 🚀 by Yao 🇹🇬</p>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Upload Area (shown initially) -->
+            <div id="uploadArea" class="upload-area">
+                <div class="upload-dropzone">
+                    <i class="ti ti-cloud-upload"></i>
+                    <h2>Drop PDF files here</h2>
+                    <p>or click to browse</p>
+                    <input type="file" id="fileInput" accept=".pdf" multiple hidden>
+                    <button class="browse-btn">
+                        Browse Files
+                    </button>
+                </div>
+            </div>
+
+            <!-- PDF Viewer Area (hidden initially) -->
+            <div id="viewerArea" class="viewer-area" style="display: none;">
+                <!-- Tabs Bar -->
+                <div id="tabsBar" class="tabs-bar">
+                    <div id="tabsList" class="tabs-list">
+                        <!-- Tabs will be dynamically inserted here -->
+                    </div>
+                    <button id="newTabBtn" class="new-tab-btn" title="Open new PDF">
+                        <i class="ti ti-plus"></i>
+                    </button>
+                </div>
+
+                <div class="viewer-controls">
+                    <button id="prevPage" class="control-btn">
+                        <i class="ti ti-chevron-left"></i>
+                    </button>
+                    <span id="pageInfo">Page <span id="currentPage">1</span> of <span id="totalPages">1</span></span>
+                    <button id="nextPage" class="control-btn">
+                        <i class="ti ti-chevron-right"></i>
+                    </button>
+                    <div class="zoom-controls">
+                        <button id="zoomOut" class="control-btn">
+                            <i class="ti ti-zoom-out"></i>
+                        </button>
+                        <span id="zoomLevel">100%</span>
+                        <button id="zoomIn" class="control-btn">
+                            <i class="ti ti-zoom-in"></i>
+                        </button>
+                    </div>
+                    <div class="view-mode-controls">
+                        <button id="singlePageView" class="control-btn active" title="Single Page View">
+                            <i class="ti ti-file"></i>
+                        </button>
+                        <button id="scrollView" class="control-btn" title="Continuous Scroll View">
+                            <i class="ti ti-files"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="pdf-canvas-container">
+                    <canvas id="pdfCanvas"></canvas>
+                </div>
+            </div>
+
+            <!-- Tool Panels (hidden initially, shown when tool is selected) -->
+            <div id="toolPanel" class="tool-panel" style="display: none;">
+                <!-- Dynamic tool panels will be inserted here -->
+            </div>
+        </main>
+    </div>
+
+    <!-- PDF.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+
+    <!-- PDF-lib Library -->
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+    <!-- Custom JavaScript -->
+    <script src="js/pdfViewer.js"></script>
+    <script src="js/pdfTools.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,1972 @@
+/**
+ * Main Application
+ * Handles file uploads, user interactions, and coordination between modules
+ */
+
+// Initialize modules
+const viewer = new PDFViewer();
+const tools = new PDFTools();
+
+// Multi-document state
+let documents = []; // Array of open documents
+let activeDocumentId = null; // Currently active document ID
+let nextDocumentId = 1; // Auto-increment ID
+
+// Legacy state (for backward compatibility)
+let currentPDFData = null;
+let currentFileName = '';
+let allUploadedFiles = []; // Store all uploaded files for merge
+let editHistory = []; // Track all edits made
+let originalFileSize = 0; // Store original file size
+
+/**
+ * Initialize the application
+ */
+function init() {
+    setupFileUpload();
+    setupToolButtons();
+    setupTabsSystem();
+    updateMetadataDisplay();
+
+    // Update memory usage periodically
+    setInterval(updateMemoryUsage, 2000);
+
+    console.log('PDF Power-Tool initialized');
+}
+
+/**
+ * Setup tabs system
+ */
+function setupTabsSystem() {
+    const newTabBtn = document.getElementById('newTabBtn');
+    if (newTabBtn) {
+        newTabBtn.addEventListener('click', () => {
+            document.getElementById('fileInput').click();
+        });
+    }
+}
+
+/**
+ * Document Manager - Create a new document
+ */
+function createDocument(pdfData, fileName) {
+    const doc = {
+        id: nextDocumentId++,
+        fileName: fileName,
+        pdfData: pdfData,
+        originalSize: pdfData.byteLength,
+        editHistory: [],
+        viewerState: {
+            currentPage: 1,
+            scale: 1.5
+        }
+    };
+
+    documents.push(doc);
+    return doc;
+}
+
+/**
+ * Get active document
+ */
+function getActiveDocument() {
+    return documents.find(doc => doc.id === activeDocumentId);
+}
+
+/**
+ * Switch to a document
+ */
+async function switchToDocument(docId) {
+    const doc = documents.find(d => d.id === docId);
+    if (!doc) return;
+
+    // Save current document state if there is one
+    const currentDoc = getActiveDocument();
+    if (currentDoc) {
+        currentDoc.pdfData = currentPDFData;
+        currentDoc.editHistory = [...editHistory];
+        currentDoc.viewerState = {
+            currentPage: viewer.currentPage,
+            scale: viewer.scale
+        };
+    }
+
+    // Switch to new document
+    activeDocumentId = docId;
+    currentPDFData = doc.pdfData;
+    currentFileName = doc.fileName;
+    editHistory = [...doc.editHistory];
+    originalFileSize = doc.originalSize;
+
+    // Load into viewer
+    await viewer.loadPDF(currentPDFData.slice(0));
+
+    // Restore viewer state
+    if (doc.viewerState) {
+        viewer.scale = doc.viewerState.scale;
+        viewer.currentPage = doc.viewerState.currentPage;
+        await viewer.renderPage(viewer.currentPage);
+        viewer.updateZoomLevel();
+    }
+
+    // Update UI
+    updateTabsUI();
+    updateMetadataDisplay();
+}
+
+/**
+ * Close a document
+ */
+function closeDocument(docId) {
+    const index = documents.findIndex(d => d.id === docId);
+    if (index === -1) return;
+
+    documents.splice(index, 1);
+
+    // If closing active document, switch to another
+    if (docId === activeDocumentId) {
+        if (documents.length > 0) {
+            // Switch to the previous tab or first tab
+            const newDoc = documents[Math.max(0, index - 1)];
+            switchToDocument(newDoc.id);
+        } else {
+            // No documents left, reset
+            activeDocumentId = null;
+            currentPDFData = null;
+            currentFileName = '';
+            editHistory = [];
+            document.getElementById('uploadArea').style.display = 'flex';
+            document.getElementById('viewerArea').style.display = 'none';
+            updateMetadataDisplay();
+        }
+    }
+
+    updateTabsUI();
+}
+
+/**
+ * Update tabs UI
+ */
+function updateTabsUI() {
+    const tabsList = document.getElementById('tabsList');
+    if (!tabsList) return;
+
+    tabsList.innerHTML = '';
+
+    documents.forEach(doc => {
+        const tab = document.createElement('div');
+        tab.className = 'tab' + (doc.id === activeDocumentId ? ' active' : '');
+        tab.dataset.docId = doc.id;
+
+        const shortName = doc.fileName.length > 20
+            ? doc.fileName.substring(0, 17) + '...'
+            : doc.fileName;
+
+        tab.innerHTML = `
+            <i class="tab-icon ti ti-file-type-pdf"></i>
+            <span class="tab-name" title="${doc.fileName}">${shortName}</span>
+            <button class="tab-close" onclick="event.stopPropagation(); closeDocument(${doc.id})">
+                <i class="ti ti-x"></i>
+            </button>
+        `;
+
+        tab.addEventListener('click', () => switchToDocument(doc.id));
+        tabsList.appendChild(tab);
+    });
+}
+
+/**
+ * Setup file upload functionality
+ */
+function setupFileUpload() {
+    const fileInput = document.getElementById('fileInput');
+    const dropzone = document.querySelector('.upload-dropzone');
+    const browseBtn = document.querySelector('.browse-btn');
+
+    // File input change
+    fileInput.addEventListener('change', handleFileSelect);
+
+    // Browse button click - prevent event bubbling
+    browseBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent dropzone click from firing
+        fileInput.click();
+    });
+
+    // Drag and drop
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('drag-over');
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('drag-over');
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('drag-over');
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFiles(files);
+        }
+    });
+}
+
+/**
+ * Handle file selection
+ */
+function handleFileSelect(event) {
+    const files = event.target.files;
+    if (files.length > 0) {
+        handleFiles(files);
+    }
+}
+
+/**
+ * Process uploaded files
+ * @param {FileList} files - Uploaded files
+ */
+async function handleFiles(files) {
+    try {
+        // Store all PDF files for merge functionality
+        allUploadedFiles = [];
+        tools.clearPDFs();
+
+        let firstNewDoc = null;
+
+        for (let file of files) {
+            if (file.type === 'application/pdf') {
+                const arrayBuffer = await readFileAsArrayBuffer(file);
+                allUploadedFiles.push({ data: arrayBuffer, name: file.name });
+                tools.addPDF(arrayBuffer, file.name);
+
+                // Create a new document for each PDF
+                const doc = createDocument(arrayBuffer, file.name);
+                if (!firstNewDoc) firstNewDoc = doc;
+            }
+        }
+
+        if (allUploadedFiles.length === 0) {
+            alert('Please upload at least one PDF file');
+            return;
+        }
+
+        // Show viewer area
+        document.getElementById('uploadArea').style.display = 'none';
+        document.getElementById('viewerArea').style.display = 'flex';
+
+        // Switch to the first new document
+        if (firstNewDoc) {
+            await switchToDocument(firstNewDoc.id);
+        }
+
+        console.log(`Loaded ${allUploadedFiles.length} PDF file(s) as tabs`);
+    } catch (error) {
+        console.error('Error handling files:', error);
+        alert('Failed to load file. Please try again.');
+    }
+}
+
+/**
+ * Read file as ArrayBuffer
+ * @param {File} file - File to read
+ * @returns {Promise<ArrayBuffer>}
+ */
+function readFileAsArrayBuffer(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+/**
+ * Setup tool button interactions
+ */
+function setupToolButtons() {
+    const toolButtons = document.querySelectorAll('.tool-btn');
+
+    toolButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const tool = button.dataset.tool;
+            handleToolClick(tool);
+        });
+    });
+}
+
+/**
+ * Handle tool button clicks
+ * @param {string} toolName - Name of the tool
+ */
+async function handleToolClick(toolName) {
+    console.log('Tool clicked:', toolName);
+
+    switch (toolName) {
+        case 'upload':
+            handleUploadNew();
+            break;
+        case 'merge':
+            showMergePanel();
+            break;
+        case 'split':
+            showSplitPanel();
+            break;
+        case 'rotate':
+            showRotatePanel();
+            break;
+        case 'compress':
+            await handleCompress();
+            break;
+        case 'image':
+            showImagePanel();
+            break;
+        case 'annotate':
+            showAnnotatePanel();
+            break;
+        case 'sign':
+            showSignPanel();
+            break;
+        case 'hand':
+            handleHandTool();
+            break;
+        case 'download':
+            if (currentPDFData) {
+                tools.downloadPDF(new Uint8Array(currentPDFData), currentFileName);
+            }
+            break;
+    }
+}
+
+/**
+ * Handle new upload - Just trigger file picker to add new tabs
+ */
+function handleUploadNew() {
+    console.log('Upload button clicked - opening file picker');
+    document.getElementById('fileInput').click();
+}
+
+/**
+ * Show merge panel
+ */
+function showMergePanel() {
+    if (allUploadedFiles.length < 2) {
+        alert('Please upload at least 2 PDF files to merge. Upload multiple files at once.');
+        return;
+    }
+
+    const panel = `
+        <button class="close-btn" onclick="closeToolPanel()">
+            <i class="ti ti-x"></i>
+        </button>
+        <h3><i class="ti ti-files"></i> Merge PDFs</h3>
+        <div class="tool-content">
+            <p>Files to merge (${allUploadedFiles.length}):</p>
+            <ul class="file-list">
+                ${allUploadedFiles.map((f, i) => `<li>${i + 1}. ${f.name}</li>`).join('')}
+            </ul>
+            <button class="action-btn" onclick="executeMerge()">
+                <i class="ti ti-check"></i> Merge All PDFs
+            </button>
+        </div>
+    `;
+
+    showToolPanel(panel);
+}
+
+/**
+ * Execute merge
+ */
+async function executeMerge() {
+    try {
+        const pdfBuffers = allUploadedFiles.map(f => f.data);
+        const mergedPDF = await tools.mergePDFs(pdfBuffers);
+
+        // Create a fresh copy to avoid detachment issues
+        const newArray = new Uint8Array(mergedPDF);
+        currentPDFData = newArray.buffer;
+        currentFileName = 'merged.pdf';
+
+        // IMPORTANT: Always pass a copy to viewer to prevent detachment
+        await viewer.loadPDF(currentPDFData.slice(0));
+
+        addEditToHistory('Merged PDFs');
+        closeToolPanel();
+        alert('PDFs merged successfully!');
+    } catch (error) {
+        console.error('Merge failed:', error);
+        alert('Failed to merge PDFs: ' + error.message);
+    }
+}
+
+/**
+ * Show split panel
+ */
+function showSplitPanel() {
+    if (!currentPDFData) {
+        alert('Please load a PDF first');
+        return;
+    }
+
+    // Check if PDF has more than 1 page
+    if (viewer.totalPages <= 1) {
+        alert('Cannot split: PDF must have more than 1 page');
+        return;
+    }
+
+    const panel = `
+        <button class="close-btn" onclick="closeToolPanel()">
+            <i class="ti ti-x"></i>
+        </button>
+        <h3><i class="ti ti-cut"></i> Split PDF</h3>
+        <div class="tool-content">
+            <p>Current PDF: <strong>${currentFileName}</strong></p>
+            <p>This will split the PDF into individual pages and download them all.</p>
+            <button class="action-btn" onclick="executeSplit()">
+                <i class="ti ti-check"></i> Split into Pages
+            </button>
+        </div>
+    `;
+
+    showToolPanel(panel);
+}
+
+/**
+ * Execute split
+ */
+async function executeSplit() {
+    try {
+        // Create a copy to avoid detachment issues
+        const pdfCopy = currentPDFData.slice(0);
+        const splitPDFs = await tools.splitPDF(pdfCopy);
+
+        splitPDFs.forEach((pdfBytes, index) => {
+            const fileName = currentFileName.replace('.pdf', `_page_${index + 1}.pdf`);
+            setTimeout(() => {
+                tools.downloadPDF(pdfBytes, fileName);
+            }, index * 300);
+        });
+
+        addEditToHistory(`Split into ${splitPDFs.length} pages`);
+        closeToolPanel();
+        alert(`PDF split into ${splitPDFs.length} files. Check your downloads.`);
+    } catch (error) {
+        console.error('Split failed:', error);
+        alert('Failed to split PDF: ' + error.message);
+    }
+}
+
+/**
+ * Show rotate panel
+ */
+function showRotatePanel() {
+    if (!currentPDFData) {
+        alert('Please load a PDF first');
+        return;
+    }
+
+    // Generate page checkboxes
+    let pageCheckboxes = '';
+    for (let i = 1; i <= viewer.totalPages; i++) {
+        pageCheckboxes += `
+            <label class="page-checkbox">
+                <input type="checkbox" value="${i}" ${i === viewer.currentPage ? 'checked' : ''}>
+                <span>Page ${i}</span>
+            </label>
+        `;
+    }
+
+    const panel = `
+        <button class="close-btn" onclick="closeToolPanel()">
+            <i class="ti ti-x"></i>
+        </button>
+        <h3><i class="ti ti-rotate-clockwise"></i> Rotate Pages</h3>
+        <div class="tool-content">
+            <p>Current PDF: <strong>${currentFileName}</strong></p>
+
+            <div class="form-group">
+                <label>Select Pages to Rotate:</label>
+                <div style="margin-bottom: 0.5rem;">
+                    <button class="option-btn" onclick="selectAllPages()" style="font-size: 0.75rem; padding: 0.5rem;">
+                        Select All
+                    </button>
+                    <button class="option-btn" onclick="selectNoPages()" style="font-size: 0.75rem; padding: 0.5rem;">
+                        Clear All
+                    </button>
+                </div>
+                <div class="page-selection-grid">
+                    ${pageCheckboxes}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Rotation Angle:</label>
+                <div class="button-group">
+                    <button class="option-btn" onclick="executeRotate(90)">
+                        <i class="ti ti-rotate-clockwise"></i> 90°
+                    </button>
+                    <button class="option-btn" onclick="executeRotate(180)">
+                        <i class="ti ti-rotate-2"></i> 180°
+                    </button>
+                    <button class="option-btn" onclick="executeRotate(270)">
+                        <i class="ti ti-rotate"></i> 270°
+                    </button>
+                </div>
+            </div>
+
+            <p class="note">Select one or more pages to rotate.</p>
+        </div>
+    `;
+
+    showToolPanel(panel);
+}
+
+/**
+ * Select all pages for rotation
+ */
+function selectAllPages() {
+    document.querySelectorAll('.page-checkbox input[type="checkbox"]').forEach(cb => cb.checked = true);
+}
+
+/**
+ * Deselect all pages for rotation
+ */
+function selectNoPages() {
+    document.querySelectorAll('.page-checkbox input[type="checkbox"]').forEach(cb => cb.checked = false);
+}
+
+/**
+ * Execute rotate
+ */
+async function executeRotate(degrees) {
+    try {
+        // Get selected pages
+        const selectedPages = Array.from(document.querySelectorAll('.page-checkbox input[type="checkbox"]:checked'))
+            .map(cb => parseInt(cb.value) - 1); // Convert to 0-based index
+
+        if (selectedPages.length === 0) {
+            alert('Please select at least one page to rotate');
+            return;
+        }
+
+        // Create a copy to avoid detachment issues
+        const pdfCopy = currentPDFData.slice(0);
+        const rotatedPDF = await tools.rotatePDF(pdfCopy, selectedPages, degrees);
+
+        // Create a fresh copy to avoid detachment issues
+        const newArray = new Uint8Array(rotatedPDF);
+        currentPDFData = newArray.buffer;
+        // IMPORTANT: Always pass a copy to viewer to prevent detachment
+        await viewer.loadPDF(currentPDFData.slice(0));
+
+        const pageText = selectedPages.length === 1 ? 'page' : 'pages';
+        addEditToHistory(`Rotated ${selectedPages.length} ${pageText} by ${degrees}°`);
+        closeToolPanel();
+        alert(`${selectedPages.length} ${pageText} rotated ${degrees}° clockwise!`);
+    } catch (error) {
+        console.error('Rotation failed:', error);
+        alert('Failed to rotate PDF: ' + error.message);
+    }
+}
+
+/**
+ * Handle compress
+ */
+async function handleCompress() {
+    if (!currentPDFData) {
+        alert('Please load a PDF first');
+        return;
+    }
+
+    try {
+        const originalSize = currentPDFData.byteLength;
+        // Create a copy to avoid detachment issues
+        const pdfCopy = currentPDFData.slice(0);
+        const compressedPDF = await tools.compressPDF(pdfCopy);
+        const newSize = compressedPDF.byteLength;
+
+        // Create a fresh copy to avoid detachment issues
+        const newArray = new Uint8Array(compressedPDF);
+        currentPDFData = newArray.buffer;
+        // IMPORTANT: Always pass a copy to viewer to prevent detachment
+        await viewer.loadPDF(currentPDFData.slice(0));
+
+        const reduction = ((originalSize - newSize) / originalSize * 100).toFixed(1);
+        const saved = reduction > 0 ? reduction : 0;
+
+        addEditToHistory(`Compressed (${saved}% reduction)`);
+        alert(`PDF optimized!\nOriginal: ${(originalSize / 1024).toFixed(1)} KB\nCompressed: ${(newSize / 1024).toFixed(1)} KB\nReduction: ${saved}%`);
+    } catch (error) {
+        console.error('Compression failed:', error);
+        alert('Failed to compress PDF: ' + error.message);
+    }
+}
+
+/**
+ * Show image insertion panel
+ */
+function showImagePanel() {
+    if (!currentPDFData) {
+        alert('Please load a PDF first');
+        return;
+    }
+
+    const panel = `
+        <button class="close-btn" onclick="closeToolPanel()">
+            <i class="ti ti-x"></i>
+        </button>
+        <h3><i class="ti ti-photo-plus"></i> Insert Image</h3>
+        <div class="tool-content">
+            <div class="form-group">
+                <label>Select Image:</label>
+                <input type="file" id="imageFile" accept="image/png,image/jpeg,image/jpg" class="file-input" onchange="previewImageOnCanvas()">
+            </div>
+
+            <div class="form-group">
+                <label>Page Number:</label>
+                <input type="number" id="imagePage" min="1" max="${viewer.totalPages}" value="${viewer.currentPage}" class="text-input" onchange="updateImagePreview()">
+            </div>
+
+            <div id="imagePreviewStatus" style="padding: 0.5rem; background: var(--background); border-radius: 6px; margin: 1rem 0; display: none;">
+                <p style="font-size: 0.875rem; color: var(--text); margin: 0;">
+                    <i class="ti ti-info-circle"></i> Use mouse to drag and resize image on canvas
+                </p>
+            </div>
+
+            <div class="form-group">
+                <label>X Position:</label>
+                <input type="number" id="imageX" value="50" class="text-input" onchange="updateImagePreview()">
+            </div>
+
+            <div class="form-group">
+                <label>Y Position:</label>
+                <input type="number" id="imageY" value="50" class="text-input" onchange="updateImagePreview()">
+            </div>
+
+            <div class="form-group">
+                <label>Width:</label>
+                <input type="number" id="imageWidth" value="200" class="text-input" onchange="updateImagePreview()">
+            </div>
+
+            <div class="form-group">
+                <label>Height:</label>
+                <input type="number" id="imageHeight" value="200" class="text-input" onchange="updateImagePreview()">
+            </div>
+
+            <div class="form-group">
+                <label>Rotation (degrees):</label>
+                <input type="number" id="imageRotation" min="0" max="360" value="0" class="text-input" onchange="updateImagePreview()">
+            </div>
+
+            <button class="action-btn" onclick="executeInsertImage()">
+                <i class="ti ti-check"></i> Insert Image
+            </button>
+        </div>
+    `;
+
+    showToolPanel(panel);
+    initializeImagePositioning();
+}
+
+// State for image positioning
+let imagePreviewState = {
+    image: null,
+    imageData: null,
+    isDragging: false,
+    isResizing: false,
+    dragStart: { x: 0, y: 0 },
+    originalImageSize: { width: 0, height: 0 },
+    resizeCorner: null, // 'tl', 'tr', 'bl', 'br'
+    originalBounds: null // { x, y, width, height }
+};
+
+/**
+ * Initialize image positioning system
+ */
+function initializeImagePositioning() {
+    const canvas = document.getElementById('pdfCanvas');
+    const container = document.querySelector('.pdf-canvas-container');
+
+    // Remove any existing listeners
+    canvas.removeEventListener('mousedown', handleImageCanvasMouseDown);
+    canvas.removeEventListener('mousemove', handleImageCanvasMouseMove);
+    canvas.removeEventListener('mouseup', handleImageCanvasMouseUp);
+
+    // Add new listeners
+    canvas.addEventListener('mousedown', handleImageCanvasMouseDown);
+    canvas.addEventListener('mousemove', handleImageCanvasMouseMove);
+    canvas.addEventListener('mouseup', handleImageCanvasMouseUp);
+}
+
+/**
+ * Preview image on canvas
+ */
+async function previewImageOnCanvas() {
+    const fileInput = document.getElementById('imageFile');
+    const file = fileInput.files[0];
+
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const img = new Image();
+        img.onload = () => {
+            imagePreviewState.image = img;
+            imagePreviewState.originalImageSize = { width: img.width, height: img.height };
+
+            // Set initial size
+            document.getElementById('imageWidth').value = img.width;
+            document.getElementById('imageHeight').value = img.height;
+
+            // Store image data for insertion
+            readFileAsArrayBuffer(file).then(buffer => {
+                imagePreviewState.imageData = buffer;
+            });
+
+            // Show preview hint
+            document.getElementById('imagePreviewStatus').style.display = 'block';
+
+            updateImagePreview();
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+/**
+ * Update image preview on canvas
+ */
+function updateImagePreview() {
+    if (!imagePreviewState.image) return;
+
+    const pageNum = parseInt(document.getElementById('imagePage').value);
+    if (pageNum !== viewer.currentPage) {
+        viewer.currentPage = pageNum;
+        viewer.renderPage(pageNum).then(() => {
+            drawImagePreview();
+        });
+    } else {
+        drawImagePreview();
+    }
+}
+
+/**
+ * Draw image preview with handles
+ */
+function drawImagePreview() {
+    if (!imagePreviewState.image) return;
+
+    const canvas = document.getElementById('pdfCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Re-render the PDF page first
+    viewer.renderPage(viewer.currentPage).then(() => {
+        const x = parseInt(document.getElementById('imageX').value);
+        const y = parseInt(document.getElementById('imageY').value);
+        const width = parseInt(document.getElementById('imageWidth').value);
+        const height = parseInt(document.getElementById('imageHeight').value);
+        const rotation = parseInt(document.getElementById('imageRotation').value);
+
+        ctx.save();
+
+        // Apply rotation
+        ctx.translate(x + width / 2, y + height / 2);
+        ctx.rotate((rotation * Math.PI) / 180);
+        ctx.translate(-(x + width / 2), -(y + height / 2));
+
+        // Draw image with transparency
+        ctx.globalAlpha = 0.8;
+        ctx.drawImage(imagePreviewState.image, x, y, width, height);
+        ctx.globalAlpha = 1.0;
+
+        // Draw handles (corners and edges)
+        ctx.restore();
+        ctx.strokeStyle = '#3B82F6';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, width, height);
+
+        // Corner handles
+        const handleSize = 8;
+        ctx.fillStyle = '#3B82F6';
+        ctx.fillRect(x - handleSize / 2, y - handleSize / 2, handleSize, handleSize);
+        ctx.fillRect(x + width - handleSize / 2, y - handleSize / 2, handleSize, handleSize);
+        ctx.fillRect(x - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize);
+        ctx.fillRect(x + width - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize);
+    });
+}
+
+/**
+ * Handle mouse down on canvas for image positioning
+ */
+function handleImageCanvasMouseDown(e) {
+    if (!imagePreviewState.image) return;
+
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const x = parseInt(document.getElementById('imageX').value);
+    const y = parseInt(document.getElementById('imageY').value);
+    const width = parseInt(document.getElementById('imageWidth').value);
+    const height = parseInt(document.getElementById('imageHeight').value);
+
+    const handleSize = 8;
+    const borderWidth = 2; // Border thickness for hit detection
+
+    // Check if clicking on any of the 4 corner resize handles
+    const isTopLeft = Math.abs(mouseX - x) < handleSize && Math.abs(mouseY - y) < handleSize;
+    const isTopRight = Math.abs(mouseX - (x + width)) < handleSize && Math.abs(mouseY - y) < handleSize;
+    const isBottomLeft = Math.abs(mouseX - x) < handleSize && Math.abs(mouseY - (y + height)) < handleSize;
+    const isBottomRight = Math.abs(mouseX - (x + width)) < handleSize && Math.abs(mouseY - (y + height)) < handleSize;
+
+    if (isTopLeft || isTopRight || isBottomLeft || isBottomRight) {
+        // Clicking on a corner handle - enable resize
+        imagePreviewState.isResizing = true;
+        imagePreviewState.resizeCorner = isTopLeft ? 'tl' : isTopRight ? 'tr' : isBottomLeft ? 'bl' : 'br';
+        imagePreviewState.dragStart = { x: mouseX, y: mouseY };
+        imagePreviewState.originalBounds = { x, y, width, height };
+        canvas.style.cursor = isTopLeft || isBottomRight ? 'nwse-resize' : 'nesw-resize';
+    }
+    // Check if clicking on the border (but not a handle)
+    else if (
+        (mouseX >= x - borderWidth && mouseX <= x + borderWidth && mouseY >= y && mouseY <= y + height) || // Left border
+        (mouseX >= x + width - borderWidth && mouseX <= x + width + borderWidth && mouseY >= y && mouseY <= y + height) || // Right border
+        (mouseY >= y - borderWidth && mouseY <= y + borderWidth && mouseX >= x && mouseX <= x + width) || // Top border
+        (mouseY >= y + height - borderWidth && mouseY <= y + height + borderWidth && mouseX >= x && mouseX <= x + width) // Bottom border
+    ) {
+        // Clicking on border - no action
+        return;
+    }
+    // Check if clicking inside the image frame (not on border)
+    else if (mouseX > x + borderWidth && mouseX < x + width - borderWidth &&
+             mouseY > y + borderWidth && mouseY < y + height - borderWidth) {
+        // Clicking inside - enable dragging
+        imagePreviewState.isDragging = true;
+        imagePreviewState.dragStart = { x: mouseX - x, y: mouseY - y };
+        canvas.style.cursor = 'move';
+    }
+}
+
+/**
+ * Handle mouse move on canvas for image positioning
+ */
+function handleImageCanvasMouseMove(e) {
+    if (!imagePreviewState.image) return;
+
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    if (imagePreviewState.isDragging) {
+        const newX = Math.max(0, mouseX - imagePreviewState.dragStart.x);
+        const newY = Math.max(0, mouseY - imagePreviewState.dragStart.y);
+
+        document.getElementById('imageX').value = Math.round(newX);
+        document.getElementById('imageY').value = Math.round(newY);
+        drawImagePreview();
+    } else if (imagePreviewState.isResizing) {
+        const orig = imagePreviewState.originalBounds;
+        const deltaX = mouseX - imagePreviewState.dragStart.x;
+        const deltaY = mouseY - imagePreviewState.dragStart.y;
+
+        let newX = orig.x;
+        let newY = orig.y;
+        let newWidth = orig.width;
+        let newHeight = orig.height;
+
+        // Calculate new bounds based on which corner is being dragged
+        switch (imagePreviewState.resizeCorner) {
+            case 'br': // Bottom-right
+                newWidth = Math.max(20, orig.width + deltaX);
+                newHeight = Math.max(20, orig.height + deltaY);
+                break;
+            case 'bl': // Bottom-left
+                newX = Math.min(orig.x + orig.width - 20, orig.x + deltaX);
+                newWidth = Math.max(20, orig.width - deltaX);
+                newHeight = Math.max(20, orig.height + deltaY);
+                break;
+            case 'tr': // Top-right
+                newY = Math.min(orig.y + orig.height - 20, orig.y + deltaY);
+                newWidth = Math.max(20, orig.width + deltaX);
+                newHeight = Math.max(20, orig.height - deltaY);
+                break;
+            case 'tl': // Top-left
+                newX = Math.min(orig.x + orig.width - 20, orig.x + deltaX);
+                newY = Math.min(orig.y + orig.height - 20, orig.y + deltaY);
+                newWidth = Math.max(20, orig.width - deltaX);
+                newHeight = Math.max(20, orig.height - deltaY);
+                break;
+        }
+
+        document.getElementById('imageX').value = Math.round(newX);
+        document.getElementById('imageY').value = Math.round(newY);
+        document.getElementById('imageWidth').value = Math.round(newWidth);
+        document.getElementById('imageHeight').value = Math.round(newHeight);
+        drawImagePreview();
+    } else {
+        // Update cursor based on position
+        const x = parseInt(document.getElementById('imageX').value);
+        const y = parseInt(document.getElementById('imageY').value);
+        const width = parseInt(document.getElementById('imageWidth').value);
+        const height = parseInt(document.getElementById('imageHeight').value);
+        const handleSize = 8;
+        const borderWidth = 2;
+
+        // Check corner handles
+        const isTopLeft = Math.abs(mouseX - x) < handleSize && Math.abs(mouseY - y) < handleSize;
+        const isTopRight = Math.abs(mouseX - (x + width)) < handleSize && Math.abs(mouseY - y) < handleSize;
+        const isBottomLeft = Math.abs(mouseX - x) < handleSize && Math.abs(mouseY - (y + height)) < handleSize;
+        const isBottomRight = Math.abs(mouseX - (x + width)) < handleSize && Math.abs(mouseY - (y + height)) < handleSize;
+
+        if (isTopLeft || isBottomRight) {
+            canvas.style.cursor = 'nwse-resize';
+        } else if (isTopRight || isBottomLeft) {
+            canvas.style.cursor = 'nesw-resize';
+        } else if (mouseX > x + borderWidth && mouseX < x + width - borderWidth &&
+                   mouseY > y + borderWidth && mouseY < y + height - borderWidth) {
+            canvas.style.cursor = 'move';
+        } else {
+            canvas.style.cursor = 'default';
+        }
+    }
+}
+
+/**
+ * Handle mouse up on canvas for image positioning
+ */
+function handleImageCanvasMouseUp(e) {
+    const canvas = e.target;
+    imagePreviewState.isDragging = false;
+    imagePreviewState.isResizing = false;
+    canvas.style.cursor = 'default';
+}
+
+/**
+ * Execute image insertion
+ */
+async function executeInsertImage() {
+    try {
+        const fileInput = document.getElementById('imageFile');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert('Please select an image file');
+            return;
+        }
+
+        const imageBuffer = imagePreviewState.imageData || await readFileAsArrayBuffer(file);
+        const imageType = file.type.includes('png') ? 'png' : 'jpg';
+
+        const pageNum = parseInt(document.getElementById('imagePage').value) - 1;
+        const x = parseInt(document.getElementById('imageX').value);
+        const y = parseInt(document.getElementById('imageY').value);
+        const width = parseInt(document.getElementById('imageWidth').value);
+        const height = parseInt(document.getElementById('imageHeight').value);
+        const rotation = parseInt(document.getElementById('imageRotation').value);
+
+        // Calculate scale based on original image size
+        const scaleX = width / imagePreviewState.originalImageSize.width;
+        const scaleY = height / imagePreviewState.originalImageSize.height;
+        const scale = Math.min(scaleX, scaleY);
+
+        // Create a copy to avoid detachment issues
+        const pdfCopy = currentPDFData.slice(0);
+        const modifiedPDF = await tools.insertImage(
+            pdfCopy,
+            imageBuffer,
+            imageType,
+            pageNum,
+            { x, y, scale, rotation, width, height }
+        );
+
+        // Create a fresh copy to avoid detachment issues
+        const newArray = new Uint8Array(modifiedPDF);
+        currentPDFData = newArray.buffer;
+
+        // Clear preview state
+        imagePreviewState = {
+            image: null,
+            imageData: null,
+            isDragging: false,
+            isResizing: false,
+            dragStart: { x: 0, y: 0 },
+            originalImageSize: { width: 0, height: 0 }
+        };
+
+        // IMPORTANT: Always pass a copy to viewer to prevent detachment
+        await viewer.loadPDF(currentPDFData.slice(0));
+
+        addEditToHistory(`Image inserted (page ${pageNum + 1})`);
+        closeToolPanel();
+        alert('Image inserted successfully!');
+    } catch (error) {
+        console.error('Image insertion failed:', error);
+        alert('Failed to insert image: ' + error.message);
+    }
+}
+
+// State for annotation positioning
+let annotationPreviewState = {
+    isActive: false,
+    isDragging: false,
+    dragStart: { x: 0, y: 0 },
+    textWidth: 0,
+    textHeight: 0
+};
+
+/**
+ * Initialize annotation positioning system
+ */
+function initializeAnnotationPositioning() {
+    const canvas = document.getElementById('pdfCanvas');
+
+    // Setup color picker
+    const colorBtns = document.querySelectorAll('#annotationColorPicker .color-btn');
+    colorBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            colorBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('annotationColor').value = btn.dataset.color;
+            updateAnnotationPreview();
+        });
+    });
+
+    // Remove existing listeners to avoid duplicates
+    canvas.removeEventListener('mousedown', handleAnnotationCanvasMouseDown);
+    canvas.removeEventListener('mousemove', handleAnnotationCanvasMouseMove);
+    canvas.removeEventListener('mouseup', handleAnnotationCanvasMouseUp);
+
+    // Add new listeners
+    canvas.addEventListener('mousedown', handleAnnotationCanvasMouseDown);
+    canvas.addEventListener('mousemove', handleAnnotationCanvasMouseMove);
+    canvas.addEventListener('mouseup', handleAnnotationCanvasMouseUp);
+}
+
+/**
+ * Update annotation preview on canvas
+ */
+function updateAnnotationPreview() {
+    const text = document.getElementById('annotationText')?.value;
+    if (!text || text.trim() === '') {
+        annotationPreviewState.isActive = false;
+        viewer.renderPage(viewer.currentPage);
+        document.getElementById('annotationPreviewStatus').style.display = 'none';
+        return;
+    }
+
+    annotationPreviewState.isActive = true;
+    document.getElementById('annotationPreviewStatus').style.display = 'block';
+
+    const pageNum = parseInt(document.getElementById('annotationPage').value);
+    if (pageNum !== viewer.currentPage) {
+        viewer.currentPage = pageNum;
+        viewer.renderPage(pageNum).then(() => {
+            drawAnnotationPreview();
+        });
+    } else {
+        drawAnnotationPreview();
+    }
+}
+
+/**
+ * Draw annotation preview with handles
+ */
+function drawAnnotationPreview() {
+    if (!annotationPreviewState.isActive) return;
+
+    const text = document.getElementById('annotationText')?.value;
+    if (!text) return;
+
+    const canvas = document.getElementById('pdfCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Re-render the PDF page first
+    viewer.renderPage(viewer.currentPage).then(() => {
+        const x = parseInt(document.getElementById('annotationX').value);
+        const y = parseInt(document.getElementById('annotationY').value);
+        const size = parseInt(document.getElementById('annotationSize').value);
+        const colorStr = document.getElementById('annotationColor').value;
+        const [r, g, b] = colorStr.split(',').map(parseFloat);
+
+        // Convert RGB 0-1 to 0-255
+        const rgbColor = `rgb(${r * 255}, ${g * 255}, ${b * 255})`;
+
+        ctx.save();
+
+        // Set font and measure text
+        ctx.font = `${size}px Arial`;
+        const metrics = ctx.measureText(text);
+        const textWidth = metrics.width;
+        const textHeight = size; // Approximate height
+
+        // Store dimensions for hit detection
+        annotationPreviewState.textWidth = textWidth;
+        annotationPreviewState.textHeight = textHeight;
+
+        // Draw background box with transparency
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.fillRect(x - 2, y - textHeight - 2, textWidth + 4, textHeight + 4);
+
+        // Draw text with transparency
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = rgbColor;
+        ctx.fillText(text, x, y);
+        ctx.globalAlpha = 1.0;
+
+        // Draw bounding box
+        ctx.strokeStyle = '#3B82F6';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x - 2, y - textHeight - 2, textWidth + 4, textHeight + 4);
+
+        // Draw corner handles
+        const handleSize = 8;
+        ctx.fillStyle = '#3B82F6';
+        ctx.fillRect(x - handleSize / 2, y - textHeight - handleSize / 2, handleSize, handleSize);
+        ctx.fillRect(x + textWidth - handleSize / 2, y - textHeight - handleSize / 2, handleSize, handleSize);
+        ctx.fillRect(x - handleSize / 2, y - handleSize / 2, handleSize, handleSize);
+        ctx.fillRect(x + textWidth - handleSize / 2, y - handleSize / 2, handleSize, handleSize);
+
+        ctx.restore();
+    });
+}
+
+/**
+ * Handle mouse down on canvas for annotation positioning
+ */
+function handleAnnotationCanvasMouseDown(e) {
+    if (!annotationPreviewState.isActive) return;
+
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const x = parseInt(document.getElementById('annotationX').value);
+    const y = parseInt(document.getElementById('annotationY').value);
+    const textHeight = annotationPreviewState.textHeight;
+    const textWidth = annotationPreviewState.textWidth;
+
+    // Check if clicking inside text bounds
+    if (mouseX >= x - 2 && mouseX <= x + textWidth + 2 &&
+        mouseY >= y - textHeight - 2 && mouseY <= y + 2) {
+        annotationPreviewState.isDragging = true;
+        annotationPreviewState.dragStart = { x: mouseX - x, y: mouseY - y };
+        canvas.style.cursor = 'move';
+    }
+}
+
+/**
+ * Handle mouse move on canvas for annotation positioning
+ */
+function handleAnnotationCanvasMouseMove(e) {
+    if (!annotationPreviewState.isActive) return;
+
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    if (annotationPreviewState.isDragging) {
+        const newX = Math.max(0, mouseX - annotationPreviewState.dragStart.x);
+        const newY = Math.max(annotationPreviewState.textHeight, mouseY - annotationPreviewState.dragStart.y);
+
+        document.getElementById('annotationX').value = Math.round(newX);
+        document.getElementById('annotationY').value = Math.round(newY);
+        drawAnnotationPreview();
+    } else {
+        // Update cursor based on position
+        const x = parseInt(document.getElementById('annotationX').value);
+        const y = parseInt(document.getElementById('annotationY').value);
+        const textHeight = annotationPreviewState.textHeight;
+        const textWidth = annotationPreviewState.textWidth;
+
+        if (mouseX >= x - 2 && mouseX <= x + textWidth + 2 &&
+            mouseY >= y - textHeight - 2 && mouseY <= y + 2) {
+            canvas.style.cursor = 'move';
+        } else {
+            canvas.style.cursor = 'default';
+        }
+    }
+}
+
+/**
+ * Handle mouse up on canvas for annotation positioning
+ */
+function handleAnnotationCanvasMouseUp(e) {
+    const canvas = e.target;
+    annotationPreviewState.isDragging = false;
+    canvas.style.cursor = 'default';
+}
+
+/**
+ * Show annotation panel
+ */
+function showAnnotatePanel() {
+    if (!currentPDFData) {
+        alert('Please load a PDF first');
+        return;
+    }
+
+    const panel = `
+        <button class="close-btn" onclick="closeToolPanel()">
+            <i class="ti ti-x"></i>
+        </button>
+        <h3><i class="ti ti-pencil"></i> Add Annotation</h3>
+        <div class="tool-content">
+            <div class="form-group">
+                <label>Annotation Text:</label>
+                <textarea id="annotationText" rows="3" class="text-input" placeholder="Enter text..." oninput="updateAnnotationPreview()"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Page Number:</label>
+                <input type="number" id="annotationPage" min="1" max="${viewer.totalPages}" value="${viewer.currentPage}" class="text-input" onchange="updateAnnotationPreview()">
+            </div>
+
+            <div id="annotationPreviewStatus" style="padding: 0.5rem; background: var(--background); border-radius: 6px; margin: 1rem 0; display: none;">
+                <p style="font-size: 0.875rem; color: var(--text); margin: 0;">
+                    <i class="ti ti-info-circle"></i> Use mouse to drag annotation on canvas
+                </p>
+            </div>
+
+            <div class="form-group">
+                <label>X Position:</label>
+                <input type="number" id="annotationX" value="50" class="text-input" onchange="updateAnnotationPreview()">
+            </div>
+
+            <div class="form-group">
+                <label>Y Position:</label>
+                <input type="number" id="annotationY" value="700" class="text-input" onchange="updateAnnotationPreview()">
+            </div>
+
+            <div class="form-group">
+                <label>Font Size:</label>
+                <input type="number" id="annotationSize" min="6" max="72" value="14" class="text-input" onchange="updateAnnotationPreview()">
+            </div>
+
+            <div class="form-group">
+                <label>Color:</label>
+                <div class="color-picker" id="annotationColorPicker">
+                    <button class="color-btn" data-color="0,0,0" style="background: #000000;" title="Black"></button>
+                    <button class="color-btn" data-color="1,0,0" style="background: #FF0000;" title="Red"></button>
+                    <button class="color-btn active" data-color="0,0,1" style="background: #0000FF;" title="Blue"></button>
+                    <button class="color-btn" data-color="0,0.5,0" style="background: #008000;" title="Green"></button>
+                    <button class="color-btn" data-color="1,0.65,0" style="background: #FFA500;" title="Orange"></button>
+                    <button class="color-btn" data-color="0.5,0,0.5" style="background: #800080;" title="Purple"></button>
+                    <button class="color-btn" data-color="1,0.75,0.8" style="background: #FFBFCC;" title="Pink"></button>
+                    <button class="color-btn" data-color="0.6,0.4,0.2" style="background: #996633;" title="Brown"></button>
+                </div>
+                <input type="hidden" id="annotationColor" value="0,0,1">
+            </div>
+
+            <button class="action-btn" onclick="executeAnnotate()">
+                <i class="ti ti-check"></i> Add Annotation
+            </button>
+        </div>
+    `;
+
+    showToolPanel(panel);
+    initializeAnnotationPositioning();
+}
+
+/**
+ * Execute annotation
+ */
+async function executeAnnotate() {
+    try {
+        const text = document.getElementById('annotationText').value;
+        if (!text) {
+            alert('Please enter annotation text');
+            return;
+        }
+
+        const pageNum = parseInt(document.getElementById('annotationPage').value) - 1;
+        const x = parseInt(document.getElementById('annotationX').value);
+        const y = parseInt(document.getElementById('annotationY').value);
+        const size = parseInt(document.getElementById('annotationSize').value);
+        const colorStr = document.getElementById('annotationColor').value;
+        const [r, g, b] = colorStr.split(',').map(parseFloat);
+
+        // Create a copy to avoid detachment issues
+        const pdfCopy = currentPDFData.slice(0);
+        const modifiedPDF = await tools.addTextAnnotation(
+            pdfCopy,
+            pageNum,
+            text,
+            { x, y, size, color: { r, g, b } }
+        );
+
+        // Create a fresh copy to avoid detachment issues
+        const newArray = new Uint8Array(modifiedPDF);
+        currentPDFData = newArray.buffer;
+
+        // Clear preview state
+        annotationPreviewState = {
+            isActive: false,
+            isDragging: false,
+            dragStart: { x: 0, y: 0 },
+            textWidth: 0,
+            textHeight: 0
+        };
+
+        // IMPORTANT: Always pass a copy to viewer to prevent detachment
+        await viewer.loadPDF(currentPDFData.slice(0));
+
+        addEditToHistory(`Text annotation (page ${pageNum + 1})`);
+        closeToolPanel();
+        alert('Annotation added successfully!');
+    } catch (error) {
+        console.error('Annotation failed:', error);
+        alert('Failed to add annotation: ' + error.message);
+    }
+}
+
+/**
+ * Show signature panel
+ */
+function showSignPanel() {
+    if (!currentPDFData) {
+        alert('Please load a PDF first');
+        return;
+    }
+
+    const panel = `
+        <button class="close-btn" onclick="closeToolPanel()">
+            <i class="ti ti-x"></i>
+        </button>
+        <h3><i class="ti ti-signature"></i> Add Signature</h3>
+        <div class="tool-content">
+            <div class="form-group">
+                <label>Draw Signature:</label>
+                <canvas id="signatureCanvas" width="360" height="150" style="border: 1px solid var(--border); border-radius: 8px; cursor: crosshair; background: white;"></canvas>
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                    <button class="option-btn" onclick="clearSignature()" style="flex: 1;">
+                        <i class="ti ti-eraser"></i> Clear
+                    </button>
+                    <button class="option-btn" onclick="previewSignatureOnCanvas()" style="flex: 1;">
+                        <i class="ti ti-eye"></i> Preview on Page
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Pen Color:</label>
+                <div class="color-picker" id="signatureColorPicker">
+                    <button class="color-btn" data-color="#000000" style="background: #000000;" title="Black"></button>
+                    <button class="color-btn active" data-color="#0000FF" style="background: #0000FF;" title="Blue"></button>
+                    <button class="color-btn" data-color="#FF0000" style="background: #FF0000;" title="Red"></button>
+                    <button class="color-btn" data-color="#008000" style="background: #008000;" title="Green"></button>
+                    <button class="color-btn" data-color="#FFA500" style="background: #FFA500;" title="Orange"></button>
+                    <button class="color-btn" data-color="#800080" style="background: #800080;" title="Purple"></button>
+                    <button class="color-btn" data-color="#FFBFCC" style="background: #FFBFCC;" title="Pink"></button>
+                    <button class="color-btn" data-color="#996633" style="background: #996633;" title="Brown"></button>
+                </div>
+                <input type="hidden" id="signatureColor" value="#0000FF">
+            </div>
+
+            <div class="form-group">
+                <label>Page Number:</label>
+                <input type="number" id="signaturePage" min="1" max="${viewer.totalPages}" value="${viewer.currentPage}" class="text-input" onchange="updateSignaturePreview()">
+            </div>
+
+            <div id="signaturePreviewStatus" style="padding: 0.5rem; background: var(--background); border-radius: 6px; margin: 1rem 0; display: none;">
+                <p style="font-size: 0.875rem; color: var(--text); margin: 0;">
+                    <i class="ti ti-info-circle"></i> Use mouse to drag and resize signature on canvas
+                </p>
+            </div>
+
+            <div class="form-group">
+                <label>X Position:</label>
+                <input type="number" id="signatureX" value="50" class="text-input" onchange="updateSignaturePreview()">
+            </div>
+
+            <div class="form-group">
+                <label>Y Position:</label>
+                <input type="number" id="signatureY" value="50" class="text-input" onchange="updateSignaturePreview()">
+            </div>
+
+            <div class="form-group">
+                <label>Width:</label>
+                <input type="number" id="signatureWidth" value="180" class="text-input" onchange="updateSignaturePreview()">
+            </div>
+
+            <div class="form-group">
+                <label>Height:</label>
+                <input type="number" id="signatureHeight" value="75" class="text-input" onchange="updateSignaturePreview()">
+            </div>
+
+            <button class="action-btn" onclick="executeSign()">
+                <i class="ti ti-check"></i> Add Signature
+            </button>
+        </div>
+    `;
+
+    showToolPanel(panel);
+    initSignatureCanvas();
+}
+
+// State for signature positioning
+let signaturePreviewState = {
+    image: null,
+    isActive: false,
+    isDragging: false,
+    isResizing: false,
+    dragStart: { x: 0, y: 0 },
+    resizeCorner: null, // 'tl', 'tr', 'bl', 'br'
+    originalBounds: null // { x, y, width, height }
+};
+
+/**
+ * Initialize signature canvas
+ */
+function initSignatureCanvas() {
+    const canvas = document.getElementById('signatureCanvas');
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
+    let currentColor = document.getElementById('signatureColor').value;
+
+    ctx.strokeStyle = currentColor;
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+
+    // Setup color picker
+    const colorBtns = document.querySelectorAll('#signatureColorPicker .color-btn');
+    colorBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            colorBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentColor = btn.dataset.color;
+            document.getElementById('signatureColor').value = currentColor;
+            ctx.strokeStyle = currentColor;
+        });
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+        isDrawing = true;
+        const rect = canvas.getBoundingClientRect();
+        ctx.beginPath();
+        ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (!isDrawing) return;
+        const rect = canvas.getBoundingClientRect();
+        ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+        ctx.stroke();
+    });
+
+    canvas.addEventListener('mouseup', () => {
+        isDrawing = false;
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+        isDrawing = false;
+    });
+
+    // Initialize positioning on PDF canvas
+    initializeSignaturePositioning();
+}
+
+/**
+ * Initialize signature positioning system
+ */
+function initializeSignaturePositioning() {
+    const pdfCanvas = document.getElementById('pdfCanvas');
+
+    // Remove existing listeners to avoid duplicates
+    pdfCanvas.removeEventListener('mousedown', handleSignatureCanvasMouseDown);
+    pdfCanvas.removeEventListener('mousemove', handleSignatureCanvasMouseMove);
+    pdfCanvas.removeEventListener('mouseup', handleSignatureCanvasMouseUp);
+
+    // Add new listeners
+    pdfCanvas.addEventListener('mousedown', handleSignatureCanvasMouseDown);
+    pdfCanvas.addEventListener('mousemove', handleSignatureCanvasMouseMove);
+    pdfCanvas.addEventListener('mouseup', handleSignatureCanvasMouseUp);
+}
+
+/**
+ * Preview signature on PDF canvas
+ */
+async function previewSignatureOnCanvas() {
+    const canvas = document.getElementById('signatureCanvas');
+
+    // Check if signature is drawn
+    const ctx = canvas.getContext('2d');
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const isBlank = !imageData.data.some(channel => channel !== 0);
+
+    if (isBlank) {
+        alert('Please draw a signature first');
+        return;
+    }
+
+    // Convert canvas to image
+    const img = new Image();
+    img.onload = () => {
+        signaturePreviewState.image = img;
+        signaturePreviewState.isActive = true;
+        document.getElementById('signaturePreviewStatus').style.display = 'block';
+        updateSignaturePreview();
+    };
+    img.src = canvas.toDataURL();
+}
+
+/**
+ * Update signature preview on canvas
+ */
+function updateSignaturePreview() {
+    if (!signaturePreviewState.image || !signaturePreviewState.isActive) return;
+
+    const pageNum = parseInt(document.getElementById('signaturePage').value);
+    if (pageNum !== viewer.currentPage) {
+        viewer.currentPage = pageNum;
+        viewer.renderPage(pageNum).then(() => {
+            drawSignaturePreview();
+        });
+    } else {
+        drawSignaturePreview();
+    }
+}
+
+/**
+ * Draw signature preview with handles
+ */
+function drawSignaturePreview() {
+    if (!signaturePreviewState.image || !signaturePreviewState.isActive) return;
+
+    const canvas = document.getElementById('pdfCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Re-render the PDF page first
+    viewer.renderPage(viewer.currentPage).then(() => {
+        const x = parseInt(document.getElementById('signatureX').value);
+        const y = parseInt(document.getElementById('signatureY').value);
+        const width = parseInt(document.getElementById('signatureWidth').value);
+        const height = parseInt(document.getElementById('signatureHeight').value);
+
+        ctx.save();
+
+        // Draw signature with transparency
+        ctx.globalAlpha = 0.8;
+        ctx.drawImage(signaturePreviewState.image, x, y, width, height);
+        ctx.globalAlpha = 1.0;
+
+        // Draw handles
+        ctx.strokeStyle = '#3B82F6';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, width, height);
+
+        // Corner handles
+        const handleSize = 8;
+        ctx.fillStyle = '#3B82F6';
+        ctx.fillRect(x - handleSize / 2, y - handleSize / 2, handleSize, handleSize);
+        ctx.fillRect(x + width - handleSize / 2, y - handleSize / 2, handleSize, handleSize);
+        ctx.fillRect(x - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize);
+        ctx.fillRect(x + width - handleSize / 2, y + height - handleSize / 2, handleSize, handleSize);
+
+        ctx.restore();
+    });
+}
+
+/**
+ * Handle mouse down on canvas for signature positioning
+ */
+function handleSignatureCanvasMouseDown(e) {
+    if (!signaturePreviewState.isActive) return;
+
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const x = parseInt(document.getElementById('signatureX').value);
+    const y = parseInt(document.getElementById('signatureY').value);
+    const width = parseInt(document.getElementById('signatureWidth').value);
+    const height = parseInt(document.getElementById('signatureHeight').value);
+
+    const handleSize = 8;
+    const borderWidth = 2;
+
+    // Check if clicking on any of the 4 corner resize handles
+    const isTopLeft = Math.abs(mouseX - x) < handleSize && Math.abs(mouseY - y) < handleSize;
+    const isTopRight = Math.abs(mouseX - (x + width)) < handleSize && Math.abs(mouseY - y) < handleSize;
+    const isBottomLeft = Math.abs(mouseX - x) < handleSize && Math.abs(mouseY - (y + height)) < handleSize;
+    const isBottomRight = Math.abs(mouseX - (x + width)) < handleSize && Math.abs(mouseY - (y + height)) < handleSize;
+
+    if (isTopLeft || isTopRight || isBottomLeft || isBottomRight) {
+        signaturePreviewState.isResizing = true;
+        signaturePreviewState.resizeCorner = isTopLeft ? 'tl' : isTopRight ? 'tr' : isBottomLeft ? 'bl' : 'br';
+        signaturePreviewState.dragStart = { x: mouseX, y: mouseY };
+        signaturePreviewState.originalBounds = { x, y, width, height };
+        canvas.style.cursor = isTopLeft || isBottomRight ? 'nwse-resize' : 'nesw-resize';
+    }
+    // Check if clicking on the border (but not a handle)
+    else if (
+        (mouseX >= x - borderWidth && mouseX <= x + borderWidth && mouseY >= y && mouseY <= y + height) ||
+        (mouseX >= x + width - borderWidth && mouseX <= x + width + borderWidth && mouseY >= y && mouseY <= y + height) ||
+        (mouseY >= y - borderWidth && mouseY <= y + borderWidth && mouseX >= x && mouseX <= x + width) ||
+        (mouseY >= y + height - borderWidth && mouseY <= y + height + borderWidth && mouseX >= x && mouseX <= x + width)
+    ) {
+        // Clicking on border - no action
+        return;
+    }
+    // Check if clicking inside the signature frame (not on border)
+    else if (mouseX > x + borderWidth && mouseX < x + width - borderWidth &&
+             mouseY > y + borderWidth && mouseY < y + height - borderWidth) {
+        signaturePreviewState.isDragging = true;
+        signaturePreviewState.dragStart = { x: mouseX - x, y: mouseY - y };
+        canvas.style.cursor = 'move';
+    }
+}
+
+/**
+ * Handle mouse move on canvas for signature positioning
+ */
+function handleSignatureCanvasMouseMove(e) {
+    if (!signaturePreviewState.isActive) return;
+
+    const canvas = e.target;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    if (signaturePreviewState.isDragging) {
+        const newX = Math.max(0, mouseX - signaturePreviewState.dragStart.x);
+        const newY = Math.max(0, mouseY - signaturePreviewState.dragStart.y);
+
+        document.getElementById('signatureX').value = Math.round(newX);
+        document.getElementById('signatureY').value = Math.round(newY);
+        drawSignaturePreview();
+    } else if (signaturePreviewState.isResizing) {
+        const orig = signaturePreviewState.originalBounds;
+        const deltaX = mouseX - signaturePreviewState.dragStart.x;
+        const deltaY = mouseY - signaturePreviewState.dragStart.y;
+
+        let newX = orig.x;
+        let newY = orig.y;
+        let newWidth = orig.width;
+        let newHeight = orig.height;
+
+        switch (signaturePreviewState.resizeCorner) {
+            case 'br':
+                newWidth = Math.max(20, orig.width + deltaX);
+                newHeight = Math.max(20, orig.height + deltaY);
+                break;
+            case 'bl':
+                newX = Math.min(orig.x + orig.width - 20, orig.x + deltaX);
+                newWidth = Math.max(20, orig.width - deltaX);
+                newHeight = Math.max(20, orig.height + deltaY);
+                break;
+            case 'tr':
+                newY = Math.min(orig.y + orig.height - 20, orig.y + deltaY);
+                newWidth = Math.max(20, orig.width + deltaX);
+                newHeight = Math.max(20, orig.height - deltaY);
+                break;
+            case 'tl':
+                newX = Math.min(orig.x + orig.width - 20, orig.x + deltaX);
+                newY = Math.min(orig.y + orig.height - 20, orig.y + deltaY);
+                newWidth = Math.max(20, orig.width - deltaX);
+                newHeight = Math.max(20, orig.height - deltaY);
+                break;
+        }
+
+        document.getElementById('signatureX').value = Math.round(newX);
+        document.getElementById('signatureY').value = Math.round(newY);
+        document.getElementById('signatureWidth').value = Math.round(newWidth);
+        document.getElementById('signatureHeight').value = Math.round(newHeight);
+        drawSignaturePreview();
+    } else {
+        // Update cursor based on position
+        const x = parseInt(document.getElementById('signatureX').value);
+        const y = parseInt(document.getElementById('signatureY').value);
+        const width = parseInt(document.getElementById('signatureWidth').value);
+        const height = parseInt(document.getElementById('signatureHeight').value);
+        const handleSize = 8;
+        const borderWidth = 2;
+
+        const isTopLeft = Math.abs(mouseX - x) < handleSize && Math.abs(mouseY - y) < handleSize;
+        const isTopRight = Math.abs(mouseX - (x + width)) < handleSize && Math.abs(mouseY - y) < handleSize;
+        const isBottomLeft = Math.abs(mouseX - x) < handleSize && Math.abs(mouseY - (y + height)) < handleSize;
+        const isBottomRight = Math.abs(mouseX - (x + width)) < handleSize && Math.abs(mouseY - (y + height)) < handleSize;
+
+        if (isTopLeft || isBottomRight) {
+            canvas.style.cursor = 'nwse-resize';
+        } else if (isTopRight || isBottomLeft) {
+            canvas.style.cursor = 'nesw-resize';
+        } else if (mouseX > x + borderWidth && mouseX < x + width - borderWidth &&
+                   mouseY > y + borderWidth && mouseY < y + height - borderWidth) {
+            canvas.style.cursor = 'move';
+        } else {
+            canvas.style.cursor = 'default';
+        }
+    }
+}
+
+/**
+ * Handle mouse up on canvas for signature positioning
+ */
+function handleSignatureCanvasMouseUp(e) {
+    const canvas = e.target;
+    signaturePreviewState.isDragging = false;
+    signaturePreviewState.isResizing = false;
+    canvas.style.cursor = 'default';
+}
+
+/**
+ * Clear signature canvas
+ */
+function clearSignature() {
+    const canvas = document.getElementById('signatureCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+/**
+ * Execute signature
+ */
+async function executeSign() {
+    try {
+        const canvas = document.getElementById('signatureCanvas');
+
+        // Convert canvas to PNG
+        const signatureBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const signatureBuffer = await signatureBlob.arrayBuffer();
+
+        const pageNum = parseInt(document.getElementById('signaturePage').value) - 1;
+        const x = parseInt(document.getElementById('signatureX').value);
+        const y = parseInt(document.getElementById('signatureY').value);
+        const width = parseInt(document.getElementById('signatureWidth').value);
+        const height = parseInt(document.getElementById('signatureHeight').value);
+
+        // Calculate scale based on signature canvas size
+        const scaleX = width / canvas.width;
+        const scaleY = height / canvas.height;
+        const scale = Math.min(scaleX, scaleY);
+
+        // Create a copy to avoid detachment issues
+        const pdfCopy = currentPDFData.slice(0);
+        const modifiedPDF = await tools.insertImage(
+            pdfCopy,
+            signatureBuffer,
+            'png',
+            pageNum,
+            { x, y, scale, rotation: 0, width, height }
+        );
+
+        // Create a fresh copy to avoid detachment issues
+        const newArray = new Uint8Array(modifiedPDF);
+        currentPDFData = newArray.buffer;
+
+        // Clear preview state
+        signaturePreviewState = {
+            image: null,
+            isActive: false,
+            isDragging: false,
+            isResizing: false,
+            dragStart: { x: 0, y: 0 }
+        };
+
+        // IMPORTANT: Always pass a copy to viewer to prevent detachment
+        await viewer.loadPDF(currentPDFData.slice(0));
+
+        addEditToHistory(`Signature added (page ${pageNum + 1})`);
+        closeToolPanel();
+        alert('Signature added successfully!');
+    } catch (error) {
+        console.error('Signature failed:', error);
+        alert('Failed to add signature: ' + error.message);
+    }
+}
+
+/**
+ * Handle hand tool toggle
+ */
+function handleHandTool() {
+    const handBtn = document.getElementById('handToolBtn');
+    const isActive = viewer.toggleHandTool();
+
+    if (isActive) {
+        handBtn.classList.add('active');
+    } else {
+        handBtn.classList.remove('active');
+    }
+}
+
+/**
+ * Show tool panel
+ */
+function showToolPanel(content) {
+    const panel = document.getElementById('toolPanel');
+    panel.innerHTML = content;
+    panel.style.display = 'block';
+}
+
+/**
+ * Close tool panel
+ */
+function closeToolPanel() {
+    const panel = document.getElementById('toolPanel');
+    panel.style.display = 'none';
+    panel.innerHTML = '';
+}
+
+/**
+ * Update metadata display
+ */
+function updateMetadataDisplay() {
+    // File name
+    const fileNameEl = document.getElementById('metaFileName');
+    if (currentFileName) {
+        const shortName = currentFileName.length > 20
+            ? currentFileName.substring(0, 17) + '...'
+            : currentFileName;
+        fileNameEl.textContent = shortName;
+        fileNameEl.title = currentFileName;
+    } else {
+        fileNameEl.textContent = 'No file loaded';
+        fileNameEl.title = '';
+    }
+
+    // Page count
+    const pagesEl = document.getElementById('metaPages');
+    if (viewer.totalPages > 0) {
+        pagesEl.textContent = viewer.totalPages;
+    } else {
+        pagesEl.textContent = '-';
+    }
+
+    // File size
+    const fileSizeEl = document.getElementById('metaFileSize');
+    if (currentPDFData) {
+        const sizeKB = (currentPDFData.byteLength / 1024).toFixed(1);
+        const sizeMB = (currentPDFData.byteLength / (1024 * 1024)).toFixed(2);
+
+        if (currentPDFData.byteLength < 1024 * 1024) {
+            fileSizeEl.textContent = `${sizeKB} KB`;
+        } else {
+            fileSizeEl.textContent = `${sizeMB} MB`;
+        }
+    } else {
+        fileSizeEl.textContent = '-';
+    }
+
+    // Edit count
+    const editsEl = document.getElementById('metaEdits');
+    editsEl.textContent = editHistory.length;
+    if (editHistory.length > 0) {
+        editsEl.classList.add('highlight', 'clickable');
+        editsEl.title = 'Click to view edit history';
+        editsEl.style.cursor = 'pointer';
+
+        // Remove existing listener to avoid duplicates
+        editsEl.replaceWith(editsEl.cloneNode(true));
+        const newEditsEl = document.getElementById('metaEdits');
+
+        newEditsEl.addEventListener('click', showEditHistory);
+    } else {
+        editsEl.classList.remove('highlight', 'clickable');
+        editsEl.title = '';
+        editsEl.style.cursor = 'default';
+    }
+}
+
+/**
+ * Show edit history details
+ */
+function showEditHistory() {
+    if (editHistory.length === 0) {
+        return;
+    }
+
+    // Create edit history list HTML
+    const editsList = editHistory.map((edit, index) => {
+        return `<li style="padding: 0.5rem; background: var(--background); border-radius: 6px; font-size: 0.875rem;">
+            <strong>${index + 1}.</strong> ${edit}
+        </li>`;
+    }).join('');
+
+    // Replace metadata content temporarily
+    const metadataContent = document.querySelector('.metadata-content');
+    const originalContent = metadataContent.innerHTML;
+
+    metadataContent.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+            <h3 style="font-size: 1rem; font-weight: 600; color: var(--text); margin: 0;">
+                <i class="ti ti-history"></i> Edit History
+            </h3>
+            <button onclick="closeEditHistory()" style="background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 0.25rem;">
+                <i class="ti ti-x"></i>
+            </button>
+        </div>
+        <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; max-height: 300px; overflow-y: auto;">
+            ${editsList}
+        </ul>
+    `;
+
+    // Store original content for restoration
+    window._originalMetadataContent = originalContent;
+}
+
+/**
+ * Close edit history and restore metadata
+ */
+function closeEditHistory() {
+    const metadataContent = document.querySelector('.metadata-content');
+    if (window._originalMetadataContent) {
+        metadataContent.innerHTML = window._originalMetadataContent;
+        delete window._originalMetadataContent;
+        // Re-setup click listener
+        updateMetadataDisplay();
+    }
+}
+
+/**
+ * Update memory usage display
+ */
+function updateMemoryUsage() {
+    const memoryEl = document.getElementById('metaMemory');
+
+    if (performance.memory) {
+        const usedMB = (performance.memory.usedJSHeapSize / (1024 * 1024)).toFixed(1);
+        const totalMB = (performance.memory.totalJSHeapSize / (1024 * 1024)).toFixed(1);
+        memoryEl.textContent = `${usedMB} / ${totalMB} MB`;
+    } else {
+        // Fallback if memory API not available
+        if (currentPDFData) {
+            const estimatedMB = (currentPDFData.byteLength / (1024 * 1024)).toFixed(1);
+            memoryEl.textContent = `~${estimatedMB} MB`;
+        } else {
+            memoryEl.textContent = '-';
+        }
+    }
+}
+
+/**
+ * Add edit to history
+ */
+function addEditToHistory(editType) {
+    const timestamp = new Date().toLocaleTimeString();
+    editHistory.push(`${editType} (${timestamp})`);
+
+    // Update active document
+    const activeDoc = getActiveDocument();
+    if (activeDoc) {
+        activeDoc.editHistory = [...editHistory];
+        activeDoc.pdfData = currentPDFData;
+    }
+
+    updateMetadataDisplay();
+    updateTabsUI();
+}
+
+// Initialize app when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
