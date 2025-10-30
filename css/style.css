@@ -277,6 +277,126 @@ body {
    Design Credit
    =================================== */
 
+/* Recent Documents Section */
+.recent-docs-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+
+.recent-docs-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0.5rem 0.75rem 0.5rem;
+}
+
+.recent-docs-header h4 {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.recent-docs-header h4 i {
+    font-size: 0.875rem;
+}
+
+.clear-cache-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.375rem;
+    color: var(--text-muted);
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.clear-cache-btn:hover {
+    background: var(--background-darker);
+    color: #EF4444;
+}
+
+.recent-docs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.recent-docs-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.recent-docs-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.recent-docs-list::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 2px;
+}
+
+.recent-doc-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.625rem;
+    background: var(--background);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.recent-doc-item:hover {
+    background: var(--white);
+    border-color: var(--primary-light);
+    box-shadow: 0 2px 4px var(--shadow);
+}
+
+.recent-doc-name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.recent-doc-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+}
+
+.recent-doc-size {
+    font-weight: 500;
+}
+
+.recent-doc-time {
+    font-style: italic;
+}
+
+.recent-docs-empty {
+    padding: 1rem;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-style: italic;
+}
+
 .design-credit {
     margin-top: auto;
     padding-top: 1rem;

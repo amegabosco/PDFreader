@@ -679,6 +679,14 @@ async function handleFiles(files) {
                 allUploadedFiles.push({ data: arrayBuffer, name: file.name });
                 tools.addPDF(arrayBuffer, file.name);
 
+                // Save to cache
+                try {
+                    await pdfCache.savePDF(file.name, arrayBuffer, file.size);
+                    console.log(`Cached: ${file.name}`);
+                } catch (error) {
+                    console.error('Failed to cache PDF:', error);
+                }
+
                 // Create a new document for each PDF
                 const doc = createDocument(arrayBuffer, file.name);
                 if (!firstNewDoc) firstNewDoc = doc;
@@ -698,6 +706,9 @@ async function handleFiles(files) {
         if (firstNewDoc) {
             await switchToDocument(firstNewDoc.id);
         }
+
+        // Update recent documents display
+        updateRecentDocuments();
 
         console.log(`Loaded ${allUploadedFiles.length} PDF file(s) as tabs`);
     } catch (error) {
@@ -2533,9 +2544,109 @@ function addEditToHistory(editType) {
     updateTabsUI();
 }
 
+/**
+ * Update recent documents display
+ */
+async function updateRecentDocuments() {
+    const recentDocsList = document.getElementById('recentDocsList');
+    if (!recentDocsList) return;
+
+    try {
+        const recentPDFs = await pdfCache.getRecentPDFs();
+
+        if (recentPDFs.length === 0) {
+            recentDocsList.innerHTML = '<div class="recent-docs-empty">No recent documents</div>';
+            return;
+        }
+
+        recentDocsList.innerHTML = recentPDFs.map(pdf => `
+            <div class="recent-doc-item" data-pdf-id="${pdf.id}" onclick="openRecentDocument(${pdf.id})">
+                <div class="recent-doc-name" title="${pdf.fileName}">${pdf.fileName}</div>
+                <div class="recent-doc-meta">
+                    <span class="recent-doc-size">${pdfCache.formatBytes(pdf.size)}</span>
+                    <span class="recent-doc-time">${pdfCache.formatDate(pdf.timestamp)}</span>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error updating recent documents:', error);
+        recentDocsList.innerHTML = '<div class="recent-docs-empty">Error loading recent documents</div>';
+    }
+}
+
+/**
+ * Open a recent document from cache
+ */
+async function openRecentDocument(id) {
+    try {
+        const pdfRecord = await pdfCache.getPDF(id);
+        if (!pdfRecord) {
+            showNotification('Document not found in cache', 'error');
+            return;
+        }
+
+        // Clear current state
+        allUploadedFiles = [];
+        tools.clearPDFs();
+
+        // Load the cached PDF
+        const arrayBuffer = pdfRecord.data;
+        allUploadedFiles.push({ data: arrayBuffer, name: pdfRecord.fileName });
+        tools.addPDF(arrayBuffer, pdfRecord.fileName);
+
+        // Create document
+        const doc = createDocument(arrayBuffer, pdfRecord.fileName);
+
+        // Show viewer area
+        document.getElementById('uploadArea').style.display = 'none';
+        document.getElementById('viewerArea').style.display = 'flex';
+
+        // Switch to document
+        await switchToDocument(doc.id);
+
+        showNotification(`Opened: ${pdfRecord.fileName}`, 'success');
+    } catch (error) {
+        console.error('Error opening recent document:', error);
+        showNotification('Failed to open document: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Clear cache
+ */
+async function clearCache() {
+    const confirmed = confirm('Are you sure you want to clear all cached documents?');
+    if (!confirmed) return;
+
+    try {
+        await pdfCache.clearCache();
+        await updateRecentDocuments();
+        showNotification('Cache cleared successfully', 'success');
+    } catch (error) {
+        console.error('Error clearing cache:', error);
+        showNotification('Failed to clear cache: ' + error.message, 'error');
+    }
+}
+
 // Initialize app when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
     init();
 }
+
+// Initialize cache and load recent documents on startup
+(async function() {
+    try {
+        await pdfCache.init();
+        await updateRecentDocuments();
+
+        // Setup clear cache button
+        const clearCacheBtn = document.getElementById('clearCacheBtn');
+        if (clearCacheBtn) {
+            clearCacheBtn.addEventListener('click', clearCache);
+        }
+    } catch (error) {
+        console.error('Error initializing cache:', error);
+    }
+})();
