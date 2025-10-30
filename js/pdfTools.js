@@ -297,6 +297,62 @@ class PDFTools {
     }
 
     /**
+     * Reorder pages in PDF
+     * @param {ArrayBuffer} pdfArrayBuffer - PDF data
+     * @param {number} fromPage - Source page (1-indexed)
+     * @param {number} toPage - Target position (1-indexed)
+     * @returns {Promise<Uint8Array>} Modified PDF
+     */
+    async reorderPages(pdfArrayBuffer, fromPage, toPage) {
+        try {
+            const pdf = await PDFLib.PDFDocument.load(pdfArrayBuffer);
+            const totalPages = pdf.getPageCount();
+
+            console.log(`Reordering: Move page ${fromPage} to position ${toPage} (total: ${totalPages})`);
+
+            // Validate page numbers
+            if (fromPage < 1 || fromPage > totalPages || toPage < 1 || toPage > totalPages) {
+                throw new Error('Invalid page numbers');
+            }
+
+            if (fromPage === toPage) {
+                return new Uint8Array(pdfArrayBuffer);
+            }
+
+            // Create new PDF with reordered pages
+            const newPdf = await PDFLib.PDFDocument.create();
+
+            // Build new page order
+            const pageIndices = [];
+            for (let i = 0; i < totalPages; i++) {
+                pageIndices.push(i);
+            }
+
+            // Remove page from original position
+            const [movedPage] = pageIndices.splice(fromPage - 1, 1);
+
+            // Insert at new position
+            pageIndices.splice(toPage - 1, 0, movedPage);
+
+            console.log('New page order:', pageIndices.map(i => i + 1));
+
+            // Copy pages in new order
+            for (const pageIndex of pageIndices) {
+                const [copiedPage] = await newPdf.copyPages(pdf, [pageIndex]);
+                newPdf.addPage(copiedPage);
+            }
+
+            const pdfBytes = await newPdf.save();
+            console.log(`Pages reordered successfully, new PDF size: ${pdfBytes.length} bytes`);
+
+            return pdfBytes;
+        } catch (error) {
+            console.error('Failed to reorder pages:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Download a PDF file
      * @param {Uint8Array} pdfBytes - PDF data
      * @param {string} fileName - File name for download

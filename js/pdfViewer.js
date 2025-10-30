@@ -697,11 +697,86 @@ class PDFViewer {
                 this.goToPage(pageNum);
             });
 
+            // Drag and drop handlers
+            this.setupThumbnailDrag(thumbDiv, pageNum);
+
             navThumbnails.appendChild(thumbDiv);
             this.thumbnails.push(thumbDiv);
         }
 
         console.log(`Generated ${this.thumbnails.length} thumbnails successfully`);
+    }
+
+    /**
+     * Setup drag and drop for thumbnail
+     */
+    setupThumbnailDrag(thumbDiv, pageNum) {
+        // Make thumbnail draggable
+        thumbDiv.draggable = true;
+
+        thumbDiv.addEventListener('dragstart', (e) => {
+            thumbDiv.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', pageNum.toString());
+        });
+
+        thumbDiv.addEventListener('dragend', (e) => {
+            thumbDiv.classList.remove('dragging');
+
+            // Remove all drag-over classes
+            this.thumbnails.forEach(thumb => {
+                thumb.classList.remove('drag-over');
+            });
+        });
+
+        thumbDiv.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+
+            // Don't allow dropping on itself
+            const draggingThumb = document.querySelector('.dragging');
+            if (draggingThumb === thumbDiv) return;
+
+            thumbDiv.classList.add('drag-over');
+        });
+
+        thumbDiv.addEventListener('dragleave', (e) => {
+            thumbDiv.classList.remove('drag-over');
+        });
+
+        thumbDiv.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            thumbDiv.classList.remove('drag-over');
+
+            const fromPage = parseInt(e.dataTransfer.getData('text/plain'));
+            const toPage = pageNum;
+
+            if (fromPage !== toPage) {
+                console.log(`Moving page ${fromPage} to position ${toPage}`);
+                await this.reorderPages(fromPage, toPage);
+            }
+        });
+    }
+
+    /**
+     * Reorder pages in the PDF
+     * @param {number} fromPage - Source page number (1-indexed)
+     * @param {number} toPage - Target page number (1-indexed)
+     */
+    async reorderPages(fromPage, toPage) {
+        try {
+            // This method will be called from app.js which has access to tools
+            if (typeof window.handlePageReorder === 'function') {
+                await window.handlePageReorder(fromPage, toPage);
+            } else {
+                console.error('handlePageReorder function not found');
+            }
+        } catch (error) {
+            console.error('Error reordering pages:', error);
+            throw error;
+        }
     }
 
     /**

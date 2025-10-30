@@ -619,6 +619,54 @@ function setupKeyboardShortcuts() {
 }
 
 /**
+ * Handle page reordering from drag and drop
+ */
+window.handlePageReorder = async function(fromPage, toPage) {
+    if (!currentPDFData) {
+        showNotification('No PDF loaded', 'error');
+        return;
+    }
+
+    try {
+        showNotification(`Reordering pages...`, 'info', 1000);
+
+        // Reorder pages using pdfTools
+        const pdfCopy = currentPDFData.slice(0);
+        const reorderedPDF = await tools.reorderPages(pdfCopy, fromPage, toPage);
+
+        // Update current PDF data
+        const newArray = new Uint8Array(reorderedPDF);
+        currentPDFData = newArray.buffer;
+
+        // Update document in tabs
+        const activeDoc = getActiveDocument();
+        if (activeDoc) {
+            activeDoc.pdfData = currentPDFData.slice(0);
+        }
+
+        // Update cache
+        if (currentCacheId && currentPDFData) {
+            await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
+        }
+
+        // Reload PDF and regenerate thumbnails
+        viewer.thumbnails = []; // Clear existing thumbnails
+        await viewer.loadPDF(currentPDFData.slice(0));
+
+        // Navigate to the moved page's new position
+        await viewer.goToPage(toPage);
+
+        // Add to history
+        addEditToHistory(`Moved page ${fromPage} to position ${toPage}`);
+
+        showNotification(`Page ${fromPage} moved to position ${toPage}`, 'success');
+    } catch (error) {
+        console.error('Failed to reorder pages:', error);
+        showNotification('Failed to reorder pages: ' + error.message, 'error');
+    }
+};
+
+/**
  * Initialize the application
  */
 function init() {

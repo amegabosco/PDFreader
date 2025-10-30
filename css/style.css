@@ -1588,7 +1588,7 @@ textarea.text-input {
     border: 3px solid transparent;
     border-radius: 8px;
     padding: 0.625rem;
-    cursor: pointer;
+    cursor: grab;
     background: var(--white);
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
@@ -1610,6 +1610,17 @@ textarea.text-input {
     background: var(--white);
     box-shadow: 0 4px 16px rgba(37, 99, 235, 0.25);
     transform: translateX(-4px);
+}
+
+.nav-thumbnail.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+    transform: scale(0.95);
+}
+
+.nav-thumbnail.drag-over {
+    border-color: var(--primary);
+    background: rgba(37, 99, 235, 0.05);
 }
 
 .nav-thumbnail.active::before {
