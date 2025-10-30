@@ -86,30 +86,6 @@ class PDFViewer {
             this.setViewMode('scroll');
         });
 
-        // Additional navigation buttons
-        document.getElementById('prevPageBtn').addEventListener('click', () => {
-            if (this.viewMode === 'single') {
-                if (this.currentPage > 1) {
-                    this.currentPage--;
-                    this.renderPage(this.currentPage);
-                }
-            } else {
-                // In scroll mode, scroll up one page height
-                this.scrollToPreviousPage();
-            }
-        });
-
-        document.getElementById('nextPageBtn').addEventListener('click', () => {
-            if (this.viewMode === 'single') {
-                if (this.currentPage < this.totalPages) {
-                    this.currentPage++;
-                    this.renderPage(this.currentPage);
-                }
-            } else {
-                // In scroll mode, scroll down one page height
-                this.scrollToNextPage();
-            }
-        });
     }
 
     /**
