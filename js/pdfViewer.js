@@ -240,6 +240,12 @@ class PDFViewer {
             // Clear thumbnails array so they regenerate for new document
             this.thumbnails = [];
 
+            // Clear thumbnails container
+            const navThumbnails = document.getElementById('navThumbnails');
+            if (navThumbnails) {
+                navThumbnails.innerHTML = '';
+            }
+
             // Update UI
             document.getElementById('totalPages').textContent = this.totalPages;
             document.getElementById('currentPage').textContent = this.currentPage;
