@@ -31,6 +31,56 @@ body {
     background-color: var(--background);
     color: var(--text);
     overflow: hidden;
+    position: relative;
+}
+
+/* ===================================
+   Notification Banner
+   =================================== */
+
+.notification-banner {
+    position: fixed;
+    top: -100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--primary);
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 500;
+    transition: top 0.3s ease;
+    min-width: 300px;
+    max-width: 600px;
+}
+
+.notification-banner.show {
+    top: 2rem;
+}
+
+.notification-banner.success {
+    background: #10B981;
+}
+
+.notification-banner.error {
+    background: #EF4444;
+}
+
+.notification-banner.warning {
+    background: #F59E0B;
+}
+
+.notification-banner.info {
+    background: var(--primary);
+}
+
+.notification-banner i {
+    font-size: 1.5rem;
+    flex-shrink: 0;
 }
 
 /* ===================================

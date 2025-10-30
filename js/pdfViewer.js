@@ -254,7 +254,7 @@ class PDFViewer {
             console.log('PDF loaded successfully:', this.totalPages, 'pages');
         } catch (error) {
             console.error('Error loading PDF:', error);
-            alert('Failed to load PDF. Please try another file.');
+            showNotification('Failed to load PDF. Please try another file.', 'error');
         }
     }
 

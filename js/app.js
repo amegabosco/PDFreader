@@ -227,10 +227,10 @@ class PendingObjectsManager {
             await viewer.renderPage(currentPage);
 
             addEditToHistory(`Inserted ${this.objects.length} objects`);
-            alert(`Successfully inserted ${this.objects.length} object(s)!`);
+            showNotification(`Successfully inserted ${this.objects.length} object(s)!`, 'success');
         } catch (error) {
             console.error('Failed to validate objects:', error);
-            alert('Failed to insert objects: ' + error.message);
+            showNotification('Failed to insert objects: ' + error.message, 'error');
         }
     }
 
@@ -392,6 +392,42 @@ let currentFileName = '';
 let allUploadedFiles = []; // Store all uploaded files for merge
 let editHistory = []; // Track all edits made
 let originalFileSize = 0; // Store original file size
+
+/**
+ * Show notification banner
+ * @param {string} message - Message to display
+ * @param {string} type - Type: 'success', 'error', 'warning', 'info'
+ * @param {number} duration - Duration in milliseconds (default: 3000)
+ */
+function showNotification(message, type = 'info', duration = 3000) {
+    const banner = document.getElementById('notificationBanner');
+
+    // Set icon based on type
+    const icons = {
+        success: 'ti-check',
+        error: 'ti-alert-circle',
+        warning: 'ti-alert-triangle',
+        info: 'ti-info-circle'
+    };
+
+    banner.innerHTML = `
+        <i class="ti ${icons[type]}"></i>
+        <span>${message}</span>
+    `;
+
+    // Set type class
+    banner.className = `notification-banner ${type}`;
+
+    // Show banner
+    setTimeout(() => {
+        banner.classList.add('show');
+    }, 10);
+
+    // Hide banner after duration
+    setTimeout(() => {
+        banner.classList.remove('show');
+    }, duration);
+}
 
 /**
  * Initialize the application
@@ -645,7 +681,7 @@ async function handleFiles(files) {
         }
 
         if (allUploadedFiles.length === 0) {
-            alert('Please upload at least one PDF file');
+            showNotification('Please upload at least one PDF file', 'warning');
             return;
         }
 
@@ -661,7 +697,7 @@ async function handleFiles(files) {
         console.log(`Loaded ${allUploadedFiles.length} PDF file(s) as tabs`);
     } catch (error) {
         console.error('Error handling files:', error);
-        alert('Failed to load file. Please try again.');
+        showNotification('Failed to load file. Please try again.', 'error');
     }
 }
 
@@ -749,7 +785,7 @@ function handleUploadNew() {
  */
 function showMergePanel() {
     if (allUploadedFiles.length < 2) {
-        alert('Please upload at least 2 PDF files to merge. Upload multiple files at once.');
+        showNotification('Please upload at least 2 PDF files to merge. Upload multiple files at once.', 'warning');
         return;
     }
 
@@ -790,10 +826,10 @@ async function executeMerge() {
 
         addEditToHistory('Merged PDFs');
         closeToolPanel();
-        alert('PDFs merged successfully!');
+        showNotification('PDFs merged successfully!', 'success');
     } catch (error) {
         console.error('Merge failed:', error);
-        alert('Failed to merge PDFs: ' + error.message);
+        showNotification('Failed to merge PDFs: ' + error.message, 'error');
     }
 }
 
@@ -802,13 +838,13 @@ async function executeMerge() {
  */
 function showSplitPanel() {
     if (!currentPDFData) {
-        alert('Please load a PDF first');
+        showNotification('Please load a PDF first', 'warning');
         return;
     }
 
     // Check if PDF has more than 1 page
     if (viewer.totalPages <= 1) {
-        alert('Cannot split: PDF must have more than 1 page');
+        showNotification('Cannot split: PDF must have more than 1 page', 'warning');
         return;
     }
 
@@ -847,10 +883,10 @@ async function executeSplit() {
 
         addEditToHistory(`Split into ${splitPDFs.length} pages`);
         closeToolPanel();
-        alert(`PDF split into ${splitPDFs.length} files. Check your downloads.`);
+        showNotification(`PDF split into ${splitPDFs.length} files. Check your downloads.`, 'success');
     } catch (error) {
         console.error('Split failed:', error);
-        alert('Failed to split PDF: ' + error.message);
+        showNotification('Failed to split PDF: ' + error.message, 'error');
     }
 }
 
@@ -859,7 +895,7 @@ async function executeSplit() {
  */
 function showRotatePanel() {
     if (!currentPDFData) {
-        alert('Please load a PDF first');
+        showNotification('Please load a PDF first', 'warning');
         return;
     }
 
@@ -943,7 +979,7 @@ async function executeRotate(degrees) {
             .map(cb => parseInt(cb.value) - 1); // Convert to 0-based index
 
         if (selectedPages.length === 0) {
-            alert('Please select at least one page to rotate');
+            showNotification('Please select at least one page to rotate', 'warning');
             return;
         }
 
@@ -960,10 +996,10 @@ async function executeRotate(degrees) {
         const pageText = selectedPages.length === 1 ? 'page' : 'pages';
         addEditToHistory(`Rotated ${selectedPages.length} ${pageText} by ${degrees}°`);
         closeToolPanel();
-        alert(`${selectedPages.length} ${pageText} rotated ${degrees}° clockwise!`);
+        showNotification(`${selectedPages.length} ${pageText} rotated ${degrees}° clockwise!`, 'success');
     } catch (error) {
         console.error('Rotation failed:', error);
-        alert('Failed to rotate PDF: ' + error.message);
+        showNotification('Failed to rotate PDF: ' + error.message, 'error');
     }
 }
 
@@ -972,7 +1008,7 @@ async function executeRotate(degrees) {
  */
 async function handleCompress() {
     if (!currentPDFData) {
-        alert('Please load a PDF first');
+        showNotification('Please load a PDF first', 'warning');
         return;
     }
 
@@ -993,10 +1029,10 @@ async function handleCompress() {
         const saved = reduction > 0 ? reduction : 0;
 
         addEditToHistory(`Compressed (${saved}% reduction)`);
-        alert(`PDF optimized!\nOriginal: ${(originalSize / 1024).toFixed(1)} KB\nCompressed: ${(newSize / 1024).toFixed(1)} KB\nReduction: ${saved}%`);
+        showNotification(`PDF optimized! Original: ${(originalSize / 1024).toFixed(1)} KB → Compressed: ${(newSize / 1024).toFixed(1)} KB (${saved}% reduction)`, 'success');
     } catch (error) {
         console.error('Compression failed:', error);
-        alert('Failed to compress PDF: ' + error.message);
+        showNotification('Failed to compress PDF: ' + error.message, 'error');
     }
 }
 
@@ -1005,7 +1041,7 @@ async function handleCompress() {
  */
 function showImagePanel() {
     if (!currentPDFData) {
-        alert('Please load a PDF first');
+        showNotification('Please load a PDF first', 'warning');
         return;
     }
 
@@ -1350,7 +1386,7 @@ async function executeInsertImage() {
         const file = fileInput.files[0];
 
         if (!file) {
-            alert('Please select an image file');
+            showNotification('Please select an image file', 'warning');
             return;
         }
 
@@ -1398,10 +1434,10 @@ async function executeInsertImage() {
 
         addEditToHistory(`Image inserted (page ${pageNum + 1})`);
         closeToolPanel();
-        alert('Image inserted successfully!');
+        showNotification('Image inserted successfully!', 'success');
     } catch (error) {
         console.error('Image insertion failed:', error);
-        alert('Failed to insert image: ' + error.message);
+        showNotification('Failed to insert image: ' + error.message, 'error');
     }
 }
 
@@ -1604,7 +1640,7 @@ function handleAnnotationCanvasMouseUp(e) {
  */
 function showAnnotatePanel() {
     if (!currentPDFData) {
-        alert('Please load a PDF first');
+        showNotification('Please load a PDF first', 'warning');
         return;
     }
 
@@ -1677,7 +1713,7 @@ async function executeAnnotate() {
     try {
         const text = document.getElementById('annotationText').value;
         if (!text) {
-            alert('Please enter annotation text');
+            showNotification('Please enter annotation text', 'warning');
             return;
         }
 
@@ -1715,10 +1751,10 @@ async function executeAnnotate() {
 
         addEditToHistory(`Text annotation (page ${pageNum + 1})`);
         closeToolPanel();
-        alert('Annotation added successfully!');
+        showNotification('Annotation added successfully!', 'success');
     } catch (error) {
         console.error('Annotation failed:', error);
-        alert('Failed to add annotation: ' + error.message);
+        showNotification('Failed to add annotation: ' + error.message, 'error');
     }
 }
 
@@ -1727,7 +1763,7 @@ async function executeAnnotate() {
  */
 function showSignPanel() {
     if (!currentPDFData) {
-        alert('Please load a PDF first');
+        showNotification('Please load a PDF first', 'warning');
         return;
     }
 
@@ -1898,7 +1934,7 @@ async function previewSignatureOnCanvas() {
     const isBlank = !imageData.data.some(channel => channel !== 0);
 
     if (isBlank) {
-        alert('Please draw a signature first');
+        showNotification('Please draw a signature first', 'warning');
         return;
     }
 
@@ -2173,10 +2209,10 @@ async function executeSign() {
 
         addEditToHistory(`Signature added (page ${pageNum + 1})`);
         closeToolPanel();
-        alert('Signature added successfully!');
+        showNotification('Signature added successfully!', 'success');
     } catch (error) {
         console.error('Signature failed:', error);
-        alert('Failed to add signature: ' + error.message);
+        showNotification('Failed to add signature: ' + error.message, 'error');
     }
 }
 
