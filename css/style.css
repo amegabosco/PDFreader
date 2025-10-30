@@ -347,14 +347,14 @@ body {
 }
 
 .recent-doc-item {
+    position: relative;
     display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+    align-items: center;
+    gap: 0.5rem;
     padding: 0.625rem;
     background: var(--background);
     border: 1px solid transparent;
     border-radius: 6px;
-    cursor: pointer;
     transition: all 0.2s ease;
 }
 
@@ -362,6 +362,77 @@ body {
     background: var(--white);
     border-color: var(--primary-light);
     box-shadow: 0 2px 4px var(--shadow);
+}
+
+.recent-doc-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    cursor: pointer;
+    min-width: 0; /* Allow text truncation */
+}
+
+.recent-doc-menu-btn {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.recent-doc-menu-btn:hover {
+    background: var(--background);
+    color: var(--text);
+}
+
+.recent-doc-menu {
+    position: absolute;
+    right: 8px;
+    top: 100%;
+    margin-top: 4px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px var(--shadow);
+    z-index: 1000;
+    min-width: 120px;
+    overflow: hidden;
+}
+
+.recent-doc-menu .menu-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: transparent;
+    border: none;
+    font-size: 0.75rem;
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.2s ease;
+    text-align: left;
+}
+
+.recent-doc-menu .menu-item:hover {
+    background: var(--background);
+}
+
+.recent-doc-menu .menu-item-danger {
+    color: #EF4444;
+}
+
+.recent-doc-menu .menu-item-danger:hover {
+    background: #FEF2F2;
 }
 
 .recent-doc-name {

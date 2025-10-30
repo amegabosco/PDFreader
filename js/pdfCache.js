@@ -49,6 +49,7 @@ class PDFCache {
      * @param {string} fileName - Name of the PDF file
      * @param {ArrayBuffer} data - PDF data
      * @param {number} size - File size in bytes
+     * @returns {Promise<number>} The ID of the saved PDF
      */
     async savePDF(fileName, data, size) {
         try {
@@ -79,7 +80,7 @@ class PDFCache {
                 const request = objectStore.add(pdfRecord);
 
                 request.onsuccess = () => {
-                    console.log(`PDF "${fileName}" saved to cache`);
+                    console.log(`PDF "${fileName}" saved to cache with ID ${request.result}`);
                     resolve(request.result);
                 };
 
@@ -90,6 +91,55 @@ class PDFCache {
             });
         } catch (error) {
             console.error('Error saving PDF to cache:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Update an existing PDF in the cache
+     * @param {number} id - PDF record ID
+     * @param {ArrayBuffer} data - Updated PDF data
+     * @param {number} size - Updated file size in bytes
+     */
+    async updatePDF(id, data, size) {
+        try {
+            if (!this.db) {
+                await this.init();
+            }
+
+            // Get existing record to preserve fileName
+            const existingRecord = await this.getPDF(id);
+            if (!existingRecord) {
+                console.warn(`PDF with ID ${id} not found, cannot update`);
+                return null;
+            }
+
+            const transaction = this.db.transaction([this.storeName], 'readwrite');
+            const objectStore = transaction.objectStore(this.storeName);
+
+            const updatedRecord = {
+                id: id,
+                fileName: existingRecord.fileName,
+                data: data,
+                size: size,
+                timestamp: Date.now() // Update timestamp
+            };
+
+            return new Promise((resolve, reject) => {
+                const request = objectStore.put(updatedRecord);
+
+                request.onsuccess = () => {
+                    console.log(`PDF with ID ${id} updated in cache`);
+                    resolve(request.result);
+                };
+
+                request.onerror = () => {
+                    console.error('Failed to update PDF:', request.error);
+                    reject(request.error);
+                };
+            });
+        } catch (error) {
+            console.error('Error updating PDF in cache:', error);
             throw error;
         }
     }

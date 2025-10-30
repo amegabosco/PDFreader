@@ -394,6 +394,7 @@ let nextDocumentId = 1; // Auto-increment ID
 // Legacy state (for backward compatibility)
 let currentPDFData = null;
 let currentFileName = '';
+let currentCacheId = null; // ID of the current PDF in cache (for auto-save)
 let allUploadedFiles = []; // Store all uploaded files for merge
 let editHistory = []; // Track all edits made
 let originalFileSize = 0; // Store original file size
@@ -554,6 +555,7 @@ async function switchToDocument(docId) {
     activeDocumentId = docId;
     currentPDFData = doc.pdfData;
     currentFileName = doc.fileName;
+    currentCacheId = doc.cacheId || null; // Restore cache ID
     editHistory = [...doc.editHistory];
     originalFileSize = doc.originalSize;
 
@@ -700,16 +702,18 @@ async function handleFiles(files) {
                 allUploadedFiles.push({ data: arrayBuffer, name: file.name });
                 tools.addPDF(arrayBuffer, file.name);
 
-                // Save to cache
+                // Save to cache and store cache ID
+                let cacheId = null;
                 try {
-                    await pdfCache.savePDF(file.name, arrayBuffer, file.size);
-                    console.log(`Cached: ${file.name}`);
+                    cacheId = await pdfCache.savePDF(file.name, arrayBuffer, file.size);
+                    console.log(`Cached: ${file.name} with ID ${cacheId}`);
                 } catch (error) {
                     console.error('Failed to cache PDF:', error);
                 }
 
                 // Create a new document for each PDF
                 const doc = createDocument(arrayBuffer, file.name);
+                doc.cacheId = cacheId; // Store cache ID in document
                 if (!firstNewDoc) firstNewDoc = doc;
             }
         }
@@ -1221,53 +1225,26 @@ function showImagePanel() {
         <div class="tool-content">
             <div class="form-group">
                 <label>Select Image:</label>
-                <input type="file" id="imageFile" accept="image/png,image/jpeg,image/jpg" class="file-input" onchange="previewImageOnCanvas()">
+                <input type="file" id="imageFile" accept="image/png,image/jpeg,image/jpg" class="file-input">
             </div>
 
-            <div class="form-group">
-                <label>Page Number:</label>
-                <input type="number" id="imagePage" min="1" max="${viewer.totalPages}" value="${viewer.currentPage}" class="text-input" onchange="updateImagePreview()">
-            </div>
-
-            <div id="imagePreviewStatus" style="padding: 0.5rem; background: var(--background); border-radius: 6px; margin: 1rem 0; display: none;">
-                <p style="font-size: 0.875rem; color: var(--text); margin: 0;">
-                    <i class="ti ti-info-circle"></i> Use mouse to drag and resize image on canvas
+            <div class="info-box" style="background: var(--background); padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+                <p style="font-size: 0.875rem; color: var(--text-muted); margin: 0;">
+                    <i class="ti ti-info-circle"></i> After selecting an image, draw a box on the PDF where you want to place it. You can then drag and resize the box before validating.
                 </p>
             </div>
-
-            <div class="form-group">
-                <label>X Position:</label>
-                <input type="number" id="imageX" value="50" class="text-input" onchange="updateImagePreview()">
-            </div>
-
-            <div class="form-group">
-                <label>Y Position:</label>
-                <input type="number" id="imageY" value="50" class="text-input" onchange="updateImagePreview()">
-            </div>
-
-            <div class="form-group">
-                <label>Width:</label>
-                <input type="number" id="imageWidth" value="200" class="text-input" onchange="updateImagePreview()">
-            </div>
-
-            <div class="form-group">
-                <label>Height:</label>
-                <input type="number" id="imageHeight" value="200" class="text-input" onchange="updateImagePreview()">
-            </div>
-
-            <div class="form-group">
-                <label>Rotation (degrees):</label>
-                <input type="number" id="imageRotation" min="0" max="360" value="0" class="text-input" onchange="updateImagePreview()">
-            </div>
-
-            <button class="action-btn" onclick="executeInsertImage()">
-                <i class="ti ti-check"></i> Insert Image
-            </button>
         </div>
     `;
 
     showToolPanel(panel);
-    initializeImagePositioning();
+
+    // Setup file input handler
+    setTimeout(() => {
+        const fileInput = document.getElementById('imageFile');
+        if (fileInput) {
+            fileInput.addEventListener('change', handleImageFileSelection);
+        }
+    }, 0);
 }
 
 // State for image positioning
@@ -2590,7 +2567,7 @@ function updateMemoryUsage() {
 /**
  * Add edit to history
  */
-function addEditToHistory(editType) {
+async function addEditToHistory(editType) {
     const timestamp = new Date().toLocaleTimeString();
     editHistory.push(`${editType} (${timestamp})`);
 
@@ -2599,6 +2576,17 @@ function addEditToHistory(editType) {
     if (activeDoc) {
         activeDoc.editHistory = [...editHistory];
         activeDoc.pdfData = currentPDFData;
+    }
+
+    // Auto-save to cache if document is already cached
+    if (currentCacheId && currentPDFData) {
+        try {
+            await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
+            await updateRecentDocuments(); // Refresh the recent documents list
+            console.log('PDF auto-saved to cache');
+        } catch (error) {
+            console.error('Failed to auto-save PDF to cache:', error);
+        }
     }
 
     updateMetadataDisplay();
@@ -2621,11 +2609,21 @@ async function updateRecentDocuments() {
         }
 
         recentDocsList.innerHTML = recentPDFs.map(pdf => `
-            <div class="recent-doc-item" data-pdf-id="${pdf.id}" onclick="openRecentDocument(${pdf.id})">
-                <div class="recent-doc-name" title="${pdf.fileName}">${pdf.fileName}</div>
-                <div class="recent-doc-meta">
-                    <span class="recent-doc-size">${pdfCache.formatBytes(pdf.size)}</span>
-                    <span class="recent-doc-time">${pdfCache.formatDate(pdf.timestamp)}</span>
+            <div class="recent-doc-item" data-pdf-id="${pdf.id}">
+                <div class="recent-doc-content" onclick="openRecentDocument(${pdf.id})">
+                    <div class="recent-doc-name" title="${pdf.fileName}">${pdf.fileName}</div>
+                    <div class="recent-doc-meta">
+                        <span class="recent-doc-size">${pdfCache.formatBytes(pdf.size)}</span>
+                        <span class="recent-doc-time">${pdfCache.formatDate(pdf.timestamp)}</span>
+                    </div>
+                </div>
+                <button class="recent-doc-menu-btn" onclick="event.stopPropagation(); toggleRecentDocMenu(${pdf.id})" title="Options">
+                    <i class="ti ti-dots-vertical"></i>
+                </button>
+                <div class="recent-doc-menu" id="menu-${pdf.id}" style="display: none;">
+                    <button onclick="deleteRecentDocument(${pdf.id})" class="menu-item menu-item-danger">
+                        <i class="ti ti-trash"></i> Delete
+                    </button>
                 </div>
             </div>
         `).join('');
@@ -2658,6 +2656,9 @@ async function openRecentDocument(id) {
         // Create document
         const doc = createDocument(arrayBuffer, pdfRecord.fileName);
 
+        // Store cache ID for auto-save
+        currentCacheId = id;
+
         // Show viewer area
         document.getElementById('uploadArea').style.display = 'none';
         document.getElementById('viewerArea').style.display = 'flex';
@@ -2669,6 +2670,38 @@ async function openRecentDocument(id) {
     } catch (error) {
         console.error('Error opening recent document:', error);
         showNotification('Failed to open document: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Toggle recent document menu
+ */
+function toggleRecentDocMenu(id) {
+    // Close all other menus first
+    document.querySelectorAll('.recent-doc-menu').forEach(menu => {
+        if (menu.id !== `menu-${id}`) {
+            menu.style.display = 'none';
+        }
+    });
+
+    // Toggle this menu
+    const menu = document.getElementById(`menu-${id}`);
+    if (menu) {
+        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+/**
+ * Delete a recent document from cache
+ */
+async function deleteRecentDocument(id) {
+    try {
+        await pdfCache.removePDF(id);
+        await updateRecentDocuments();
+        showNotification('Document removed from cache', 'success');
+    } catch (error) {
+        console.error('Error deleting document:', error);
+        showNotification('Failed to delete document: ' + error.message, 'error');
     }
 }
 
@@ -2688,6 +2721,15 @@ async function clearCache() {
         showNotification('Failed to clear cache: ' + error.message, 'error');
     }
 }
+
+// Close recent doc menus when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.recent-doc-item')) {
+        document.querySelectorAll('.recent-doc-menu').forEach(menu => {
+            menu.style.display = 'none';
+        });
+    }
+});
 
 // Initialize app when DOM is ready
 if (document.readyState === 'loading') {
