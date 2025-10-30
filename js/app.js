@@ -784,6 +784,37 @@ function handleUploadNew() {
  * Show merge panel
  */
 function showMergePanel() {
+    // Case 1: Current document is open - offer to pick another document to merge with it
+    if (currentPDFData) {
+        const panel = `
+            <button class="close-btn" onclick="closeToolPanel()">
+                <i class="ti ti-x"></i>
+            </button>
+            <h3><i class="ti ti-files"></i> Merge PDFs</h3>
+            <div class="tool-content">
+                <p>Current document: <strong>${currentFileName}</strong></p>
+                <p>Select a PDF file to merge with the current document:</p>
+                <input type="file" id="mergeFile" accept=".pdf" />
+                <div style="margin-top: 1rem;">
+                    <label>
+                        <input type="radio" name="mergeOrder" value="before" checked />
+                        Insert before current document
+                    </label>
+                    <label style="display: block; margin-top: 0.5rem;">
+                        <input type="radio" name="mergeOrder" value="after" />
+                        Insert after current document
+                    </label>
+                </div>
+                <button class="action-btn" onclick="executeMergeWithCurrent()" style="margin-top: 1rem;">
+                    <i class="ti ti-check"></i> Merge Documents
+                </button>
+            </div>
+        `;
+        showToolPanel(panel);
+        return;
+    }
+
+    // Case 2: No document open - use multi-file upload
     if (allUploadedFiles.length < 2) {
         showNotification('Please upload at least 2 PDF files to merge. Upload multiple files at once.', 'warning');
         return;
@@ -809,7 +840,7 @@ function showMergePanel() {
 }
 
 /**
- * Execute merge
+ * Execute merge (when multiple files uploaded without current document)
  */
 async function executeMerge() {
     try {
@@ -827,6 +858,50 @@ async function executeMerge() {
         addEditToHistory('Merged PDFs');
         closeToolPanel();
         showNotification('PDFs merged successfully!', 'success');
+    } catch (error) {
+        console.error('Merge failed:', error);
+        showNotification('Failed to merge PDFs: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Execute merge with current document (new file picker workflow)
+ */
+async function executeMergeWithCurrent() {
+    try {
+        const fileInput = document.getElementById('mergeFile');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            showNotification('Please select a PDF file to merge', 'warning');
+            return;
+        }
+
+        // Read the new file
+        const newFileBuffer = await readFileAsArrayBuffer(file);
+
+        // Get merge order
+        const order = document.querySelector('input[name="mergeOrder"]:checked').value;
+
+        // Prepare buffers in correct order
+        const pdfBuffers = order === 'before'
+            ? [newFileBuffer, currentPDFData.slice(0)]
+            : [currentPDFData.slice(0), newFileBuffer];
+
+        // Merge the PDFs
+        const mergedPDF = await tools.mergePDFs(pdfBuffers);
+
+        // Create a fresh copy to avoid detachment issues
+        const newArray = new Uint8Array(mergedPDF);
+        currentPDFData = newArray.buffer;
+        currentFileName = `merged_${currentFileName}`;
+
+        // IMPORTANT: Always pass a copy to viewer to prevent detachment
+        await viewer.loadPDF(currentPDFData.slice(0));
+
+        addEditToHistory(`Merged with ${file.name}`);
+        closeToolPanel();
+        showNotification(`Successfully merged ${file.name} with ${currentFileName}!`, 'success');
     } catch (error) {
         console.error('Merge failed:', error);
         showNotification('Failed to merge PDFs: ' + error.message, 'error');

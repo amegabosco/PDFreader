@@ -173,6 +173,9 @@
                             <i class="ti ti-files"></i>
                         </button>
                     </div>
+                    <button id="toggleNavPanel" class="control-btn" title="Toggle Page Navigator">
+                        <i class="ti ti-layout-sidebar-right"></i>
+                    </button>
                 </div>
 
                 <div class="pdf-canvas-container">
@@ -199,6 +202,19 @@
                 <!-- Dynamic tool panels will be inserted here -->
             </div>
         </main>
+
+        <!-- Document Navigator Panel (Right Side) -->
+        <aside id="navPanel" class="nav-panel" style="display: none;">
+            <div class="nav-header">
+                <h3><i class="ti ti-layout-grid"></i> Pages</h3>
+                <button id="closeNavPanel" class="nav-close-btn" title="Close Navigator">
+                    <i class="ti ti-x"></i>
+                </button>
+            </div>
+            <div id="navThumbnails" class="nav-thumbnails">
+                <!-- Thumbnails will be generated here -->
+            </div>
+        </aside>
     </div>
 
     <!-- PDF.js Library -->

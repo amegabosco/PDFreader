@@ -25,11 +25,16 @@ class PDFViewer {
         this.viewMode = 'single'; // 'single' or 'scroll'
         this.allPageCanvases = [];
 
+        // Navigator panel state
+        this.navPanelOpen = false;
+        this.thumbnails = [];
+
         // Configure PDF.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc =
             'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
         this.initializeControls();
+        this.initializeNavigator();
     }
 
     /**
@@ -289,6 +294,11 @@ class PDFViewer {
             // Update page info
             document.getElementById('currentPage').textContent = pageNum;
 
+            // Update active thumbnail if navigator is open
+            if (this.navPanelOpen) {
+                this.updateActiveThumbnail(pageNum);
+            }
+
             console.log('Rendered page:', pageNum);
         } catch (error) {
             console.error('Error rendering page:', error);
@@ -480,6 +490,11 @@ class PDFViewer {
                     if (this.currentPage !== pageNum) {
                         this.currentPage = pageNum;
                         document.getElementById('currentPage').textContent = pageNum;
+
+                        // Update active thumbnail if navigator is open
+                        if (this.navPanelOpen) {
+                            this.updateActiveThumbnail(pageNum);
+                        }
                     }
                     break;
                 }
@@ -527,5 +542,152 @@ class PDFViewer {
             // Already at last page, scroll to bottom
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
         }
+    }
+
+    /**
+     * Initialize document navigator panel
+     */
+    initializeNavigator() {
+        const toggleBtn = document.getElementById('toggleNavPanel');
+        const closeBtn = document.getElementById('closeNavPanel');
+        const navPanel = document.getElementById('navPanel');
+
+        toggleBtn.addEventListener('click', () => this.toggleNavigator());
+        closeBtn.addEventListener('click', () => this.closeNavigator());
+    }
+
+    /**
+     * Toggle navigator panel
+     */
+    toggleNavigator() {
+        if (this.navPanelOpen) {
+            this.closeNavigator();
+        } else {
+            this.openNavigator();
+        }
+    }
+
+    /**
+     * Open navigator panel
+     */
+    async openNavigator() {
+        if (!this.pdfDoc) return;
+
+        const navPanel = document.getElementById('navPanel');
+        const container = document.querySelector('.container');
+        const toggleBtn = document.getElementById('toggleNavPanel');
+
+        navPanel.style.display = 'flex';
+        this.navPanelOpen = true;
+        container.classList.add('nav-open');
+        toggleBtn.classList.add('active');
+
+        // Generate thumbnails if not already generated
+        await this.generateThumbnails();
+    }
+
+    /**
+     * Close navigator panel
+     */
+    closeNavigator() {
+        const navPanel = document.getElementById('navPanel');
+        const container = document.querySelector('.container');
+        const toggleBtn = document.getElementById('toggleNavPanel');
+
+        navPanel.style.display = 'none';
+        this.navPanelOpen = false;
+        container.classList.remove('nav-open');
+        toggleBtn.classList.remove('active');
+    }
+
+    /**
+     * Generate thumbnails for all pages
+     */
+    async generateThumbnails() {
+        if (!this.pdfDoc) return;
+
+        const navThumbnails = document.getElementById('navThumbnails');
+        navThumbnails.innerHTML = ''; // Clear existing thumbnails
+        this.thumbnails = [];
+
+        const thumbnailScale = 0.3; // Smaller scale for thumbnails
+
+        for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
+            const page = await this.pdfDoc.getPage(pageNum);
+            const viewport = page.getViewport({ scale: thumbnailScale });
+
+            // Create thumbnail container
+            const thumbDiv = document.createElement('div');
+            thumbDiv.className = 'nav-thumbnail';
+            thumbDiv.dataset.pageNum = pageNum;
+            if (pageNum === this.currentPage) {
+                thumbDiv.classList.add('active');
+            }
+
+            // Create canvas for thumbnail
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+
+            const ctx = canvas.getContext('2d');
+            const renderContext = {
+                canvasContext: ctx,
+                viewport: viewport
+            };
+
+            await page.render(renderContext).promise;
+
+            // Create label
+            const label = document.createElement('div');
+            label.className = 'nav-thumbnail-label';
+            label.textContent = `Page ${pageNum}`;
+
+            thumbDiv.appendChild(canvas);
+            thumbDiv.appendChild(label);
+
+            // Click handler to navigate to page
+            thumbDiv.addEventListener('click', () => {
+                this.goToPage(pageNum);
+            });
+
+            navThumbnails.appendChild(thumbDiv);
+            this.thumbnails.push(thumbDiv);
+        }
+    }
+
+    /**
+     * Go to specific page
+     */
+    async goToPage(pageNum) {
+        if (pageNum < 1 || pageNum > this.totalPages) return;
+
+        this.currentPage = pageNum;
+
+        if (this.viewMode === 'single') {
+            await this.renderPage(pageNum);
+        } else {
+            // In scroll mode, scroll to the page
+            if (this.allPageCanvases[pageNum - 1]) {
+                const targetCanvas = this.allPageCanvases[pageNum - 1];
+                const targetWrapper = targetCanvas.parentElement;
+                targetWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        // Update active thumbnail
+        this.updateActiveThumbnail(pageNum);
+    }
+
+    /**
+     * Update active thumbnail
+     */
+    updateActiveThumbnail(pageNum) {
+        this.thumbnails.forEach((thumb, index) => {
+            if (index + 1 === pageNum) {
+                thumb.classList.add('active');
+            } else {
+                thumb.classList.remove('active');
+            }
+        });
     }
 }
