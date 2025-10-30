@@ -237,6 +237,9 @@ class PDFViewer {
             this.totalPages = this.pdfDoc.numPages;
             this.currentPage = 1;
 
+            // Clear thumbnails array so they regenerate for new document
+            this.thumbnails = [];
+
             // Update UI
             document.getElementById('totalPages').textContent = this.totalPages;
             document.getElementById('currentPage').textContent = this.currentPage;
@@ -628,10 +631,19 @@ class PDFViewer {
         if (!this.pdfDoc) return;
 
         const navThumbnails = document.getElementById('navThumbnails');
+
+        // Only generate if empty
+        if (this.thumbnails.length > 0) {
+            console.log('Thumbnails already generated');
+            return;
+        }
+
         navThumbnails.innerHTML = ''; // Clear existing thumbnails
         this.thumbnails = [];
 
         const thumbnailScale = 0.5; // Increased scale for better quality
+
+        console.log(`Generating ${this.totalPages} thumbnails...`);
 
         for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
             const page = await this.pdfDoc.getPage(pageNum);
@@ -686,6 +698,8 @@ class PDFViewer {
             navThumbnails.appendChild(thumbDiv);
             this.thumbnails.push(thumbDiv);
         }
+
+        console.log(`Generated ${this.thumbnails.length} thumbnails successfully`);
     }
 
     /**
