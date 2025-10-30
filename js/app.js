@@ -421,6 +421,11 @@ let undoStack = []; // Stack of previous states
 let redoStack = []; // Stack of undone states
 const MAX_UNDO_STACK = 20; // Maximum number of undo states
 
+// Search system
+let searchMatches = []; // All search results
+let currentMatchIndex = -1; // Index of current match
+let searchQuery = ''; // Current search query
+
 /**
  * Show notification banner
  * @param {string} message - Message to display
@@ -492,6 +497,15 @@ function setupKeyboardShortcuts() {
             e.preventDefault();
             document.getElementById('fileInput').click();
             showNotification('Opening file picker...', 'info');
+        }
+
+        // Ctrl/Cmd + F: Search
+        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+            e.preventDefault();
+            const searchBar = document.getElementById('searchBar');
+            const searchInput = document.getElementById('searchInput');
+            searchBar.style.display = 'flex';
+            searchInput.focus();
         }
 
         // Ctrl/Cmd + S: Download/Save
@@ -613,6 +627,7 @@ function init() {
     setupTabsSystem();
     setupInfoBarToggle();
     setupKeyboardShortcuts();
+    setupSearchHandlers();
     updateMetadataDisplay();
 
     // Initialize pending objects manager
@@ -3069,6 +3084,176 @@ function updateUndoRedoButtons() {
             ? `Redo (${redoStack.length} actions available)`
             : 'Nothing to redo';
     }
+}
+
+/**
+ * Search functionality
+ */
+
+function setupSearchHandlers() {
+    const searchBtn = document.getElementById('searchBtn');
+    const searchBar = document.getElementById('searchBar');
+    const searchInput = document.getElementById('searchInput');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    const prevMatch = document.getElementById('prevMatch');
+    const nextMatch = document.getElementById('nextMatch');
+    const caseSensitive = document.getElementById('caseSensitive');
+    const wholeWord = document.getElementById('wholeWord');
+
+    // Toggle search bar
+    searchBtn.addEventListener('click', () => {
+        const isVisible = searchBar.style.display !== 'none';
+        searchBar.style.display = isVisible ? 'none' : 'flex';
+
+        if (!isVisible) {
+            searchInput.focus();
+        } else {
+            clearSearch();
+        }
+    });
+
+    // Perform search
+    searchInput.addEventListener('input', debounce(async () => {
+        await performSearch();
+    }, 300));
+
+    // Search options change
+    caseSensitive.addEventListener('change', async () => {
+        if (searchQuery) await performSearch();
+    });
+
+    wholeWord.addEventListener('change', async () => {
+        if (searchQuery) await performSearch();
+    });
+
+    // Clear search
+    clearSearchBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        clearSearch();
+    });
+
+    // Navigate matches
+    prevMatch.addEventListener('click', () => navigateToPreviousMatch());
+    nextMatch.addEventListener('click', () => navigateToNextMatch());
+
+    // Enter key to go to next match
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (e.shiftKey) {
+                navigateToPreviousMatch();
+            } else {
+                navigateToNextMatch();
+            }
+        }
+    });
+}
+
+async function performSearch() {
+    const searchInput = document.getElementById('searchInput');
+    const query = searchInput.value.trim();
+
+    if (!query) {
+        clearSearch();
+        return;
+    }
+
+    searchQuery = query;
+
+    const caseSensitive = document.getElementById('caseSensitive').checked;
+    const wholeWord = document.getElementById('wholeWord').checked;
+
+    try {
+        showNotification('Searching...', 'info', 1000);
+
+        // Perform search
+        searchMatches = await viewer.searchText(query, { caseSensitive, wholeWord });
+
+        // Update results display
+        updateSearchResults();
+
+        // If matches found, highlight first one
+        if (searchMatches.length > 0) {
+            currentMatchIndex = 0;
+            await navigateToMatch(0);
+            showNotification(`Found ${searchMatches.length} match${searchMatches.length > 1 ? 'es' : ''}`, 'success');
+        } else {
+            showNotification('No matches found', 'warning');
+            viewer.clearSearchHighlights();
+        }
+    } catch (error) {
+        console.error('Search error:', error);
+        showNotification('Search failed: ' + error.message, 'error');
+    }
+}
+
+function updateSearchResults() {
+    const resultsSpan = document.getElementById('searchResults');
+    const prevBtn = document.getElementById('prevMatch');
+    const nextBtn = document.getElementById('nextMatch');
+
+    if (searchMatches.length === 0) {
+        resultsSpan.textContent = '0 / 0';
+        prevBtn.disabled = true;
+        nextBtn.disabled = true;
+    } else {
+        resultsSpan.textContent = `${currentMatchIndex + 1} / ${searchMatches.length}`;
+        prevBtn.disabled = false;
+        nextBtn.disabled = false;
+    }
+}
+
+async function navigateToNextMatch() {
+    if (searchMatches.length === 0) return;
+
+    currentMatchIndex = (currentMatchIndex + 1) % searchMatches.length;
+    await navigateToMatch(currentMatchIndex);
+}
+
+async function navigateToPreviousMatch() {
+    if (searchMatches.length === 0) return;
+
+    currentMatchIndex = (currentMatchIndex - 1 + searchMatches.length) % searchMatches.length;
+    await navigateToMatch(currentMatchIndex);
+}
+
+async function navigateToMatch(index) {
+    if (index < 0 || index >= searchMatches.length) return;
+
+    const match = searchMatches[index];
+
+    // Navigate to the page if different
+    if (match.pageNum !== viewer.currentPage) {
+        viewer.currentPage = match.pageNum;
+        await viewer.renderPage(match.pageNum);
+    }
+
+    // Highlight matches
+    viewer.highlightSearchResults(searchMatches, index);
+
+    // Update results display
+    updateSearchResults();
+}
+
+function clearSearch() {
+    searchQuery = '';
+    searchMatches = [];
+    currentMatchIndex = -1;
+    viewer.clearSearchHighlights();
+    updateSearchResults();
+}
+
+// Debounce helper function
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
 }
 
 /**

@@ -739,4 +739,149 @@ class PDFViewer {
             }
         });
     }
+
+    /**
+     * Search for text in the PDF
+     * @param {string} query - Search query
+     * @param {object} options - Search options (caseSensitive, wholeWord)
+     * @returns {Promise<Array>} Array of matches with page and position
+     */
+    async searchText(query, options = {}) {
+        if (!this.pdfDoc || !query) return [];
+
+        const { caseSensitive = false, wholeWord = false } = options;
+        const matches = [];
+
+        // Search through all pages
+        for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
+            const page = await this.pdfDoc.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            const viewport = page.getViewport({ scale: this.scale });
+
+            // Build text string and track positions
+            let textItems = textContent.items;
+
+            for (let i = 0; i < textItems.length; i++) {
+                const item = textItems[i];
+                let text = item.str;
+
+                if (!text) continue;
+
+                // Apply case sensitivity
+                let searchText = caseSensitive ? text : text.toLowerCase();
+                let searchQuery = caseSensitive ? query : query.toLowerCase();
+
+                // Find all occurrences in this text item
+                let index = 0;
+                while ((index = searchText.indexOf(searchQuery, index)) !== -1) {
+                    // Check whole word if needed
+                    if (wholeWord) {
+                        const before = index > 0 ? searchText[index - 1] : ' ';
+                        const after = index + searchQuery.length < searchText.length ?
+                            searchText[index + searchQuery.length] : ' ';
+
+                        if (/\w/.test(before) || /\w/.test(after)) {
+                            index++;
+                            continue;
+                        }
+                    }
+
+                    // Calculate position
+                    const transform = item.transform;
+                    const x = transform[4];
+                    const y = transform[5];
+                    const width = item.width;
+                    const height = item.height;
+
+                    matches.push({
+                        pageNum,
+                        text: text.substring(index, index + searchQuery.length),
+                        bounds: {
+                            x: x,
+                            y: viewport.height - y,
+                            width: width * (searchQuery.length / text.length),
+                            height: height
+                        }
+                    });
+
+                    index++;
+                }
+            }
+        }
+
+        return matches;
+    }
+
+    /**
+     * Highlight search results on the current page
+     * @param {Array} matches - Array of search matches
+     * @param {number} currentMatchIndex - Index of current match
+     */
+    highlightSearchResults(matches, currentMatchIndex = 0) {
+        // Remove existing highlights
+        const existingLayer = document.querySelector('.search-highlight-layer');
+        if (existingLayer) {
+            existingLayer.remove();
+        }
+
+        if (matches.length === 0) return;
+
+        // Filter matches for current page
+        const currentPageMatches = matches.filter(m => m.pageNum === this.currentPage);
+
+        if (currentPageMatches.length === 0) return;
+
+        // Create highlight layer
+        const highlightLayer = document.createElement('div');
+        highlightLayer.className = 'search-highlight-layer';
+
+        // Position layer over canvas
+        const canvasRect = this.canvas.getBoundingClientRect();
+        const containerRect = this.canvas.parentElement.getBoundingClientRect();
+
+        highlightLayer.style.left = (canvasRect.left - containerRect.left) + 'px';
+        highlightLayer.style.top = (canvasRect.top - containerRect.top) + 'px';
+        highlightLayer.style.width = this.canvas.width + 'px';
+        highlightLayer.style.height = this.canvas.height + 'px';
+
+        // Add highlights
+        currentPageMatches.forEach((match, index) => {
+            const highlight = document.createElement('div');
+            highlight.className = 'search-highlight';
+
+            // Check if this is the current match
+            const globalIndex = matches.findIndex(m =>
+                m.pageNum === match.pageNum &&
+                m.bounds.x === match.bounds.x &&
+                m.bounds.y === match.bounds.y
+            );
+
+            if (globalIndex === currentMatchIndex) {
+                highlight.classList.add('current');
+            }
+
+            // Position highlight
+            const scaleX = this.canvas.width / this.canvas.offsetWidth;
+            const scaleY = this.canvas.height / this.canvas.offsetHeight;
+
+            highlight.style.left = (match.bounds.x / scaleX) + 'px';
+            highlight.style.top = (match.bounds.y / scaleY) + 'px';
+            highlight.style.width = (match.bounds.width / scaleX) + 'px';
+            highlight.style.height = (match.bounds.height / scaleY) + 'px';
+
+            highlightLayer.appendChild(highlight);
+        });
+
+        this.canvas.parentElement.appendChild(highlightLayer);
+    }
+
+    /**
+     * Clear search highlights
+     */
+    clearSearchHighlights() {
+        const existingLayer = document.querySelector('.search-highlight-layer');
+        if (existingLayer) {
+            existingLayer.remove();
+        }
+    }
 }

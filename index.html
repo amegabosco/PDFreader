@@ -160,12 +160,43 @@
                     <button id="redoBtn" class="control-btn" title="Redo (Ctrl+Y)" disabled onclick="redo()">
                         <i class="ti ti-arrow-forward-up"></i>
                     </button>
+                    <button id="searchBtn" class="control-btn" title="Search Text (Ctrl+F)">
+                        <i class="ti ti-search"></i>
+                    </button>
                     <button id="toggleNavPanel" class="control-btn" title="Toggle Page Navigator">
                         <i class="ti ti-layout-sidebar-right"></i>
                     </button>
                     <button id="toggleInfoBar" class="control-btn" title="Toggle Information Bar">
                         <i class="ti ti-info-circle"></i>
                     </button>
+                </div>
+
+                <!-- Search Bar (collapsible) -->
+                <div id="searchBar" class="search-bar" style="display: none;">
+                    <div class="search-input-container">
+                        <i class="ti ti-search"></i>
+                        <input type="text" id="searchInput" placeholder="Search in document..." />
+                        <button id="clearSearchBtn" class="search-clear-btn" title="Clear search">
+                            <i class="ti ti-x"></i>
+                        </button>
+                    </div>
+                    <div class="search-controls">
+                        <button id="prevMatch" class="control-btn" title="Previous match">
+                            <i class="ti ti-chevron-up"></i>
+                        </button>
+                        <span id="searchResults">0 / 0</span>
+                        <button id="nextMatch" class="control-btn" title="Next match">
+                            <i class="ti ti-chevron-down"></i>
+                        </button>
+                        <label class="search-option">
+                            <input type="checkbox" id="caseSensitive" />
+                            <span>Aa</span>
+                        </label>
+                        <label class="search-option">
+                            <input type="checkbox" id="wholeWord" />
+                            <span>Word</span>
+                        </label>
+                    </div>
                 </div>
 
                 <!-- Info Bar (collapsible) -->

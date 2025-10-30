@@ -781,6 +781,94 @@ body {
 }
 
 /* Info Bar */
+/* Search Bar */
+.search-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 2rem;
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    animation: slideDown 0.3s ease;
+}
+
+.search-input-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    max-width: 400px;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+}
+
+.search-input-container i {
+    color: var(--text-muted);
+    font-size: 1rem;
+}
+
+.search-input-container input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 0.875rem;
+    color: var(--text);
+}
+
+.search-clear-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.search-clear-btn:hover {
+    color: var(--text);
+}
+
+.search-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.search-controls #searchResults {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    min-width: 60px;
+    text-align: center;
+}
+
+.search-option {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    background: var(--background);
+    border: 1px solid var(--border);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.search-option:hover {
+    background: var(--background-darker);
+}
+
+.search-option input[type="checkbox"] {
+    cursor: pointer;
+}
+
+/* Info Bar */
 .info-bar {
     display: flex;
     align-items: center;
@@ -909,6 +997,30 @@ body {
 
 .pdf-canvas-container.hand-tool-active:active {
     cursor: grabbing !important;
+}
+
+/* ===================================
+   Search Highlight System
+   =================================== */
+
+.search-highlight-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.search-highlight {
+    position: absolute;
+    background-color: rgba(255, 255, 0, 0.4);
+    border: 1px solid rgba(255, 200, 0, 0.6);
+    pointer-events: none;
+}
+
+.search-highlight.current {
+    background-color: rgba(255, 150, 0, 0.6);
+    border: 2px solid rgba(255, 100, 0, 0.8);
 }
 
 /* ===================================
