@@ -934,15 +934,43 @@ function showSplitPanel() {
         </button>
         <h3><i class="ti ti-cut"></i> Split PDF</h3>
         <div class="tool-content">
-            <p>Current PDF: <strong>${currentFileName}</strong></p>
-            <p>This will split the PDF into individual pages and download them all.</p>
+            <p>Current PDF: <strong>${currentFileName}</strong> (${viewer.totalPages} pages)</p>
+
+            <div style="margin: 1rem 0;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">
+                    Split after page:
+                </label>
+                <input type="number" id="splitPage" min="1" max="${viewer.totalPages - 1}"
+                       value="${viewer.currentPage}"
+                       style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;" />
+                <p style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-muted);">
+                    This will create two PDFs:<br/>
+                    • <strong>Part 1:</strong> Pages 1 to <span id="splitPageBefore">${viewer.currentPage}</span><br/>
+                    • <strong>Part 2:</strong> Pages <span id="splitPageAfter">${viewer.currentPage + 1}</span> to ${viewer.totalPages}
+                </p>
+            </div>
+
             <button class="action-btn" onclick="executeSplit()">
-                <i class="ti ti-check"></i> Split into Pages
+                <i class="ti ti-check"></i> Split PDF
             </button>
         </div>
     `;
 
     showToolPanel(panel);
+
+    // Add input listener to update the preview text
+    setTimeout(() => {
+        const input = document.getElementById('splitPage');
+        if (input) {
+            input.addEventListener('input', () => {
+                const splitAt = parseInt(input.value) || viewer.currentPage;
+                const beforeSpan = document.getElementById('splitPageBefore');
+                const afterSpan = document.getElementById('splitPageAfter');
+                if (beforeSpan) beforeSpan.textContent = splitAt;
+                if (afterSpan) afterSpan.textContent = splitAt + 1;
+            });
+        }
+    }, 0);
 }
 
 /**
@@ -950,20 +978,48 @@ function showSplitPanel() {
  */
 async function executeSplit() {
     try {
+        // Get the split page from input
+        const splitPageInput = document.getElementById('splitPage');
+        const splitAfterPage = splitPageInput ? parseInt(splitPageInput.value) : null;
+
+        // Validate split page
+        if (splitAfterPage && (splitAfterPage < 1 || splitAfterPage >= viewer.totalPages)) {
+            showNotification(`Split page must be between 1 and ${viewer.totalPages - 1}`, 'warning');
+            return;
+        }
+
         // Create a copy to avoid detachment issues
         const pdfCopy = currentPDFData.slice(0);
-        const splitPDFs = await tools.splitPDF(pdfCopy);
+        const splitPDFs = await tools.splitPDF(pdfCopy, splitAfterPage);
 
-        splitPDFs.forEach((pdfBytes, index) => {
-            const fileName = currentFileName.replace('.pdf', `_page_${index + 1}.pdf`);
+        // Download the split PDFs with appropriate names
+        if (splitAfterPage) {
+            // Two-part split
+            const baseName = currentFileName.replace('.pdf', '');
+            const fileName1 = `${baseName}_part1_pages1-${splitAfterPage}.pdf`;
+            const fileName2 = `${baseName}_part2_pages${splitAfterPage + 1}-${viewer.totalPages}.pdf`;
+
+            tools.downloadPDF(splitPDFs[0], fileName1);
             setTimeout(() => {
-                tools.downloadPDF(pdfBytes, fileName);
-            }, index * 300);
-        });
+                tools.downloadPDF(splitPDFs[1], fileName2);
+            }, 300);
 
-        addEditToHistory(`Split into ${splitPDFs.length} pages`);
+            addEditToHistory(`Split after page ${splitAfterPage}`);
+            showNotification(`PDF split into 2 files. Check your downloads.`, 'success');
+        } else {
+            // Individual pages split
+            splitPDFs.forEach((pdfBytes, index) => {
+                const fileName = currentFileName.replace('.pdf', `_page_${index + 1}.pdf`);
+                setTimeout(() => {
+                    tools.downloadPDF(pdfBytes, fileName);
+                }, index * 300);
+            });
+
+            addEditToHistory(`Split into ${splitPDFs.length} pages`);
+            showNotification(`PDF split into ${splitPDFs.length} files. Check your downloads.`, 'success');
+        }
+
         closeToolPanel();
-        showNotification(`PDF split into ${splitPDFs.length} files. Check your downloads.`, 'success');
     } catch (error) {
         console.error('Split failed:', error);
         showNotification('Failed to split PDF: ' + error.message, 'error');

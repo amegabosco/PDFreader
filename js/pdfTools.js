@@ -65,28 +65,49 @@ class PDFTools {
      * @param {ArrayBuffer} pdfArrayBuffer - PDF data
      * @returns {Promise<Array<Uint8Array>>} Array of single-page PDFs
      */
-    async splitPDF(pdfArrayBuffer) {
+    async splitPDF(pdfArrayBuffer, splitAfterPage = null) {
         try {
             const pdf = await PDFLib.PDFDocument.load(pdfArrayBuffer);
             const pageCount = pdf.getPageCount();
             const splitPDFs = [];
 
-            for (let i = 0; i < pageCount; i++) {
-                // Create a new document for this page
-                const newPdf = await PDFLib.PDFDocument.create();
+            // If splitAfterPage is specified, split into two PDFs
+            if (splitAfterPage !== null && splitAfterPage > 0 && splitAfterPage < pageCount) {
+                // Create Part 1 (pages 1 to splitAfterPage)
+                const pdf1 = await PDFLib.PDFDocument.create();
+                const pages1 = await pdf1.copyPages(pdf, Array.from({ length: splitAfterPage }, (_, i) => i));
+                pages1.forEach(page => pdf1.addPage(page));
+                const pdfBytes1 = await pdf1.save();
+                splitPDFs.push(pdfBytes1);
 
-                // Copy the page
-                const [copiedPage] = await newPdf.copyPages(pdf, [i]);
-                newPdf.addPage(copiedPage);
+                // Create Part 2 (pages splitAfterPage+1 to end)
+                const pdf2 = await PDFLib.PDFDocument.create();
+                const pages2 = await pdf2.copyPages(pdf, Array.from({ length: pageCount - splitAfterPage }, (_, i) => i + splitAfterPage));
+                pages2.forEach(page => pdf2.addPage(page));
+                const pdfBytes2 = await pdf2.save();
+                splitPDFs.push(pdfBytes2);
 
-                // Save the page as a PDF
-                const pdfBytes = await newPdf.save();
-                splitPDFs.push(pdfBytes);
+                console.log(`PDF split into 2 parts: Part 1 (${splitAfterPage} pages), Part 2 (${pageCount - splitAfterPage} pages)`);
+            } else {
+                // Default behavior: split into individual pages
+                for (let i = 0; i < pageCount; i++) {
+                    // Create a new document for this page
+                    const newPdf = await PDFLib.PDFDocument.create();
 
-                console.log(`Split page ${i + 1}/${pageCount}`);
+                    // Copy the page
+                    const [copiedPage] = await newPdf.copyPages(pdf, [i]);
+                    newPdf.addPage(copiedPage);
+
+                    // Save the page as a PDF
+                    const pdfBytes = await newPdf.save();
+                    splitPDFs.push(pdfBytes);
+
+                    console.log(`Split page ${i + 1}/${pageCount}`);
+                }
+
+                console.log('PDF split successfully into individual pages');
             }
 
-            console.log('PDF split successfully');
             return splitPDFs;
         } catch (error) {
             console.error('Error splitting PDF:', error);
