@@ -140,9 +140,9 @@ body {
 .version-badge {
     font-size: 0.625rem;
     font-weight: 600;
-    color: var(--primary);
+    color: white;
     padding: 0.125rem 0.375rem;
-    background: var(--primary-light);
+    background: var(--primary);
     border-radius: 4px;
     display: inline-block;
     align-self: flex-start;
