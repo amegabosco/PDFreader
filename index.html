@@ -77,36 +77,6 @@
                 </button>
             </div>
 
-            <!-- Metadata Display Box -->
-            <div id="metadataBox" class="metadata-box">
-                <div class="metadata-header">
-                    <i class="ti ti-info-circle"></i>
-                    <span>Info</span>
-                </div>
-                <div class="metadata-content">
-                    <div class="metadata-item">
-                        <span class="metadata-label">File:</span>
-                        <span class="metadata-value" id="metaFileName">No file loaded</span>
-                    </div>
-                    <div class="metadata-item">
-                        <span class="metadata-label">Pages:</span>
-                        <span class="metadata-value" id="metaPages">-</span>
-                    </div>
-                    <div class="metadata-item">
-                        <span class="metadata-label">Size:</span>
-                        <span class="metadata-value" id="metaFileSize">-</span>
-                    </div>
-                    <div class="metadata-item">
-                        <span class="metadata-label">Memory:</span>
-                        <span class="metadata-value" id="metaMemory">-</span>
-                    </div>
-                    <div class="metadata-item">
-                        <span class="metadata-label">Edits:</span>
-                        <span class="metadata-value" id="metaEdits">0</span>
-                    </div>
-                </div>
-            </div>
-
             <!-- Recent Documents Section -->
             <div class="recent-docs-section">
                 <div class="recent-docs-header">
@@ -189,6 +159,33 @@
                     <button id="toggleNavPanel" class="control-btn" title="Toggle Page Navigator">
                         <i class="ti ti-layout-sidebar-right"></i>
                     </button>
+                    <button id="toggleInfoBar" class="control-btn" title="Toggle Information Bar">
+                        <i class="ti ti-info-circle"></i>
+                    </button>
+                </div>
+
+                <!-- Info Bar (collapsible) -->
+                <div id="infoBar" class="info-bar" style="display: none;">
+                    <div class="info-item">
+                        <span class="info-label">File:</span>
+                        <span class="info-value" id="infoFileName">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Pages:</span>
+                        <span class="info-value" id="infoPages">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Size:</span>
+                        <span class="info-value" id="infoFileSize">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Memory:</span>
+                        <span class="info-value" id="infoMemory">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Edits:</span>
+                        <span class="info-value" id="infoEdits">0</span>
+                    </div>
                 </div>
 
                 <div class="pdf-canvas-container">

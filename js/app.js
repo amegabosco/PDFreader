@@ -435,12 +435,33 @@ function showNotification(message, type = 'info', duration = 3000) {
 }
 
 /**
+ * Setup info bar toggle functionality
+ */
+function setupInfoBarToggle() {
+    const toggleBtn = document.getElementById('toggleInfoBar');
+    const infoBar = document.getElementById('infoBar');
+
+    if (toggleBtn && infoBar) {
+        toggleBtn.addEventListener('click', () => {
+            if (infoBar.style.display === 'none') {
+                infoBar.style.display = 'flex';
+                toggleBtn.classList.add('active');
+            } else {
+                infoBar.style.display = 'none';
+                toggleBtn.classList.remove('active');
+            }
+        });
+    }
+}
+
+/**
  * Initialize the application
  */
 function init() {
     setupFileUpload();
     setupToolButtons();
     setupTabsSystem();
+    setupInfoBarToggle();
     updateMetadataDisplay();
 
     // Initialize pending objects manager
@@ -2399,59 +2420,59 @@ function closeToolPanel() {
  * Update metadata display
  */
 function updateMetadataDisplay() {
-    // File name
-    const fileNameEl = document.getElementById('metaFileName');
-    if (currentFileName) {
-        const shortName = currentFileName.length > 20
-            ? currentFileName.substring(0, 17) + '...'
-            : currentFileName;
-        fileNameEl.textContent = shortName;
-        fileNameEl.title = currentFileName;
-    } else {
-        fileNameEl.textContent = 'No file loaded';
-        fileNameEl.title = '';
+    // Update info bar (new location)
+    const fileNameEl = document.getElementById('infoFileName');
+    if (fileNameEl) {
+        if (currentFileName) {
+            const shortName = currentFileName.length > 25
+                ? currentFileName.substring(0, 22) + '...'
+                : currentFileName;
+            fileNameEl.textContent = shortName;
+            fileNameEl.title = currentFileName;
+        } else {
+            fileNameEl.textContent = '-';
+            fileNameEl.title = '';
+        }
     }
 
     // Page count
-    const pagesEl = document.getElementById('metaPages');
-    if (viewer.totalPages > 0) {
-        pagesEl.textContent = viewer.totalPages;
-    } else {
-        pagesEl.textContent = '-';
+    const pagesEl = document.getElementById('infoPages');
+    if (pagesEl) {
+        if (viewer.totalPages > 0) {
+            pagesEl.textContent = viewer.totalPages;
+        } else {
+            pagesEl.textContent = '-';
+        }
     }
 
     // File size
-    const fileSizeEl = document.getElementById('metaFileSize');
-    if (currentPDFData) {
-        const sizeKB = (currentPDFData.byteLength / 1024).toFixed(1);
-        const sizeMB = (currentPDFData.byteLength / (1024 * 1024)).toFixed(2);
+    const fileSizeEl = document.getElementById('infoFileSize');
+    if (fileSizeEl) {
+        if (currentPDFData) {
+            const sizeKB = (currentPDFData.byteLength / 1024).toFixed(1);
+            const sizeMB = (currentPDFData.byteLength / (1024 * 1024)).toFixed(2);
 
-        if (currentPDFData.byteLength < 1024 * 1024) {
-            fileSizeEl.textContent = `${sizeKB} KB`;
+            if (currentPDFData.byteLength < 1024 * 1024) {
+                fileSizeEl.textContent = `${sizeKB} KB`;
+            } else {
+                fileSizeEl.textContent = `${sizeMB} MB`;
+            }
         } else {
-            fileSizeEl.textContent = `${sizeMB} MB`;
+            fileSizeEl.textContent = '-';
         }
-    } else {
-        fileSizeEl.textContent = '-';
+    }
+
+    // Memory usage
+    const memoryEl = document.getElementById('infoMemory');
+    if (memoryEl && performance && performance.memory) {
+        const usedMB = (performance.memory.usedJSHeapSize / (1024 * 1024)).toFixed(1);
+        memoryEl.textContent = `${usedMB} MB`;
     }
 
     // Edit count
-    const editsEl = document.getElementById('metaEdits');
-    editsEl.textContent = editHistory.length;
-    if (editHistory.length > 0) {
-        editsEl.classList.add('highlight', 'clickable');
-        editsEl.title = 'Click to view edit history';
-        editsEl.style.cursor = 'pointer';
-
-        // Remove existing listener to avoid duplicates
-        editsEl.replaceWith(editsEl.cloneNode(true));
-        const newEditsEl = document.getElementById('metaEdits');
-
-        newEditsEl.addEventListener('click', showEditHistory);
-    } else {
-        editsEl.classList.remove('highlight', 'clickable');
-        editsEl.title = '';
-        editsEl.style.cursor = 'default';
+    const editsEl = document.getElementById('infoEdits');
+    if (editsEl) {
+        editsEl.textContent = editHistory.length;
     }
 }
 
