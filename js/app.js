@@ -214,6 +214,9 @@ class PendingObjectsManager {
             const currentPage = viewer.currentPage;
             const objectCount = this.objects.length;
 
+            // Save state BEFORE making any changes (for undo/redo)
+            saveStateForUndo();
+
             // Insert all objects into PDF sequentially
             for (const obj of this.objects) {
                 await this.insertObject(obj);
@@ -238,7 +241,12 @@ class PendingObjectsManager {
                 activeDoc.pdfData = currentPDFData.slice(0);
             }
 
-            addEditToHistory(`Inserted ${objectCount} object(s)`);
+            // Add to history WITHOUT calling saveStateForUndo again
+            const timestamp = new Date().toLocaleTimeString();
+            editHistory.push(`Inserted ${objectCount} object(s) (${timestamp})`);
+            updateMetadataDisplay();
+            updateUndoRedoButtons();
+
             showNotification(`Successfully inserted ${objectCount} object(s)!`, 'success');
         } catch (error) {
             console.error('Failed to validate objects:', error);
@@ -298,10 +306,25 @@ class PendingObjectsManager {
     }
 
     async convertOverlayToPDFCoordinates(overlayBounds, pageIndex) {
-        // Get canvas dimensions
+        // Get canvas and overlay positions
         const canvas = document.getElementById('pdfCanvas');
-        const canvasWidth = canvas.width;
-        const canvasHeight = canvas.height;
+        const overlay = document.getElementById('insertionOverlay');
+
+        // Get bounding rectangles
+        const canvasRect = canvas.getBoundingClientRect();
+        const overlayRect = overlay.getBoundingClientRect();
+
+        // Calculate offset between overlay and canvas
+        const offsetX = canvasRect.left - overlayRect.left;
+        const offsetY = canvasRect.top - overlayRect.top;
+
+        // Adjust bounds to be relative to canvas
+        const canvasRelativeBounds = {
+            x: overlayBounds.x + offsetX,
+            y: overlayBounds.y + offsetY,
+            width: overlayBounds.width,
+            height: overlayBounds.height
+        };
 
         // Get PDF page dimensions using PDF-lib
         const pdfDoc = await PDFLib.PDFDocument.load(currentPDFData);
@@ -309,16 +332,16 @@ class PendingObjectsManager {
         const pageWidth = page.getWidth();
         const pageHeight = page.getHeight();
 
-        // Calculate scale factors
-        const scaleX = pageWidth / canvasWidth;
-        const scaleY = pageHeight / canvasHeight;
+        // Calculate scale factors from display pixels to PDF points
+        const scaleX = pageWidth / canvas.offsetWidth;
+        const scaleY = pageHeight / canvas.offsetHeight;
 
         // Convert coordinates
         return {
-            x: overlayBounds.x * scaleX,
-            y: overlayBounds.y * scaleY,
-            width: overlayBounds.width * scaleX,
-            height: overlayBounds.height * scaleY
+            x: canvasRelativeBounds.x * scaleX,
+            y: canvasRelativeBounds.y * scaleY,
+            width: canvasRelativeBounds.width * scaleX,
+            height: canvasRelativeBounds.height * scaleY
         };
     }
 
@@ -2187,7 +2210,7 @@ async function addTextAnnotationToPage() {
         text: text,
         fontSize: fontSize,
         color: hexColor,
-        colorRGB: colorRGB
+        colorRGB: [r, g, b]  // Pass as array, not string
     });
 
     showNotification('Draw a box on the PDF to place your text', 'info');
