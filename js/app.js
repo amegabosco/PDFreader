@@ -250,7 +250,12 @@ class PendingObjectsManager {
         const pageIndex = obj.page - 1;
         const pdfCopy = currentPDFData.slice(0);
 
-        console.log(`Inserting ${obj.type} on page ${obj.page}:`, obj.bounds);
+        // Convert overlay coordinates to PDF coordinates
+        const pdfBounds = await this.convertOverlayToPDFCoordinates(obj.bounds, pageIndex);
+
+        console.log(`Inserting ${obj.type} on page ${obj.page}`);
+        console.log('Overlay bounds:', obj.bounds);
+        console.log('PDF bounds:', pdfBounds);
 
         if (obj.type === 'image') {
             const modifiedPDF = await tools.insertImage(
@@ -258,7 +263,7 @@ class PendingObjectsManager {
                 obj.data.imageData,
                 obj.data.imageType,
                 pageIndex,
-                obj.bounds
+                pdfBounds
             );
             const newArray = new Uint8Array(modifiedPDF);
             currentPDFData = newArray.buffer;
@@ -269,8 +274,8 @@ class PendingObjectsManager {
                 pageIndex,
                 obj.data.text,
                 {
-                    x: obj.bounds.x,
-                    y: obj.bounds.y,
+                    x: pdfBounds.x,
+                    y: pdfBounds.y,
                     size: obj.data.fontSize,
                     color: obj.data.colorRGB
                 }
@@ -284,12 +289,37 @@ class PendingObjectsManager {
                 obj.data.signatureData,
                 'png',
                 pageIndex,
-                obj.bounds
+                pdfBounds
             );
             const newArray = new Uint8Array(modifiedPDF);
             currentPDFData = newArray.buffer;
             console.log(`Signature inserted, new PDF size: ${currentPDFData.byteLength} bytes`);
         }
+    }
+
+    async convertOverlayToPDFCoordinates(overlayBounds, pageIndex) {
+        // Get canvas dimensions
+        const canvas = document.getElementById('pdfCanvas');
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+
+        // Get PDF page dimensions using PDF-lib
+        const pdfDoc = await PDFLib.PDFDocument.load(currentPDFData);
+        const page = pdfDoc.getPage(pageIndex);
+        const pageWidth = page.getWidth();
+        const pageHeight = page.getHeight();
+
+        // Calculate scale factors
+        const scaleX = pageWidth / canvasWidth;
+        const scaleY = pageHeight / canvasHeight;
+
+        // Convert coordinates
+        return {
+            x: overlayBounds.x * scaleX,
+            y: overlayBounds.y * scaleY,
+            width: overlayBounds.width * scaleX,
+            height: overlayBounds.height * scaleY
+        };
     }
 
     cancelAll() {
@@ -2056,6 +2086,17 @@ function showAnnotatePanel() {
             <div class="form-group">
                 <label>Text:</label>
                 <textarea id="annotationText" rows="3" class="text-input" placeholder="Enter text..."></textarea>
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                    <button class="option-btn" onclick="insertDateTime('date')" title="Insert current date">
+                        <i class="ti ti-calendar"></i> Date
+                    </button>
+                    <button class="option-btn" onclick="insertDateTime('time')" title="Insert current time">
+                        <i class="ti ti-clock"></i> Time
+                    </button>
+                    <button class="option-btn" onclick="insertDateTime('datetime')" title="Insert date and time">
+                        <i class="ti ti-calendar-time"></i> Both
+                    </button>
+                </div>
             </div>
 
             <div class="form-group">
@@ -2078,9 +2119,21 @@ function showAnnotatePanel() {
                 <input type="hidden" id="annotationColor" value="0,0,1">
             </div>
 
-            <button class="action-btn" onclick="addTextAnnotationToPage()">
-                <i class="ti ti-check"></i> Add to Page
-            </button>
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                <button class="action-btn" onclick="addTextAnnotationToPage()" style="flex: 1;">
+                    <i class="ti ti-check"></i> Add to Page
+                </button>
+                <button class="option-btn" onclick="saveCurrentAnnotation()" title="Save to library">
+                    <i class="ti ti-device-floppy"></i>
+                </button>
+            </div>
+
+            <div class="form-group">
+                <label>Saved Annotations:</label>
+                <div id="savedAnnotationsList" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto;">
+                    <!-- Annotations will be loaded here -->
+                </div>
+            </div>
 
             <div class="info-box" style="background: var(--background); padding: 1rem; border-radius: 8px; margin: 1rem 0;">
                 <p style="font-size: 0.875rem; color: var(--text-muted); margin: 0;">
@@ -2103,6 +2156,9 @@ function showAnnotatePanel() {
                 document.getElementById('annotationColor').value = btn.dataset.color;
             });
         });
+
+        // Load saved annotations
+        loadSavedAnnotations();
     }, 0);
 }
 
@@ -2136,6 +2192,126 @@ async function addTextAnnotationToPage() {
 
     showNotification('Draw a box on the PDF to place your text', 'info');
     closeToolPanel();
+}
+
+/**
+ * Insert date/time into annotation text
+ */
+function insertDateTime(type) {
+    const textarea = document.getElementById('annotationText');
+    const now = new Date();
+    let text = '';
+
+    if (type === 'date') {
+        text = now.toLocaleDateString('fr-FR');
+    } else if (type === 'time') {
+        text = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    } else if (type === 'datetime') {
+        text = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // Insert at cursor position or append
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentValue = textarea.value;
+
+    textarea.value = currentValue.substring(0, start) + text + currentValue.substring(end);
+    textarea.focus();
+    textarea.selectionStart = textarea.selectionEnd = start + text.length;
+}
+
+/**
+ * Save current annotation to library
+ */
+async function saveCurrentAnnotation() {
+    const text = document.getElementById('annotationText').value;
+    if (!text) {
+        showNotification('Please enter annotation text first', 'warning');
+        return;
+    }
+
+    const fontSize = parseInt(document.getElementById('annotationSize').value);
+    const colorRGB = document.getElementById('annotationColor').value;
+
+    const name = prompt('Enter a name for this annotation:', text.substring(0, 30));
+    if (!name) return;
+
+    await annotationLibrary.saveAnnotation(name, text, fontSize, colorRGB);
+    await loadSavedAnnotations();
+    showNotification('Annotation saved to library', 'success');
+}
+
+/**
+ * Load saved annotations from library
+ */
+async function loadSavedAnnotations() {
+    const annotations = await annotationLibrary.getAllAnnotations();
+    const container = document.getElementById('savedAnnotationsList');
+
+    if (!container) return;
+
+    if (annotations.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.75rem; padding: 0.5rem;">No saved annotations</div>';
+        return;
+    }
+
+    container.innerHTML = annotations.map(ann => {
+        const [r, g, b] = ann.color.split(',').map(parseFloat);
+        const hexColor = '#' + [r, g, b].map(v => {
+            const hex = Math.round(v * 255).toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
+        }).join('');
+
+        return `
+            <div class="saved-annotation-item" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: var(--white); border: 1px solid var(--border); border-radius: 6px;">
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 0.75rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${ann.name}</div>
+                    <div style="font-size: 0.625rem; color: var(--text-muted); margin-top: 0.125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${ann.text}</div>
+                    <div style="font-size: 0.625rem; color: ${hexColor}; margin-top: 0.125rem;">Size: ${ann.fontSize}px • ${annotationLibrary.formatDate(ann.timestamp)}</div>
+                </div>
+                <button class="option-btn" onclick="loadAnnotationToForm(${ann.id})" title="Load to form" style="padding: 0.25rem 0.5rem;">
+                    <i class="ti ti-download"></i>
+                </button>
+                <button class="option-btn" onclick="deleteAnnotation(${ann.id})" title="Delete" style="padding: 0.25rem 0.5rem; color: #EF4444;">
+                    <i class="ti ti-trash"></i>
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * Load annotation from library to form
+ */
+async function loadAnnotationToForm(id) {
+    const annotation = await annotationLibrary.getAnnotation(id);
+    if (!annotation) return;
+
+    document.getElementById('annotationText').value = annotation.text;
+    document.getElementById('annotationSize').value = annotation.fontSize;
+    document.getElementById('annotationColor').value = annotation.color;
+
+    // Update active color button
+    const colorBtns = document.querySelectorAll('#annotationColorPicker .color-btn');
+    colorBtns.forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.color === annotation.color) {
+            btn.classList.add('active');
+        }
+    });
+
+    showNotification('Annotation loaded', 'success');
+}
+
+/**
+ * Delete annotation from library
+ */
+async function deleteAnnotation(id) {
+    if (!confirm('Delete this annotation?')) return;
+
+    await annotationLibrary.removeAnnotation(id);
+    await loadSavedAnnotations();
+    showNotification('Annotation deleted', 'success');
 }
 
 /**

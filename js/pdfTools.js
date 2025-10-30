@@ -269,22 +269,33 @@ class PDFTools {
             const page = pdf.getPage(pageIndex);
             const pageHeight = page.getHeight();
 
+            const fontSize = options.size || 12;
+
             // Convert canvas Y coordinate (top-left origin) to PDF coordinate (bottom-left origin)
             // In canvas, Y increases downward; in PDF, Y increases upward
-            const pdfY = pageHeight - (options.y || 50);
+            // We need to subtract the text position AND the font size to align properly
+            const pdfY = pageHeight - (options.y || 50) - fontSize;
 
-            console.log(`Adding text: x=${options.x}, canvas_y=${options.y}, pdf_y=${pdfY}`);
+            console.log(`Adding text: "${text}" at x=${options.x}, canvas_y=${options.y}, pdf_y=${pdfY}, size=${fontSize}`);
+
+            // Parse color - it might be an RGB object or array
+            let r = 0, g = 0, b = 0;
+            if (Array.isArray(options.color)) {
+                [r, g, b] = options.color;
+            } else if (options.color) {
+                r = options.color.r || options.color[0] || 0;
+                g = options.color.g || options.color[1] || 0;
+                b = options.color.b || options.color[2] || 0;
+            }
+
+            console.log(`Text color: rgb(${r}, ${g}, ${b})`);
 
             // Draw text
             page.drawText(text, {
                 x: options.x || 50,
                 y: pdfY,
-                size: options.size || 12,
-                color: PDFLib.rgb(
-                    options.color?.r || 0,
-                    options.color?.g || 0,
-                    options.color?.b || 0
-                )
+                size: fontSize,
+                color: PDFLib.rgb(r, g, b)
             });
 
             const pdfBytes = await pdf.save();
