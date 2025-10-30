@@ -693,11 +693,12 @@ window.handlePageReorder = async function(fromPage, toPage) {
     }
 
     try {
-        showNotification(`Reordering pages...`, 'info', 1000);
-
-        // Reorder pages using pdfTools
-        const pdfCopy = currentPDFData.slice(0);
-        const reorderedPDF = await tools.reorderPages(pdfCopy, fromPage, toPage);
+        // Use Web Worker for reordering
+        const reorderedPDF = await workerManager.execute('reorder', {
+            pdfData: currentPDFData.slice(0),
+            fromPage: fromPage,
+            toPage: toPage
+        });
 
         // Update current PDF data
         const newArray = new Uint8Array(reorderedPDF);
@@ -1207,8 +1208,8 @@ async function executeMergeWithCurrent() {
             ? [newFileBuffer, currentPDFData.slice(0)]
             : [currentPDFData.slice(0), newFileBuffer];
 
-        // Merge the PDFs
-        const mergedPDF = await tools.mergePDFs(pdfBuffers);
+        // Use Web Worker for merging
+        const mergedPDF = await workerManager.execute('merge', { pdfs: pdfBuffers });
 
         // Create a fresh copy to avoid detachment issues
         const newArray = new Uint8Array(mergedPDF);
@@ -1433,9 +1434,12 @@ async function executeRotate(degrees) {
             return;
         }
 
-        // Create a copy to avoid detachment issues
-        const pdfCopy = currentPDFData.slice(0);
-        const rotatedPDF = await tools.rotatePDF(pdfCopy, selectedPages, degrees);
+        // Use Web Worker for rotation
+        const rotatedPDF = await workerManager.execute('rotate', {
+            pdfData: currentPDFData.slice(0),
+            pageIndices: selectedPages,
+            rotation: degrees
+        });
 
         // Create a fresh copy to avoid detachment issues
         const newArray = new Uint8Array(rotatedPDF);
@@ -1464,9 +1468,12 @@ async function handleCompress() {
 
     try {
         const originalSize = currentPDFData.byteLength;
-        // Create a copy to avoid detachment issues
-        const pdfCopy = currentPDFData.slice(0);
-        const compressedPDF = await tools.compressPDF(pdfCopy);
+
+        // Use Web Worker for compression
+        const compressedPDF = await workerManager.execute('compress', {
+            pdfData: currentPDFData.slice(0)
+        });
+
         const newSize = compressedPDF.byteLength;
 
         // Create a fresh copy to avoid detachment issues
