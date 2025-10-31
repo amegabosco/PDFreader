@@ -29,6 +29,10 @@ class PDFViewer {
         this.navPanelOpen = false;
         this.thumbnails = [];
 
+        // Rendering state for performance
+        this.isRendering = false;
+        this.pendingRender = null;
+
         // Configure PDF.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc =
             'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
@@ -68,24 +72,29 @@ class PDFViewer {
             }
         });
 
-        // Zoom controls
+        // Zoom controls with debouncing
+        let zoomDebounceTimer = null;
+        const debouncedZoom = async () => {
+            clearTimeout(zoomDebounceTimer);
+            zoomDebounceTimer = setTimeout(async () => {
+                await this.renderScrollView();
+                if (window.pendingObjects) {
+                    window.pendingObjects.syncOverlayWithCanvas();
+                }
+            }, 150); // Wait 150ms after last zoom action
+        };
+
         document.getElementById('zoomIn').addEventListener('click', async () => {
             this.scale += 0.25;
-            await this.renderScrollView();
             this.updateZoomLevel();
-            if (window.pendingObjects) {
-                window.pendingObjects.syncOverlayWithCanvas();
-            }
+            await debouncedZoom();
         });
 
         document.getElementById('zoomOut').addEventListener('click', async () => {
             if (this.scale > 0.5) {
                 this.scale -= 0.25;
-                await this.renderScrollView();
                 this.updateZoomLevel();
-                if (window.pendingObjects) {
-                    window.pendingObjects.syncOverlayWithCanvas();
-                }
+                await debouncedZoom();
             }
         });
 
@@ -533,6 +542,14 @@ class PDFViewer {
     async renderScrollView() {
         if (!this.pdfDoc) return;
 
+        // Prevent concurrent renders
+        if (this.isRendering) {
+            console.log('Render already in progress, skipping...');
+            return;
+        }
+
+        this.isRendering = true;
+
         const container = document.querySelector('.pdf-canvas-container');
 
         // Preserve the insertion overlay
@@ -594,6 +611,9 @@ class PDFViewer {
         // Setup scroll listener to update current page indicator
         this.setupScrollPageTracking();
 
+        // Mark rendering as complete
+        this.isRendering = false;
+
         console.log(`Rendered ${this.totalPages} pages in scroll view`);
     }
 
@@ -622,7 +642,12 @@ class PDFViewer {
                     const pageNum = i + 1;
                     if (this.currentPage !== pageNum) {
                         this.currentPage = pageNum;
-                        document.getElementById('currentPage').textContent = pageNum;
+
+                        // Update page input field
+                        const pageInput = document.getElementById('pageInput');
+                        if (pageInput) {
+                            pageInput.value = pageNum;
+                        }
 
                         // Update active thumbnail if navigator is open
                         if (this.navPanelOpen) {

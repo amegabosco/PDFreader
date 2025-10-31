@@ -1323,17 +1323,18 @@ body {
    =================================== */
 
 .tool-content {
-    margin-top: 1rem;
+    margin-top: 0.5rem;
 }
 
 .tool-content p {
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
     color: var(--text);
-    line-height: 1.6;
+    line-height: 1.4;
+    font-size: 0.75rem;
 }
 
 .tool-content .note {
-    font-size: 0.875rem;
+    font-size: 0.7rem;
     color: var(--disabled);
     font-style: italic;
 }
@@ -1363,10 +1364,10 @@ body {
 
 .form-group label {
     display: block;
-    font-size: 0.875rem;
+    font-size: 0.7rem;
     font-weight: 600;
     color: var(--text);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.35rem;
 }
 
 .text-input,
@@ -1398,15 +1399,15 @@ textarea.text-input {
 
 .action-btn {
     width: 100%;
-    padding: 0.875rem 1.5rem;
+    padding: 0.5rem 0.75rem;
     background-color: var(--primary);
     color: var(--white);
     border: none;
-    border-radius: 8px;
-    font-size: 0.9375rem;
+    border-radius: 5px;
+    font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1422,7 +1423,7 @@ textarea.text-input {
 }
 
 .action-btn i {
-    font-size: 1.125rem;
+    font-size: 0.85rem;
 }
 
 .button-group {
@@ -1857,15 +1858,16 @@ textarea.text-input {
 .floating-panel {
     position: fixed;
     background: var(--white);
-    border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(15, 23, 42, 0.15);
-    min-width: 240px;
-    max-width: 340px;
-    max-height: 65vh;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+    border: 1px solid var(--border);
+    min-width: 200px;
+    max-width: 280px;
+    max-height: 55vh;
     z-index: 10001;
     opacity: 0;
-    transform: scale(0.95);
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    transform: scale(0.96);
+    transition: opacity 0.15s ease, transform 0.15s ease;
     display: flex;
     flex-direction: column;
 }
@@ -1884,45 +1886,45 @@ textarea.text-input {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.5rem 0.75rem;
+    padding: 0.4rem 0.6rem;
     border-bottom: 1px solid var(--border);
     background: var(--background);
-    border-radius: 8px 8px 0 0;
+    border-radius: 6px 6px 0 0;
     cursor: move;
 }
 
 .floating-panel-title {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.35rem;
     font-weight: 600;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--text);
 }
 
 .floating-panel-title i {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: var(--primary);
 }
 
 .floating-panel-controls {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.25rem;
 }
 
 .floating-panel-btn {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: transparent;
     border: none;
-    border-radius: 6px;
+    border-radius: 4px;
     color: var(--text-muted);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
 }
 
 .floating-panel-btn:hover {
@@ -1936,14 +1938,15 @@ textarea.text-input {
 }
 
 .floating-panel-btn i {
-    font-size: 1rem;
+    font-size: 0.85rem;
 }
 
 .floating-panel-content {
-    padding: 0.75rem;
+    padding: 0.6rem;
     overflow-y: auto;
     flex: 1;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    line-height: 1.4;
 }
 
 /* Scrollbar for floating panel content */
