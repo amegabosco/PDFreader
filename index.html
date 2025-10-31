@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=1.6.7">
 </head>
 <body>
     <!-- Notification Banner -->
@@ -23,7 +23,7 @@
                 <div class="header-content">
                     <h1>PDF Tool</h1>
                     <div class="version-info">
-                        <span class="version-badge">🍫 Cacao 1.2.3</span>
+                        <span class="version-badge">🎛️ Tweakpane 1.6.7</span>
                         <span class="dev-credit">Dev par Yao</span>
                     </div>
                 </div>
@@ -138,9 +138,6 @@
                     </button>
                     <button class="control-btn tool-btn" data-tool="merge" disabled title="Combine multiple PDF files into one document">
                         <i class="ti ti-files"></i>
-                    </button>
-                    <button class="control-btn tool-btn" data-tool="compress" disabled title="Reduce PDF file size by optimizing images">
-                        <i class="ti ti-file-zip"></i>
                     </button>
 
                     <div class="toolbar-separator"></div>
@@ -286,14 +283,31 @@
     <!-- PDF-lib Library -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 
+    <!-- Disable scroll restoration -->
+    <script>
+        // Prevent browser from restoring scroll position
+        if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+        }
+
+        // Force all containers to scroll to 0 on page load
+        window.addEventListener('load', () => {
+            const pdfContainer = document.querySelector('.pdf-canvas-container');
+            if (pdfContainer) {
+                pdfContainer.scrollTop = 0;
+                console.log('🔒 [PAGE LOAD] Forced container scroll to 0');
+            }
+        });
+    </script>
+
     <!-- Custom JavaScript -->
-    <script src="js/pdfCache.js"></script>
-    <script src="js/signatureLibrary.js"></script>
-    <script src="js/annotationLibrary.js"></script>
-    <script src="js/floatingPanel.js"></script>
-    <script src="js/workerManager.js"></script>
-    <script src="js/pdfViewer.js"></script>
-    <script src="js/pdfTools.js"></script>
-    <script src="js/app.js"></script>
+    <script src="js/pdfCache.js?v=1.6.7"></script>
+    <script src="js/signatureLibrary.js?v=1.6.7"></script>
+    <script src="js/annotationLibrary.js?v=1.6.7"></script>
+    <script src="js/floatingPanel.js?v=1.6.7"></script>
+    <script src="js/workerManager.js?v=1.6.7"></script>
+    <script src="js/pdfViewer.js?v=1.6.7"></script>
+    <script src="js/pdfTools.js?v=1.6.7"></script>
+    <script src="js/app.js?v=1.6.7"></script>
 </body>
 </html>

@@ -1,29 +1,42 @@
 {
-  "version": "1.2.3",
-  "codename": "Cacao",
-  "emoji": "🍫",
+  "version": "1.6.7",
+  "codename": "Tweakpane",
+  "emoji": "🎛️",
   "releaseDate": "2025-10-31",
   "previousVersion": {
-    "version": "1.2.2",
+    "version": "1.5.0",
     "codename": "Cacao",
     "emoji": "🍫",
     "releaseDate": "2025-10-31"
   },
   "changelog": {
-    "major": [],
-    "minor": [],
+    "major": [
+      "COMPLETE REDESIGN: Tweakpane-inspired UI aesthetic",
+      "Inline horizontal form layouts (label: value style)",
+      "Professional tool aesthetic with technical feel"
+    ],
+    "minor": [
+      "Panels: Light gray theme (#fafafa bg, #d4d4d4 borders)",
+      "Form groups: Inline flex layout with 90px label column",
+      "Inputs: Borderless with hover/focus states",
+      "Buttons: Flat design with 32px height, no rounded corners",
+      "Color picker: Inline swatch layout with blue active state",
+      "Page selection: List-style with borders between items",
+      "Typography: 10-11px, uppercase headers, 500 weight"
+    ],
     "patches": [
-      "CRITICAL: Definitively fixed documents opening at page 10",
-      "Added initialLoad flag to block scroll tracking during render",
-      "500ms delay before activating scroll tracking",
-      "Enhanced logging for debugging page detection"
+      "Removed all border-radius (2px max)",
+      "Flat shadows and transitions (0.1s)",
+      "Blue accent color #4a90e2 throughout",
+      "Dense spacing with 8-10px padding",
+      "6px scrollbar with gray track"
     ]
   },
   "stats": {
-    "totalCommits": 55,
+    "totalCommits": 62,
     "totalFeatures": 21,
-    "filesChanged": 12,
-    "linesAdded": 847,
-    "linesRemoved": 3821
+    "filesChanged": 1,
+    "linesAdded": 120,
+    "linesRemoved": 85
   }
 }

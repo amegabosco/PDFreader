@@ -1025,7 +1025,7 @@ body {
     flex: 1;
     overflow: auto;
     display: flex;
-    align-items: center;
+    align-items: flex-start; /* Changed from center to fix scroll view */
     justify-content: center;
     padding: 2rem;
     background-color: var(--background);
@@ -1355,187 +1355,292 @@ body {
 }
 
 /* ===================================
-   Form Elements
+   Form Elements - TWEAKPANE INLINE STYLE
    =================================== */
 
 .form-group {
-    margin-bottom: 1.5rem;
+    margin: 0;
+    padding: 0;
+    border-bottom: 1px solid #e8e8e8;
+    background: #fafafa;
+    display: flex;
+    align-items: stretch;
+    min-height: 32px;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.form-group:last-child {
+    border-bottom: none;
 }
 
 .form-group label {
-    display: block;
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: var(--text);
-    margin-bottom: 0.35rem;
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 500;
+    color: #555;
+    padding: 8px 10px;
+    width: 70px;
+    min-width: 70px;
+    flex-shrink: 0;
+    background: #f5f5f5;
+    border-right: 1px solid #e8e8e8;
+    margin: 0;
+    text-transform: none;
+    letter-spacing: 0;
+    word-wrap: break-word;
+}
+
+.form-group > div {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
 }
 
 .text-input,
 .file-input {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font-size: 0.9375rem;
-    color: var(--text);
-    background-color: var(--white);
-    transition: border-color 0.2s ease;
+    flex: 1;
+    padding: 0 10px;
+    border: none;
+    border-radius: 0;
+    font-size: 11px;
+    color: #333;
+    background-color: transparent;
+    transition: background-color 0.1s ease;
+    font-family: inherit;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.text-input:hover {
+    background-color: rgba(0, 0, 0, 0.02);
 }
 
 .text-input:focus,
 .file-input:focus {
     outline: none;
-    border-color: var(--primary);
+    background-color: #fff;
+    box-shadow: inset 0 0 0 1px #4a90e2;
 }
 
 textarea.text-input {
     resize: vertical;
     font-family: inherit;
+    min-height: 64px;
+    max-height: 120px;
+    height: auto;
+    padding: 8px 10px;
+    width: 100%;
+    box-sizing: border-box;
+    overflow-y: auto;
+    overflow-x: hidden;
+    word-wrap: break-word;
+}
+
+/* Special handling for textarea in form-group */
+.form-group:has(textarea) {
+    flex-direction: column;
+    align-items: stretch;
+    min-height: auto;
+}
+
+.form-group:has(textarea) label {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #e8e8e8;
+}
+
+.form-group:has(textarea) > div {
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 /* ===================================
-   Buttons
+   Buttons - TWEAKPANE STYLE
    =================================== */
 
 .action-btn {
     width: 100%;
-    padding: 0.5rem 0.75rem;
-    background-color: var(--primary);
-    color: var(--white);
+    padding: 0;
+    height: 32px;
+    background-color: #4a90e2;
+    color: #fff;
     border: none;
-    border-radius: 5px;
-    font-size: 0.75rem;
-    font-weight: 600;
+    border-radius: 0;
+    font-size: 11px;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: background-color 0.1s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    margin-top: 1.5rem;
-    box-shadow: 0 2px 8px var(--shadow);
+    gap: 6px;
+    margin: 0;
+    box-shadow: none;
+    border-top: 1px solid #e8e8e8;
 }
 
 .action-btn:hover {
-    background-color: var(--primary-hover);
-    box-shadow: 0 4px 12px var(--shadow);
-    transform: translateY(-1px);
+    background-color: #357abd;
+}
+
+.action-btn:active {
+    background-color: #2a5d8f;
 }
 
 .action-btn i {
-    font-size: 0.85rem;
+    font-size: 11px;
 }
 
 .button-group {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    border-bottom: 1px solid #e8e8e8;
+    background: #fafafa;
 }
 
 .option-btn {
-    padding: 0.75rem 1rem;
-    background-color: var(--background);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font-size: 0.875rem;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 6px 8px;
+    background-color: #fff;
+    color: #555;
+    border: none;
+    border-right: 1px solid #e8e8e8;
+    border-radius: 0;
+    font-size: 10px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.1s ease;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 0.25rem;
+    justify-content: center;
+    gap: 3px;
+    height: 28px;
+    white-space: nowrap;
+}
+
+.option-btn:last-child {
+    border-right: none;
 }
 
 .option-btn:hover {
-    background-color: var(--primary);
-    color: var(--white);
-    border-color: var(--primary);
-    box-shadow: 0 2px 8px var(--shadow);
-    transform: translateY(-1px);
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+.option-btn.active,
+.option-btn:active {
+    background-color: #4a90e2;
+    color: #fff;
 }
 
 .option-btn i {
-    font-size: 1.25rem;
+    font-size: 11px;
+}
+
+/* Compact button text */
+.option-btn span {
+    display: inline;
+    font-size: 10px;
 }
 
 /* ===================================
-   Color Picker
+   Color Picker - TWEAKPANE INLINE STYLE
    =================================== */
 
 .color-picker {
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    gap: 0.5rem;
-    padding: 0.5rem;
-    background-color: var(--background);
-    border-radius: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px 10px;
+    background-color: transparent;
+    border-radius: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .color-btn {
-    width: 32px;
-    height: 32px;
-    border: 2px solid var(--border);
-    border-radius: 6px;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #fff;
+    border-radius: 2px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.1s ease;
     padding: 0;
     background-clip: padding-box;
+    box-shadow: 0 0 0 1px #d0d0d0;
 }
 
 .color-btn:hover {
-    transform: scale(1.1);
-    box-shadow: 0 2px 8px var(--shadow);
+    transform: scale(1.15);
+    box-shadow: 0 0 0 2px #4a90e2;
 }
 
 .color-btn.active {
-    border-color: var(--primary);
-    border-width: 3px;
-    box-shadow: 0 0 0 2px var(--white), 0 0 0 4px var(--primary);
+    border-color: #fff;
+    border-width: 2px;
+    box-shadow: 0 0 0 2px #4a90e2, 0 2px 4px rgba(0, 0, 0, 0.2);
+    transform: scale(1.1);
 }
 
 /* ===================================
-   Page Selection Grid
+   Page Selection Grid - TWEAKPANE STYLE
    =================================== */
 
 .page-selection-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0.5rem;
-    max-height: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-height: 180px;
     overflow-y: auto;
-    padding: 0.5rem;
-    background-color: var(--background);
-    border-radius: 8px;
-    border: 1px solid var(--border);
+    padding: 0;
+    background-color: #fafafa;
+    border-radius: 0;
+    border: none;
+    border-top: 1px solid #e8e8e8;
 }
 
 .page-checkbox {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem;
-    background-color: var(--white);
-    border-radius: 6px;
+    gap: 8px;
+    padding: 6px 10px;
+    background-color: transparent;
+    border-bottom: 1px solid #e8e8e8;
+    border-radius: 0;
     cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 0.875rem;
+    transition: all 0.1s ease;
+    font-size: 10px;
+    min-height: 28px;
+}
+
+.page-checkbox:last-child {
+    border-bottom: none;
 }
 
 .page-checkbox:hover {
-    background-color: var(--background-darker);
+    background-color: #f5f5f5;
 }
 
 .page-checkbox input[type="checkbox"] {
     cursor: pointer;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    accent-color: #4a90e2;
 }
 
 .page-checkbox input[type="checkbox"]:checked + span {
-    font-weight: 600;
-    color: var(--primary);
+    font-weight: 500;
+    color: #333;
 }
 
 /* ===================================
@@ -1852,24 +1957,26 @@ textarea.text-input {
 }
 
 /* ===================================
-   Floating Panels
+   Floating Panels - TWEAKPANE INSPIRED REDESIGN
    =================================== */
 
 .floating-panel {
     position: fixed;
-    background: var(--white);
-    border-radius: 6px;
-    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
-    border: 1px solid var(--border);
-    min-width: 200px;
-    max-width: 280px;
-    max-height: 55vh;
+    background: #fafafa;
+    border-radius: 2px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid #d4d4d4;
+    min-width: 360px;
+    max-width: 410px;
+    max-height: 90vh;
     z-index: 10001;
     opacity: 0;
-    transform: scale(0.96);
-    transition: opacity 0.15s ease, transform 0.15s ease;
+    transform: scale(0.98);
+    transition: opacity 0.12s ease, transform 0.12s ease;
     display: flex;
     flex-direction: column;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+    font-size: 11px;
 }
 
 .floating-panel.show {
@@ -1886,67 +1993,79 @@ textarea.text-input {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.4rem 0.6rem;
-    border-bottom: 1px solid var(--border);
-    background: var(--background);
-    border-radius: 6px 6px 0 0;
+    padding: 6px 8px;
+    border-bottom: 1px solid #e0e0e0;
+    background: #f0f0f0;
+    border-radius: 2px 2px 0 0;
     cursor: move;
+    min-height: 28px;
 }
 
 .floating-panel-title {
     display: flex;
     align-items: center;
-    gap: 0.35rem;
-    font-weight: 600;
-    font-size: 0.75rem;
-    color: var(--text);
+    gap: 6px;
+    font-weight: 500;
+    font-size: 11px;
+    color: #333;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
 }
 
 .floating-panel-title i {
-    font-size: 0.85rem;
-    color: var(--primary);
+    font-size: 12px;
+    color: #666;
 }
 
 .floating-panel-controls {
     display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 2px;
 }
 
 .floating-panel-btn {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: transparent;
     border: none;
-    border-radius: 4px;
-    color: var(--text-muted);
+    border-radius: 1px;
+    color: #999;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all 0.1s ease;
 }
 
 .floating-panel-btn:hover {
-    background: var(--white);
-    color: var(--text);
+    background: #e5e5e5;
+    color: #333;
 }
 
 .floating-panel-btn.close-btn:hover {
-    background: #EF4444;
+    background: #e74c3c;
     color: white;
 }
 
 .floating-panel-btn i {
-    font-size: 0.85rem;
+    font-size: 11px;
 }
 
 .floating-panel-content {
-    padding: 0.6rem;
+    padding: 0;
     overflow-y: auto;
+    overflow-x: hidden;
     flex: 1;
-    font-size: 0.75rem;
+    font-size: 11px;
     line-height: 1.4;
+    background: #fafafa;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.floating-panel-content > * {
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* Scrollbar for floating panel content */
@@ -1955,16 +2074,16 @@ textarea.text-input {
 }
 
 .floating-panel-content::-webkit-scrollbar-track {
-    background: transparent;
+    background: #f0f0f0;
 }
 
 .floating-panel-content::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 3px;
+    background: #c0c0c0;
+    border-radius: 0;
 }
 
 .floating-panel-content::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted);
+    background: #a0a0a0;
 }
 
 

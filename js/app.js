@@ -133,15 +133,18 @@ class PendingObjectsManager {
         let resizeCorner = null;
 
         element.addEventListener('mousedown', (e) => {
+            // Always save initial bounds and position
+            startBounds = { ...obj.bounds };
+            startPos = { x: e.clientX, y: e.clientY };
+
             if (e.target.classList.contains('resize-handle')) {
                 isResizing = true;
                 resizeCorner = e.target.dataset.corner;
-                startBounds = { ...obj.bounds };
             } else if (!e.target.classList.contains('text-content') && !e.target.classList.contains('delete-btn')) {
                 isDragging = true;
+                element.style.cursor = 'move';
             }
 
-            startPos = { x: e.clientX, y: e.clientY };
             e.stopPropagation();
         });
 
@@ -152,10 +155,9 @@ class PendingObjectsManager {
             const deltaY = e.clientY - startPos.y;
 
             if (isDragging) {
-                obj.bounds.x = Math.max(0, startBounds ? startBounds.x + deltaX : obj.bounds.x + deltaX);
-                obj.bounds.y = Math.max(0, startBounds ? startBounds.y + deltaY : obj.bounds.y + deltaY);
-
-                if (!startBounds) startBounds = { ...obj.bounds };
+                // Calculate new position from start bounds
+                obj.bounds.x = Math.max(0, startBounds.x + deltaX);
+                obj.bounds.y = Math.max(0, startBounds.y + deltaY);
 
                 element.style.left = obj.bounds.x + 'px';
                 element.style.top = obj.bounds.y + 'px';
@@ -165,6 +167,9 @@ class PendingObjectsManager {
         });
 
         document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                element.style.cursor = '';
+            }
             isDragging = false;
             isResizing = false;
             startBounds = null;
@@ -484,6 +489,7 @@ class PendingObjectsManager {
             // Find which page canvas contains these coordinates
             const container = document.querySelector('.pdf-canvas-container');
             const containerRect = container.getBoundingClientRect();
+            const absoluteX = e.clientX;
             const absoluteY = e.clientY;
 
             for (let i = 0; i < viewer.allPageCanvases.length; i++) {
@@ -492,8 +498,20 @@ class PendingObjectsManager {
 
                 if (absoluteY >= canvasRect.top && absoluteY <= canvasRect.bottom) {
                     targetPage = i + 1;
+
                     // Adjust bounds to be relative to this specific canvas
-                    bounds.y = top - (canvasRect.top - containerRect.top) + container.scrollTop;
+                    // Convert from overlay coordinates to canvas-relative coordinates
+                    const overlayRect = this.overlay.getBoundingClientRect();
+                    bounds.x = left - (canvasRect.left - overlayRect.left);
+                    bounds.y = top - (canvasRect.top - overlayRect.top);
+
+                    console.log('📍 Page detection:', {
+                        targetPage,
+                        originalBounds: { x: left, y: top, width, height },
+                        adjustedBounds: bounds,
+                        canvasTop: canvasRect.top,
+                        overlayTop: overlayRect.top
+                    });
                     break;
                 }
             }
@@ -2239,18 +2257,21 @@ function showAnnotatePanel() {
         <div class="tool-content">
             <div class="form-group">
                 <label>Text:</label>
-                <textarea id="annotationText" rows="3" class="text-input" placeholder="Enter text..."></textarea>
-                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                    <button class="option-btn" onclick="insertDateTime('date')" title="Insert current date">
-                        <i class="ti ti-calendar"></i> Date
-                    </button>
-                    <button class="option-btn" onclick="insertDateTime('time')" title="Insert current time">
-                        <i class="ti ti-clock"></i> Time
-                    </button>
-                    <button class="option-btn" onclick="insertDateTime('datetime')" title="Insert date and time">
-                        <i class="ti ti-calendar-time"></i> Both
-                    </button>
+                <div style="flex: 1;">
+                    <textarea id="annotationText" rows="3" class="text-input" placeholder="Enter text..."></textarea>
                 </div>
+            </div>
+
+            <div class="button-group">
+                <button class="option-btn" onclick="insertDateTime('date')" title="Insert current date">
+                    <i class="ti ti-calendar"></i> Date
+                </button>
+                <button class="option-btn" onclick="insertDateTime('time')" title="Insert current time">
+                    <i class="ti ti-clock"></i> Time
+                </button>
+                <button class="option-btn" onclick="insertDateTime('datetime')" title="Insert date and time">
+                    <i class="ti ti-calendar-time"></i> Both
+                </button>
             </div>
 
             <div class="form-group">
@@ -2262,25 +2283,16 @@ function showAnnotatePanel() {
                 <label>Color:</label>
                 <div class="color-picker" id="annotationColorPicker">
                     <button class="color-btn" data-color="0,0,0" style="background: #000000;" title="Black"></button>
-                    <button class="color-btn" data-color="1,0,0" style="background: #FF0000;" title="Red"></button>
                     <button class="color-btn active" data-color="0,0,1" style="background: #0000FF;" title="Blue"></button>
+                    <button class="color-btn" data-color="1,0,0" style="background: #FF0000;" title="Red"></button>
                     <button class="color-btn" data-color="0,0.5,0" style="background: #008000;" title="Green"></button>
-                    <button class="color-btn" data-color="1,0.65,0" style="background: #FFA500;" title="Orange"></button>
-                    <button class="color-btn" data-color="0.5,0,0.5" style="background: #800080;" title="Purple"></button>
-                    <button class="color-btn" data-color="1,0.75,0.8" style="background: #FFBFCC;" title="Pink"></button>
-                    <button class="color-btn" data-color="0.6,0.4,0.2" style="background: #996633;" title="Brown"></button>
                 </div>
                 <input type="hidden" id="annotationColor" value="0,0,1">
             </div>
 
-            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-                <button class="action-btn" onclick="addTextAnnotationToPage()" style="flex: 1;">
-                    <i class="ti ti-check"></i> Add to Page
-                </button>
-                <button class="option-btn" onclick="saveCurrentAnnotation()" title="Save to library">
-                    <i class="ti ti-device-floppy"></i>
-                </button>
-            </div>
+            <button class="action-btn" onclick="addTextAnnotationToPage()">
+                <i class="ti ti-check"></i> Add to Page
+            </button>
 
             <div class="form-group">
                 <label>Saved Annotations:</label>
@@ -2345,7 +2357,8 @@ async function addTextAnnotationToPage() {
     });
 
     showNotification('Draw a box on the PDF to place your text', 'info');
-    closeToolPanel();
+    // Don't close panel - let user see it while drawing
+    // closeToolPanel();
 }
 
 /**
@@ -2535,31 +2548,36 @@ function showSignPanel() {
         </button>
         <h3><i class="ti ti-signature"></i> Add Signature</h3>
         <div class="tool-content">
-            <div class="form-group">
-                <label>Saved Signatures:</label>
-                <div id="savedSignaturesList" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 150px; overflow-y: auto; margin-bottom: 1rem;">
-                    <div style="text-align: center; color: var(--text-muted); font-size: 0.75rem; padding: 1rem;">
+            <!-- Saved Signatures Section -->
+            <div style="border-bottom: 1px solid #e8e8e8; padding: 8px 10px; background: #f5f5f5;">
+                <div style="font-size: 10px; font-weight: 500; color: #555; margin-bottom: 8px;">Saved Signatures:</div>
+                <div id="savedSignaturesList" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 150px; overflow-y: auto; background: #fafafa; padding: 8px; border-radius: 2px;">
+                    <div style="text-align: center; color: #999; font-size: 10px; padding: 1rem;">
                         Loading signatures...
                     </div>
                 </div>
             </div>
 
-            <div class="form-group">
-                <label>Draw Signature:</label>
-                <canvas id="signatureCanvas" width="360" height="150" style="border: 1px solid var(--border); border-radius: 8px; cursor: crosshair; background: white;"></canvas>
-                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
-                    <button class="option-btn" onclick="clearSignature()" style="flex: 1;">
-                        <i class="ti ti-eraser"></i> Clear
-                    </button>
-                    <button class="option-btn" onclick="saveCurrentSignature()" style="flex: 1;">
-                        <i class="ti ti-device-floppy"></i> Save
-                    </button>
-                    <button class="option-btn" onclick="addSignatureToPage()" style="flex: 1;">
-                        <i class="ti ti-check"></i> Add to Page
-                    </button>
-                </div>
+            <!-- Canvas Section -->
+            <div style="border-bottom: 1px solid #e8e8e8; padding: 8px 10px; background: #fafafa;">
+                <div style="font-size: 10px; font-weight: 500; color: #555; margin-bottom: 8px;">Draw Signature:</div>
+                <canvas id="signatureCanvas" width="350" height="160" style="border: 1px solid #e8e8e8; border-radius: 2px; cursor: crosshair; background: white; width: 100%; max-width: 350px; height: 160px;"></canvas>
             </div>
 
+            <!-- Action Buttons -->
+            <div class="button-group">
+                <button class="option-btn" onclick="clearSignature()">
+                    <i class="ti ti-eraser"></i> Clear
+                </button>
+                <button class="option-btn" onclick="saveCurrentSignature()">
+                    <i class="ti ti-device-floppy"></i> Save
+                </button>
+                <button class="option-btn" onclick="addSignatureToPage()">
+                    <i class="ti ti-check"></i> Add
+                </button>
+            </div>
+
+            <!-- Pen Color -->
             <div class="form-group">
                 <label>Pen Color:</label>
                 <div class="color-picker" id="signatureColorPicker">
@@ -2567,25 +2585,24 @@ function showSignPanel() {
                     <button class="color-btn active" data-color="#0000FF" style="background: #0000FF;" title="Blue"></button>
                     <button class="color-btn" data-color="#FF0000" style="background: #FF0000;" title="Red"></button>
                     <button class="color-btn" data-color="#008000" style="background: #008000;" title="Green"></button>
-                    <button class="color-btn" data-color="#FFA500" style="background: #FFA500;" title="Orange"></button>
-                    <button class="color-btn" data-color="#800080" style="background: #800080;" title="Purple"></button>
-                    <button class="color-btn" data-color="#FFBFCC" style="background: #FFBFCC;" title="Pink"></button>
-                    <button class="color-btn" data-color="#996633" style="background: #996633;" title="Brown"></button>
                 </div>
                 <input type="hidden" id="signatureColor" value="#0000FF">
             </div>
 
-            <div class="info-box" style="background: var(--background); padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-                <p style="font-size: 0.875rem; color: var(--text-muted); margin: 0;">
-                    <i class="ti ti-info-circle"></i> Draw your signature, save it to library, then click "Add to Page" to place it on the PDF.
-                </p>
+            <!-- Info Box -->
+            <div style="background: #f5f5f5; padding: 8px 10px; border-top: 1px solid #e8e8e8; font-size: 10px; color: #666;">
+                <i class="ti ti-info-circle"></i> Draw your signature, save it to library, then click "Add" to place it on the PDF.
             </div>
         </div>
     `;
 
     showToolPanel(panel);
-    initSignatureCanvas();
-    loadSavedSignatures();
+
+    // Initialize canvas and load signatures after DOM is ready
+    setTimeout(() => {
+        initSignatureCanvas();
+        loadSavedSignatures();
+    }, 0);
 }
 
 // State for signature positioning
@@ -2953,17 +2970,26 @@ async function addSignatureToPage() {
  * Load saved signatures from library
  */
 async function loadSavedSignatures() {
+    console.log('🔵 loadSavedSignatures called');
     try {
-        const signatures = await signatureLibrary.getAllSignatures();
         const container = document.getElementById('savedSignaturesList');
+        console.log('🔵 Container found:', container);
 
-        if (!container) return;
+        if (!container) {
+            console.error('❌ savedSignaturesList container not found!');
+            return;
+        }
+
+        const signatures = await signatureLibrary.getAllSignatures();
+        console.log('🔵 Signatures loaded:', signatures.length);
 
         if (signatures.length === 0) {
+            console.log('🔵 No signatures, showing empty state');
             container.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.75rem; padding: 0.5rem;">No saved signatures</div>';
             return;
         }
 
+        console.log('🔵 Rendering', signatures.length, 'signatures');
         container.innerHTML = signatures.map(sig => `
             <div class="saved-signature-item" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: var(--white); border: 1px solid var(--border); border-radius: 6px;">
                 <img src="${sig.dataUrl}" style="height: 40px; border: 1px solid var(--border); border-radius: 4px; background: white; flex-shrink: 0;" alt="${sig.name}">
@@ -2979,8 +3005,13 @@ async function loadSavedSignatures() {
                 </button>
             </div>
         `).join('');
+        console.log('✅ Signatures rendered successfully');
     } catch (error) {
-        console.error('Error loading signatures:', error);
+        console.error('❌ Error loading signatures:', error);
+        const container = document.getElementById('savedSignaturesList');
+        if (container) {
+            container.innerHTML = '<div style="text-align: center; color: #EF4444; font-size: 0.75rem; padding: 0.5rem;">Error loading signatures</div>';
+        }
     }
 }
 
