@@ -955,6 +955,43 @@ body {
     white-space: nowrap;
 }
 
+.page-input-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text);
+}
+
+#pageInput {
+    width: 50px;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    text-align: center;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text);
+    background: var(--white);
+    transition: border-color 0.2s ease;
+}
+
+#pageInput:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+#pageInput::-webkit-inner-spin-button,
+#pageInput::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.page-separator {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
 .navigation-controls {
     display: flex;
     align-items: center;
@@ -1820,11 +1857,11 @@ textarea.text-input {
 .floating-panel {
     position: fixed;
     background: var(--white);
-    border-radius: 12px;
-    box-shadow: 0 12px 48px rgba(15, 23, 42, 0.2);
-    min-width: 320px;
-    max-width: 600px;
-    max-height: 80vh;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(15, 23, 42, 0.15);
+    min-width: 280px;
+    max-width: 420px;
+    max-height: 70vh;
     z-index: 10001;
     opacity: 0;
     transform: scale(0.95);
@@ -1847,24 +1884,24 @@ textarea.text-input {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1rem 1.5rem;
+    padding: 0.75rem 1rem;
     border-bottom: 1px solid var(--border);
     background: var(--background);
-    border-radius: 12px 12px 0 0;
+    border-radius: 8px 8px 0 0;
     cursor: move;
 }
 
 .floating-panel-title {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
     font-weight: 600;
-    font-size: 1rem;
+    font-size: 0.875rem;
     color: var(--text);
 }
 
 .floating-panel-title i {
-    font-size: 1.25rem;
+    font-size: 1rem;
     color: var(--primary);
 }
 
@@ -1903,9 +1940,10 @@ textarea.text-input {
 }
 
 .floating-panel-content {
-    padding: 1.5rem;
+    padding: 1rem;
     overflow-y: auto;
     flex: 1;
+    font-size: 0.875rem;
 }
 
 /* Scrollbar for floating panel content */

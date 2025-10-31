@@ -21,8 +21,8 @@ class PDFViewer {
         this.scrollLeft = 0;
         this.scrollTop = 0;
 
-        // View mode state
-        this.viewMode = 'single'; // 'single' or 'scroll'
+        // View mode state - always start in scroll mode
+        this.viewMode = 'scroll'; // 'scroll' only (single page removed)
         this.allPageCanvases = [];
 
         // Navigator panel state
@@ -41,29 +41,38 @@ class PDFViewer {
      * Initialize viewer controls
      */
     initializeControls() {
+        // Navigation buttons
         document.getElementById('prevPage').addEventListener('click', () => {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.renderPage(this.currentPage);
-            }
+            this.goToPreviousPage();
         });
 
         document.getElementById('nextPage').addEventListener('click', () => {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.renderPage(this.currentPage);
+            this.goToNextPage();
+        });
+
+        // Page input field
+        const pageInput = document.getElementById('pageInput');
+        pageInput.addEventListener('change', (e) => {
+            const pageNum = parseInt(e.target.value);
+            if (pageNum >= 1 && pageNum <= this.totalPages) {
+                this.goToPage(pageNum);
+            } else {
+                // Reset to current page if invalid
+                pageInput.value = this.currentPage;
             }
         });
 
+        pageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                pageInput.blur(); // Trigger change event
+            }
+        });
+
+        // Zoom controls
         document.getElementById('zoomIn').addEventListener('click', async () => {
             this.scale += 0.25;
-            if (this.viewMode === 'single') {
-                await this.renderPage(this.currentPage);
-            } else {
-                await this.renderScrollView();
-            }
+            await this.renderScrollView();
             this.updateZoomLevel();
-            // Sync overlay after zoom change
             if (window.pendingObjects) {
                 window.pendingObjects.syncOverlayWithCanvas();
             }
@@ -72,13 +81,8 @@ class PDFViewer {
         document.getElementById('zoomOut').addEventListener('click', async () => {
             if (this.scale > 0.5) {
                 this.scale -= 0.25;
-                if (this.viewMode === 'single') {
-                    await this.renderPage(this.currentPage);
-                } else {
-                    await this.renderScrollView();
-                }
+                await this.renderScrollView();
                 this.updateZoomLevel();
-                // Sync overlay after zoom change
                 if (window.pendingObjects) {
                     window.pendingObjects.syncOverlayWithCanvas();
                 }
@@ -88,18 +92,6 @@ class PDFViewer {
         document.getElementById('zoomFit').addEventListener('click', () => {
             this.zoomToFit();
         });
-
-        // View mode controls
-        document.getElementById('singlePageView').addEventListener('click', () => {
-            this.setViewMode('single');
-        });
-
-        document.getElementById('scrollView').addEventListener('click', () => {
-            this.setViewMode('scroll');
-        });
-
-        // Mouse wheel navigation in single page view
-        this.initializeWheelNavigation();
 
     }
 
@@ -926,19 +918,39 @@ class PDFViewer {
 
         this.currentPage = pageNum;
 
-        if (this.viewMode === 'single') {
-            await this.renderPage(pageNum);
-        } else {
-            // In scroll mode, scroll to the page
-            if (this.allPageCanvases[pageNum - 1]) {
-                const targetCanvas = this.allPageCanvases[pageNum - 1];
-                const targetWrapper = targetCanvas.parentElement;
-                targetWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
+        // Update page input field
+        const pageInput = document.getElementById('pageInput');
+        if (pageInput) {
+            pageInput.value = pageNum;
+        }
+
+        // In scroll mode, scroll to the page
+        if (this.allPageCanvases[pageNum - 1]) {
+            const targetCanvas = this.allPageCanvases[pageNum - 1];
+            const targetWrapper = targetCanvas.parentElement;
+            targetWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         // Update active thumbnail
         this.updateActiveThumbnail(pageNum);
+    }
+
+    /**
+     * Go to previous page
+     */
+    goToPreviousPage() {
+        if (this.currentPage > 1) {
+            this.goToPage(this.currentPage - 1);
+        }
+    }
+
+    /**
+     * Go to next page
+     */
+    goToNextPage() {
+        if (this.currentPage < this.totalPages) {
+            this.goToPage(this.currentPage + 1);
+        }
     }
 
     /**

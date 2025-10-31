@@ -86,11 +86,15 @@
 
                 <div class="viewer-controls">
                     <!-- Navigation Controls -->
-                    <button id="prevPage" class="control-btn" title="Go to previous page">
+                    <button id="prevPage" class="control-btn" title="Go to previous page (←)">
                         <i class="ti ti-chevron-left"></i>
                     </button>
-                    <span id="pageInfo">Page <span id="currentPage">1</span> of <span id="totalPages">1</span></span>
-                    <button id="nextPage" class="control-btn" title="Go to next page">
+                    <div class="page-input-group">
+                        <input type="number" id="pageInput" min="1" value="1" title="Go to page">
+                        <span class="page-separator">/</span>
+                        <span id="totalPages">1</span>
+                    </div>
+                    <button id="nextPage" class="control-btn" title="Go to next page (→)">
                         <i class="ti ti-chevron-right"></i>
                     </button>
 
@@ -98,27 +102,15 @@
 
                     <!-- Zoom Controls -->
                     <div class="zoom-controls">
-                        <button id="zoomOut" class="control-btn" title="Zoom out">
+                        <button id="zoomOut" class="control-btn" title="Zoom out (-)">
                             <i class="ti ti-zoom-out"></i>
                         </button>
                         <span id="zoomLevel">100%</span>
-                        <button id="zoomIn" class="control-btn" title="Zoom in">
+                        <button id="zoomIn" class="control-btn" title="Zoom in (+)">
                             <i class="ti ti-zoom-in"></i>
                         </button>
                         <button id="zoomFit" class="control-btn" title="Fit page to window">
                             <i class="ti ti-arrows-maximize"></i>
-                        </button>
-                    </div>
-
-                    <div class="toolbar-separator"></div>
-
-                    <!-- View Mode Controls -->
-                    <div class="view-mode-controls">
-                        <button id="singlePageView" class="control-btn active" title="Single Page View">
-                            <i class="ti ti-square"></i>
-                        </button>
-                        <button id="scrollView" class="control-btn" title="Continuous Scroll View">
-                            <i class="ti ti-list"></i>
                         </button>
                     </div>
 
