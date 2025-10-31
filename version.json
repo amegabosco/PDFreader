@@ -1,10 +1,10 @@
 {
-  "version": "1.1.1",
+  "version": "1.1.2",
   "codename": "Cacao",
   "emoji": "🍫",
   "releaseDate": "2025-10-31",
   "previousVersion": {
-    "version": "1.1.0",
+    "version": "1.1.1",
     "codename": "Cacao",
     "emoji": "🍫",
     "releaseDate": "2025-10-31"
@@ -13,10 +13,11 @@
     "major": [],
     "minor": [],
     "patches": [
-      "Fixed insertion buttons (annotate, sign, image) being disabled",
-      "Scroll view now default on PDF load",
-      "Search highlighting now works in scroll view mode",
-      "Search highlights on all visible pages simultaneously"
+      "Floating panels now 30% smaller (240-340px)",
+      "Panel stays open during entire insertion workflow",
+      "Insertion tools work properly in scroll view mode",
+      "Automatic page detection for insertions",
+      "Fixed coordinate conversion for multi-page scroll view"
     ]
   },
   "stats": {
