@@ -636,6 +636,7 @@ class PDFViewer {
 
         // IMPORTANT: Scroll to top BEFORE setting up tracking to prevent wrong page detection
         container.scrollTop = 0;
+        console.log('✓ Scroll position set to:', container.scrollTop);
 
         // Force page 1 as current page
         this.currentPage = 1;
@@ -643,6 +644,7 @@ class PDFViewer {
         if (pageInput) {
             pageInput.value = 1;
         }
+        console.log('✓ Current page forced to 1, input value:', pageInput ? pageInput.value : 'N/A');
 
         // Now setup scroll listener to update current page indicator
         this.setupScrollPageTracking();

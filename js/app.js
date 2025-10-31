@@ -895,26 +895,16 @@ async function switchToDocument(docId) {
     editHistory = [...doc.editHistory];
     originalFileSize = doc.originalSize;
 
-    // Load into viewer
+    // Set scale BEFORE loading (if different)
+    if (doc.viewerState && doc.viewerState.scale) {
+        viewer.scale = doc.viewerState.scale;
+    }
+
+    // Load into viewer (this handles everything: render, scroll to top, page tracking)
     await viewer.loadPDF(currentPDFData.slice(0));
 
-    // Restore viewer scale (but always start at page 1)
-    if (doc.viewerState && doc.viewerState.scale !== viewer.scale) {
-        viewer.scale = doc.viewerState.scale;
-        viewer.updateZoomLevel();
-        await viewer.renderScrollView();
-    }
-
-    // Always scroll to top (first page) on document load
-    const container = document.querySelector('.pdf-canvas-container');
-    if (container) {
-        container.scrollTop = 0;
-    }
-    viewer.currentPage = 1;
-    const pageInput = document.getElementById('pageInput');
-    if (pageInput) {
-        pageInput.value = 1;
-    }
+    // Update zoom display
+    viewer.updateZoomLevel();
 
     // Update UI
     updateTabsUI();
