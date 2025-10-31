@@ -1,23 +1,27 @@
 {
-  "version": "1.1.2",
+  "version": "1.2.0",
   "codename": "Cacao",
   "emoji": "🍫",
   "releaseDate": "2025-10-31",
   "previousVersion": {
-    "version": "1.1.1",
+    "version": "1.1.2",
     "codename": "Cacao",
     "emoji": "🍫",
     "releaseDate": "2025-10-31"
   },
   "changelog": {
-    "major": [],
-    "minor": [],
+    "major": [
+      "Complete floating panel redesign - ultra-compact (200-280px)"
+    ],
+    "minor": [
+      "Real-time page number updates during scroll",
+      "Debounced zoom for smooth performance"
+    ],
     "patches": [
-      "Floating panels now 30% smaller (240-340px)",
-      "Panel stays open during entire insertion workflow",
-      "Insertion tools work properly in scroll view mode",
-      "Automatic page detection for insertions",
-      "Fixed coordinate conversion for multi-page scroll view"
+      "Concurrent render protection",
+      "Faster animations (150ms)",
+      "Lighter shadows and borders",
+      "All UI elements 25-30% more compact"
     ]
   },
   "stats": {
