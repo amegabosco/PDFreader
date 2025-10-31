@@ -98,6 +98,9 @@ class PDFViewer {
             this.setViewMode('scroll');
         });
 
+        // Mouse wheel navigation in single page view
+        this.initializeWheelNavigation();
+
     }
 
     /**
@@ -175,6 +178,65 @@ class PDFViewer {
             if (!this.handToolActive) return;
             this.isPanning = false;
         });
+    }
+
+    /**
+     * Initialize mouse wheel navigation for single page view
+     */
+    initializeWheelNavigation() {
+        if (!this.canvasContainer) {
+            this.canvasContainer = document.querySelector('.pdf-canvas-container');
+        }
+
+        this.canvasContainer.addEventListener('wheel', (e) => {
+            // Only handle wheel navigation in single page view
+            if (this.viewMode !== 'single') return;
+
+            const container = this.canvasContainer;
+            const scrollTop = container.scrollTop;
+            const scrollHeight = container.scrollHeight;
+            const clientHeight = container.clientHeight;
+            const scrollLeft = container.scrollLeft;
+            const scrollWidth = container.scrollWidth;
+            const clientWidth = container.clientWidth;
+
+            // Check if scrolling vertically
+            const scrollingDown = e.deltaY > 0;
+            const scrollingUp = e.deltaY < 0;
+
+            // Check if at bottom of scroll
+            const atBottom = scrollTop + clientHeight >= scrollHeight - 5; // 5px threshold
+            // Check if at top of scroll
+            const atTop = scrollTop <= 5; // 5px threshold
+
+            // Check if not scrolling horizontally or horizontal scroll is at edge
+            const canScrollHorizontally = scrollWidth > clientWidth;
+            const horizontalScrolling = Math.abs(e.deltaX) > Math.abs(e.deltaY);
+
+            // If scrolling horizontally and there's horizontal scroll space, let it scroll
+            if (horizontalScrolling && canScrollHorizontally) {
+                return; // Let default scroll behavior handle it
+            }
+
+            // Navigate to next page if scrolling down at bottom
+            if (scrollingDown && atBottom && this.currentPage < this.totalPages) {
+                e.preventDefault();
+                this.currentPage++;
+                this.renderPage(this.currentPage);
+                // Scroll to top of new page
+                container.scrollTop = 0;
+            }
+            // Navigate to previous page if scrolling up at top
+            else if (scrollingUp && atTop && this.currentPage > 1) {
+                e.preventDefault();
+                this.currentPage--;
+                this.renderPage(this.currentPage);
+                // Scroll to bottom of new page
+                setTimeout(() => {
+                    container.scrollTop = container.scrollHeight - container.clientHeight;
+                }, 50); // Small delay to ensure page is rendered
+            }
+        }, { passive: false }); // passive: false allows preventDefault
     }
 
     /**
