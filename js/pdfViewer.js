@@ -32,6 +32,7 @@ class PDFViewer {
         // Rendering state for performance
         this.isRendering = false;
         this.pendingRender = null;
+        this.initialLoad = true; // Flag to prevent page tracking during initial load
 
         // Configure PDF.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -282,6 +283,10 @@ class PDFViewer {
      */
     async loadPDF(arrayBuffer) {
         try {
+            // Set initial load flag to prevent scroll tracking during render
+            this.initialLoad = true;
+            console.log('Loading PDF - scroll tracking disabled');
+
             // Load the PDF document
             const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
             this.pdfDoc = await loadingTask.promise;
@@ -642,6 +647,12 @@ class PDFViewer {
         // Now setup scroll listener to update current page indicator
         this.setupScrollPageTracking();
 
+        // Enable scroll tracking after a delay to ensure page is fully settled
+        setTimeout(() => {
+            this.initialLoad = false;
+            console.log('Scroll tracking now active');
+        }, 500);
+
         // Hide loading overlay
         if (loadingOverlay) {
             setTimeout(() => {
@@ -655,7 +666,7 @@ class PDFViewer {
         // Mark rendering as complete
         this.isRendering = false;
 
-        console.log(`Rendered ${this.totalPages} pages in scroll view`);
+        console.log(`Rendered ${this.totalPages} pages in scroll view - Starting at page 1`);
     }
 
     /**
@@ -671,6 +682,12 @@ class PDFViewer {
         this.handleScrollTracking = () => {
             if (this.viewMode !== 'scroll') return;
 
+            // IMPORTANT: Ignore scroll events during initial load to prevent wrong page detection
+            if (this.initialLoad) {
+                console.log('Ignoring scroll during initial load');
+                return;
+            }
+
             const containerRect = container.getBoundingClientRect();
             const containerCenter = containerRect.top + containerRect.height / 2;
 
@@ -683,6 +700,7 @@ class PDFViewer {
                     const pageNum = i + 1;
                     if (this.currentPage !== pageNum) {
                         this.currentPage = pageNum;
+                        console.log('Page changed to:', pageNum);
 
                         // Update page input field
                         const pageInput = document.getElementById('pageInput');
