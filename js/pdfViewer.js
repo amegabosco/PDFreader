@@ -55,26 +55,38 @@ class PDFViewer {
             }
         });
 
-        document.getElementById('zoomIn').addEventListener('click', () => {
+        document.getElementById('zoomIn').addEventListener('click', async () => {
             this.scale += 0.25;
             if (this.viewMode === 'single') {
-                this.renderPage(this.currentPage);
+                await this.renderPage(this.currentPage);
             } else {
-                this.renderScrollView();
+                await this.renderScrollView();
             }
             this.updateZoomLevel();
+            // Sync overlay after zoom change
+            if (window.pendingObjects) {
+                window.pendingObjects.syncOverlayWithCanvas();
+            }
         });
 
-        document.getElementById('zoomOut').addEventListener('click', () => {
+        document.getElementById('zoomOut').addEventListener('click', async () => {
             if (this.scale > 0.5) {
                 this.scale -= 0.25;
                 if (this.viewMode === 'single') {
-                    this.renderPage(this.currentPage);
+                    await this.renderPage(this.currentPage);
                 } else {
-                    this.renderScrollView();
+                    await this.renderScrollView();
                 }
                 this.updateZoomLevel();
+                // Sync overlay after zoom change
+                if (window.pendingObjects) {
+                    window.pendingObjects.syncOverlayWithCanvas();
+                }
             }
+        });
+
+        document.getElementById('zoomFit').addEventListener('click', () => {
+            this.zoomToFit();
         });
 
         // View mode controls
@@ -304,6 +316,54 @@ class PDFViewer {
     updateZoomLevel() {
         const percentage = Math.round((this.scale / 1.5) * 100);
         document.getElementById('zoomLevel').textContent = percentage + '%';
+    }
+
+    /**
+     * Zoom to fit the entire page in the viewport
+     */
+    async zoomToFit() {
+        if (!this.pdfDoc) return;
+
+        try {
+            // Get current page
+            const page = await this.pdfDoc.getPage(this.currentPage);
+
+            // Get container dimensions (available space)
+            const container = document.querySelector('.pdf-canvas-container');
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+
+            // Get page dimensions at scale 1.0
+            const viewport = page.getViewport({ scale: 1.0 });
+            const pageWidth = viewport.width;
+            const pageHeight = viewport.height;
+
+            // Calculate scale to fit width and height
+            const scaleX = (containerWidth - 40) / pageWidth; // 40px padding
+            const scaleY = (containerHeight - 40) / pageHeight; // 40px padding
+
+            // Use the smaller scale to ensure entire page fits
+            this.scale = Math.min(scaleX, scaleY);
+
+            // Ensure minimum scale
+            if (this.scale < 0.5) this.scale = 0.5;
+
+            // Render the page
+            if (this.viewMode === 'single') {
+                await this.renderPage(this.currentPage);
+            } else {
+                await this.renderScrollView();
+            }
+
+            this.updateZoomLevel();
+
+            // Sync overlay after zoom change
+            if (window.pendingObjects) {
+                window.pendingObjects.syncOverlayWithCanvas();
+            }
+        } catch (error) {
+            console.error('Error in zoomToFit:', error);
+        }
     }
 
     /**
@@ -624,13 +684,13 @@ class PDFViewer {
     /**
      * Generate thumbnails for all pages
      */
-    async generateThumbnails() {
+    async generateThumbnails(force = false) {
         if (!this.pdfDoc) return;
 
         const navThumbnails = document.getElementById('navThumbnails');
 
-        // Only generate if empty
-        if (this.thumbnails.length > 0) {
+        // Only generate if empty (unless force is true)
+        if (this.thumbnails.length > 0 && !force) {
             console.log('Thumbnails already generated');
             return;
         }

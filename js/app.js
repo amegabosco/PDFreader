@@ -716,17 +716,11 @@ window.handlePageReorder = async function(fromPage, toPage) {
         }
 
         // Reload PDF and regenerate thumbnails
-        viewer.thumbnails = []; // Clear existing thumbnails array
-        const navThumbnails = document.getElementById('navThumbnails');
-        if (navThumbnails) {
-            navThumbnails.innerHTML = ''; // Clear thumbnail DOM
-        }
-
         await viewer.loadPDF(currentPDFData.slice(0));
 
         // Force thumbnail regeneration if navigator is open
         if (viewer.navPanelOpen) {
-            await viewer.generateThumbnails();
+            await viewer.generateThumbnails(true); // Force regeneration with true parameter
         }
 
         // Navigate to the moved page's new position
@@ -3196,6 +3190,9 @@ function closeEditHistory() {
  */
 function updateMemoryUsage() {
     const memoryEl = document.getElementById('metaMemory');
+
+    // Exit if element doesn't exist (memory display is optional)
+    if (!memoryEl) return;
 
     if (performance.memory) {
         const usedMB = (performance.memory.usedJSHeapSize / (1024 * 1024)).toFixed(1);
