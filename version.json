@@ -1,0 +1,38 @@
+{
+  "version": "1.0.0",
+  "codename": "Caca",
+  "emoji": "💩",
+  "releaseDate": "2025-10-31",
+  "previousVersion": {
+    "version": "1.0.0",
+    "codename": "Banane",
+    "emoji": "🍌",
+    "releaseDate": "2025-10-30"
+  },
+  "changelog": {
+    "major": [
+      "Complete UI reorganization - all tools in top toolbar",
+      "Mouse wheel navigation between pages",
+      "Draggable floating panel system",
+      "Zoom-to-fit functionality"
+    ],
+    "minor": [
+      "Thumbnail refresh after rotation",
+      "Overlay sync with zoom levels",
+      "Improved object positioning accuracy"
+    ],
+    "patches": [
+      "Thumbnail performance optimization (0.5x → 0.3x)",
+      "Removed duplicate files",
+      "Fixed memory usage display",
+      "Better debug logging"
+    ]
+  },
+  "stats": {
+    "totalCommits": 55,
+    "totalFeatures": 21,
+    "filesChanged": 12,
+    "linesAdded": 847,
+    "linesRemoved": 3821
+  }
+}
