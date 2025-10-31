@@ -856,6 +856,7 @@ async function switchToDocument(docId) {
     // Update UI
     updateTabsUI();
     updateMetadataDisplay();
+    enableToolButtons();
 }
 
 /**
@@ -1050,6 +1051,16 @@ function setupToolButtons() {
             const tool = button.dataset.tool;
             handleToolClick(tool);
         });
+    });
+}
+
+/**
+ * Enable tool buttons when a PDF is loaded
+ */
+function enableToolButtons() {
+    const toolButtons = document.querySelectorAll('.tool-btn');
+    toolButtons.forEach(button => {
+        button.removeAttribute('disabled');
     });
 }
 

@@ -1,31 +1,22 @@
 {
-  "version": "1.1.0",
+  "version": "1.1.1",
   "codename": "Cacao",
   "emoji": "🍫",
   "releaseDate": "2025-10-31",
   "previousVersion": {
-    "version": "1.0.0",
-    "codename": "Banane",
-    "emoji": "🍌",
-    "releaseDate": "2025-10-30"
+    "version": "1.1.0",
+    "codename": "Cacao",
+    "emoji": "🍫",
+    "releaseDate": "2025-10-31"
   },
   "changelog": {
-    "major": [
-      "Complete UI reorganization - all tools in top toolbar",
-      "Mouse wheel navigation between pages",
-      "Draggable floating panel system",
-      "Zoom-to-fit functionality"
-    ],
-    "minor": [
-      "Thumbnail refresh after rotation",
-      "Overlay sync with zoom levels",
-      "Improved object positioning accuracy"
-    ],
+    "major": [],
+    "minor": [],
     "patches": [
-      "Thumbnail performance optimization (0.5x → 0.3x)",
-      "Removed duplicate files",
-      "Fixed memory usage display",
-      "Better debug logging"
+      "Fixed insertion buttons (annotate, sign, image) being disabled",
+      "Scroll view now default on PDF load",
+      "Search highlighting now works in scroll view mode",
+      "Search highlights on all visible pages simultaneously"
     ]
   },
   "stats": {

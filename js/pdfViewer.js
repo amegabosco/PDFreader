@@ -290,10 +290,14 @@ class PDFViewer {
 
             // Update UI
             document.getElementById('totalPages').textContent = this.totalPages;
-            document.getElementById('currentPage').textContent = this.currentPage;
+            const pageInput = document.getElementById('pageInput');
+            if (pageInput) {
+                pageInput.value = this.currentPage;
+                pageInput.max = this.totalPages;
+            }
 
-            // Render first page
-            await this.renderPage(this.currentPage);
+            // Render in scroll view mode (default)
+            await this.renderScrollView();
 
             // Show viewer area, hide upload area
             document.getElementById('uploadArea').style.display = 'none';
@@ -1052,70 +1056,113 @@ class PDFViewer {
      */
     highlightSearchResults(matches, currentMatchIndex = 0) {
         // Remove existing highlights
-        const existingLayer = document.querySelector('.search-highlight-layer');
-        if (existingLayer) {
-            existingLayer.remove();
-        }
+        const existingLayers = document.querySelectorAll('.search-highlight-layer');
+        existingLayers.forEach(layer => layer.remove());
 
         if (matches.length === 0) return;
 
-        // Filter matches for current page
-        const currentPageMatches = matches.filter(m => m.pageNum === this.currentPage);
+        // In scroll view mode, highlight on all visible canvases
+        if (this.viewMode === 'scroll' && this.allPageCanvases.length > 0) {
+            this.allPageCanvases.forEach((canvas, pageIndex) => {
+                const pageNum = pageIndex + 1;
+                const pageMatches = matches.filter(m => m.pageNum === pageNum);
 
-        if (currentPageMatches.length === 0) return;
+                if (pageMatches.length === 0) return;
 
-        // Create highlight layer
-        const highlightLayer = document.createElement('div');
-        highlightLayer.className = 'search-highlight-layer';
+                // Create highlight layer for this page
+                const highlightLayer = document.createElement('div');
+                highlightLayer.className = 'search-highlight-layer';
 
-        // Position layer over canvas (using display dimensions, not canvas pixels)
-        const canvasRect = this.canvas.getBoundingClientRect();
-        const containerRect = this.canvas.parentElement.getBoundingClientRect();
+                const canvasWrapper = canvas.parentElement;
+                const canvasRect = canvas.getBoundingClientRect();
+                const wrapperRect = canvasWrapper.getBoundingClientRect();
 
-        highlightLayer.style.left = (canvasRect.left - containerRect.left) + 'px';
-        highlightLayer.style.top = (canvasRect.top - containerRect.top) + 'px';
-        highlightLayer.style.width = this.canvas.offsetWidth + 'px';
-        highlightLayer.style.height = this.canvas.offsetHeight + 'px';
+                highlightLayer.style.position = 'absolute';
+                highlightLayer.style.left = '0';
+                highlightLayer.style.top = '0';
+                highlightLayer.style.width = canvas.offsetWidth + 'px';
+                highlightLayer.style.height = canvas.offsetHeight + 'px';
+                highlightLayer.style.pointerEvents = 'none';
 
-        // Calculate scale factors from PDF coordinates to display pixels
-        const scaleX = this.canvas.offsetWidth / this.canvas.width;
-        const scaleY = this.canvas.offsetHeight / this.canvas.height;
+                // Calculate scale factors
+                const scaleX = canvas.offsetWidth / canvas.width;
+                const scaleY = canvas.offsetHeight / canvas.height;
 
-        // Add highlights
-        currentPageMatches.forEach((match, index) => {
-            const highlight = document.createElement('div');
-            highlight.className = 'search-highlight';
+                // Add highlights for this page
+                pageMatches.forEach((match) => {
+                    const highlight = document.createElement('div');
+                    highlight.className = 'search-highlight';
 
-            // Check if this is the current match
-            const globalIndex = matches.findIndex(m =>
-                m.pageNum === match.pageNum &&
-                m.bounds.x === match.bounds.x &&
-                m.bounds.y === match.bounds.y
-            );
+                    const globalIndex = matches.findIndex(m =>
+                        m.pageNum === match.pageNum &&
+                        m.bounds.x === match.bounds.x &&
+                        m.bounds.y === match.bounds.y
+                    );
 
-            if (globalIndex === currentMatchIndex) {
-                highlight.classList.add('current');
-            }
+                    if (globalIndex === currentMatchIndex) {
+                        highlight.classList.add('current');
+                    }
 
-            // Position highlight (convert from PDF coordinates to display pixels)
-            highlight.style.left = (match.bounds.x * scaleX) + 'px';
-            highlight.style.top = (match.bounds.y * scaleY) + 'px';
-            highlight.style.width = (match.bounds.width * scaleX) + 'px';
-            highlight.style.height = (match.bounds.height * scaleY) + 'px';
+                    highlight.style.left = (match.bounds.x * scaleX) + 'px';
+                    highlight.style.top = (match.bounds.y * scaleY) + 'px';
+                    highlight.style.width = (match.bounds.width * scaleX) + 'px';
+                    highlight.style.height = (match.bounds.height * scaleY) + 'px';
 
-            highlightLayer.appendChild(highlight);
-        });
+                    highlightLayer.appendChild(highlight);
+                });
 
-        this.canvas.parentElement.appendChild(highlightLayer);
+                canvasWrapper.appendChild(highlightLayer);
+            });
+        } else {
+            // Single page mode (legacy support, though we removed it)
+            const currentPageMatches = matches.filter(m => m.pageNum === this.currentPage);
+            if (currentPageMatches.length === 0) return;
+
+            const highlightLayer = document.createElement('div');
+            highlightLayer.className = 'search-highlight-layer';
+
+            const canvasRect = this.canvas.getBoundingClientRect();
+            const containerRect = this.canvas.parentElement.getBoundingClientRect();
+
+            highlightLayer.style.left = (canvasRect.left - containerRect.left) + 'px';
+            highlightLayer.style.top = (canvasRect.top - containerRect.top) + 'px';
+            highlightLayer.style.width = this.canvas.offsetWidth + 'px';
+            highlightLayer.style.height = this.canvas.offsetHeight + 'px';
+
+            const scaleX = this.canvas.offsetWidth / this.canvas.width;
+            const scaleY = this.canvas.offsetHeight / this.canvas.height;
+
+            currentPageMatches.forEach((match) => {
+                const highlight = document.createElement('div');
+                highlight.className = 'search-highlight';
+
+                const globalIndex = matches.findIndex(m =>
+                    m.pageNum === match.pageNum &&
+                    m.bounds.x === match.bounds.x &&
+                    m.bounds.y === match.bounds.y
+                );
+
+                if (globalIndex === currentMatchIndex) {
+                    highlight.classList.add('current');
+                }
+
+                highlight.style.left = (match.bounds.x * scaleX) + 'px';
+                highlight.style.top = (match.bounds.y * scaleY) + 'px';
+                highlight.style.width = (match.bounds.width * scaleX) + 'px';
+                highlight.style.height = (match.bounds.height * scaleY) + 'px';
+
+                highlightLayer.appendChild(highlight);
+            });
+
+            this.canvas.parentElement.appendChild(highlightLayer);
+        }
     }
 
     /**
      * Clear search highlights
      */
     clearSearchHighlights() {
-        const existingLayer = document.querySelector('.search-highlight-layer');
-        if (existingLayer) {
-            existingLayer.remove();
-        }
+        const existingLayers = document.querySelectorAll('.search-highlight-layer');
+        existingLayers.forEach(layer => layer.remove());
     }
 }
