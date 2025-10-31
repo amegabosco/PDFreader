@@ -25,19 +25,30 @@ class PendingObjectsManager {
     }
 
     syncOverlayWithCanvas() {
-        const canvas = document.getElementById('pdfCanvas');
         const container = document.querySelector('.pdf-canvas-container');
+        if (!container) return;
 
-        if (!canvas || !container) return;
+        // In scroll mode, overlay covers the entire container to allow drawing on all pages
+        if (viewer.viewMode === 'scroll') {
+            this.overlay.style.left = '0';
+            this.overlay.style.top = '0';
+            this.overlay.style.width = '100%';
+            this.overlay.style.height = '100%';
+            this.overlay.style.position = 'absolute';
+        } else {
+            // Single page mode (legacy)
+            const canvas = document.getElementById('pdfCanvas');
+            if (!canvas) return;
 
-        const canvasRect = canvas.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
+            const canvasRect = canvas.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
 
-        // Position overlay to match canvas exactly
-        this.overlay.style.left = (canvasRect.left - containerRect.left) + 'px';
-        this.overlay.style.top = (canvasRect.top - containerRect.top) + 'px';
-        this.overlay.style.width = canvas.offsetWidth + 'px';
-        this.overlay.style.height = canvas.offsetHeight + 'px';
+            this.overlay.style.left = (canvasRect.left - containerRect.left) + 'px';
+            this.overlay.style.top = (canvasRect.top - containerRect.top) + 'px';
+            this.overlay.style.width = canvas.offsetWidth + 'px';
+            this.overlay.style.height = canvas.offsetHeight + 'px';
+            this.overlay.style.position = 'absolute';
+        }
     }
 
     setupValidateButtons() {
@@ -245,10 +256,10 @@ class PendingObjectsManager {
             // Clear pending objects
             this.clear();
 
-            // Refresh the current page view
+            // Refresh the view
             await viewer.loadPDF(currentPDFData.slice(0));
             viewer.currentPage = currentPage;
-            await viewer.renderPage(currentPage);
+            // loadPDF already calls renderScrollView(), no need to render again
 
             // Update cache if document is cached
             if (currentCacheId && currentPDFData) {
@@ -266,6 +277,9 @@ class PendingObjectsManager {
             editHistory.push(`Inserted ${objectCount} object(s) (${timestamp})`);
             updateMetadataDisplay();
             updateUndoRedoButtons();
+
+            // Close the tool panel after successful insertion
+            closeToolPanel();
 
             showNotification(`Successfully inserted ${objectCount} object(s)!`, 'success');
         } catch (error) {
@@ -326,8 +340,18 @@ class PendingObjectsManager {
     }
 
     async convertOverlayToPDFCoordinates(overlayBounds, pageIndex) {
-        // Since overlay is now synced with canvas, overlay coordinates = canvas coordinates
-        const canvas = document.getElementById('pdfCanvas');
+        // Get the appropriate canvas based on view mode
+        let canvas;
+        if (viewer.viewMode === 'scroll' && viewer.allPageCanvases[pageIndex]) {
+            canvas = viewer.allPageCanvases[pageIndex];
+        } else {
+            canvas = document.getElementById('pdfCanvas');
+        }
+
+        if (!canvas) {
+            console.error('Canvas not found for page', pageIndex);
+            return overlayBounds;
+        }
 
         // Get PDF page dimensions using PDF-lib
         const pdfDoc = await PDFLib.PDFDocument.load(currentPDFData);
@@ -340,6 +364,7 @@ class PendingObjectsManager {
         const scaleY = pageHeight / canvas.offsetHeight;
 
         console.log('Conversion debug:');
+        console.log('  Page index:', pageIndex);
         console.log('  Overlay bounds:', overlayBounds);
         console.log('  Canvas display size:', canvas.offsetWidth, 'x', canvas.offsetHeight);
         console.log('  PDF page size:', pageWidth, 'x', pageHeight);
@@ -363,10 +388,8 @@ class PendingObjectsManager {
 
     // Draw box interaction
     startDrawing(type, data) {
-        // Switch to single page view for insertion
-        if (viewer.viewMode !== 'single') {
-            viewer.setViewMode('single');
-        }
+        // In scroll mode, we work with the scroll view directly
+        // No need to switch view modes anymore
 
         // Sync overlay with canvas before starting
         this.syncOverlayWithCanvas();
@@ -381,6 +404,9 @@ class PendingObjectsManager {
 
         this.overlay.style.cursor = 'crosshair';
         this.overlay.classList.add('active');
+
+        // Show a message to guide the user
+        console.log('Drawing mode active. Draw a box on the PDF to place your', type);
     }
 
     handleDrawMouseDown(e) {
@@ -446,13 +472,34 @@ class PendingObjectsManager {
 
         const bounds = { x: left, y: top, width, height };
 
+        // Determine which page was clicked (in scroll mode)
+        let targetPage = viewer.currentPage;
+        if (viewer.viewMode === 'scroll' && viewer.allPageCanvases.length > 0) {
+            // Find which page canvas contains these coordinates
+            const container = document.querySelector('.pdf-canvas-container');
+            const containerRect = container.getBoundingClientRect();
+            const absoluteY = e.clientY;
+
+            for (let i = 0; i < viewer.allPageCanvases.length; i++) {
+                const canvas = viewer.allPageCanvases[i];
+                const canvasRect = canvas.getBoundingClientRect();
+
+                if (absoluteY >= canvasRect.top && absoluteY <= canvasRect.bottom) {
+                    targetPage = i + 1;
+                    // Adjust bounds to be relative to this specific canvas
+                    bounds.y = top - (canvasRect.top - containerRect.top) + container.scrollTop;
+                    break;
+                }
+            }
+        }
+
         // Remove drawing element
         this.drawingState.element.remove();
 
         // Add actual object
         this.addObject(
             this.drawingState.type,
-            viewer.currentPage,
+            targetPage,
             bounds,
             this.drawingState.data
         );
@@ -1631,8 +1678,7 @@ async function handleImageFileSelection(event) {
             originalHeight: img.height
         });
 
-        showNotification('Draw a box on the PDF to place your image', 'info');
-        closeToolPanel();
+        showNotification('Draw a box on the PDF to place your image. Click Validate when done.', 'info');
     } catch (error) {
         console.error('Error loading image:', error);
         showNotification('Failed to load image: ' + error.message, 'error');
@@ -2892,8 +2938,7 @@ async function addSignatureToPage() {
             originalHeight: canvas.height
         });
 
-        showNotification('Draw a box on the PDF to place your signature', 'info');
-        closeToolPanel();
+        showNotification('Draw a box on the PDF to place your signature. Click Validate when done.', 'info');
     } catch (error) {
         console.error('Error preparing signature:', error);
         showNotification('Failed to prepare signature: ' + error.message, 'error');
