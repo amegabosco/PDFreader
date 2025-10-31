@@ -233,6 +233,18 @@
                     <canvas id="pdfCanvas"></canvas>
                     <!-- Insertion Overlay for pending objects -->
                     <div id="insertionOverlay" class="insertion-overlay"></div>
+
+                    <!-- PDF Loading Progress Overlay -->
+                    <div id="pdfLoadingOverlay" class="pdf-loading-overlay" style="display: none;">
+                        <div class="pdf-loading-content">
+                            <div class="pdf-loading-spinner"></div>
+                            <div class="pdf-loading-text">Loading PDF...</div>
+                            <div class="pdf-loading-progress-bar">
+                                <div id="pdfLoadingProgressFill" class="pdf-loading-progress-fill"></div>
+                            </div>
+                            <div id="pdfLoadingPercentage" class="pdf-loading-percentage">0%</div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Validate All Button (shown when pending objects exist) -->

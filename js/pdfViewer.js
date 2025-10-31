@@ -550,18 +550,30 @@ class PDFViewer {
 
         this.isRendering = true;
 
+        // Show loading overlay
+        const loadingOverlay = document.getElementById('pdfLoadingOverlay');
+        const progressFill = document.getElementById('pdfLoadingProgressFill');
+        const progressText = document.getElementById('pdfLoadingPercentage');
+        if (loadingOverlay) {
+            loadingOverlay.style.display = 'flex';
+        }
+
         const container = document.querySelector('.pdf-canvas-container');
 
-        // Preserve the insertion overlay
+        // Preserve the insertion overlay and loading overlay
         const insertionOverlay = document.getElementById('insertionOverlay');
+        const loadingOverlayEl = document.getElementById('pdfLoadingOverlay');
 
-        // Clear existing content but keep overlay
+        // Clear existing content but keep overlays
         container.innerHTML = '';
         this.allPageCanvases = [];
 
-        // Re-add the overlay
+        // Re-add overlays
         if (insertionOverlay) {
             container.appendChild(insertionOverlay);
+        }
+        if (loadingOverlayEl) {
+            container.appendChild(loadingOverlayEl);
         }
 
         // Create a wrapper for all pages
@@ -575,8 +587,17 @@ class PDFViewer {
         pagesWrapper.style.width = '100%';
         pagesWrapper.style.minHeight = '100%';
 
-        // Render each page
+        // Render each page with progress updates
         for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
+            // Update progress
+            const progress = Math.round((pageNum / this.totalPages) * 100);
+            if (progressFill) {
+                progressFill.style.width = progress + '%';
+            }
+            if (progressText) {
+                progressText.textContent = progress + '%';
+            }
+
             const pageWrapper = document.createElement('div');
             pageWrapper.className = 'scroll-page-wrapper';
             pageWrapper.style.boxShadow = '0 4px 12px var(--shadow)';
@@ -615,6 +636,16 @@ class PDFViewer {
         requestAnimationFrame(() => {
             container.scrollTop = 0;
         });
+
+        // Hide loading overlay
+        if (loadingOverlay) {
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+                // Reset progress for next time
+                if (progressFill) progressFill.style.width = '0%';
+                if (progressText) progressText.textContent = '0%';
+            }, 300);
+        }
 
         // Mark rendering as complete
         this.isRendering = false;
