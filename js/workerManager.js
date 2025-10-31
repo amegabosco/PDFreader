@@ -7,6 +7,7 @@ class WorkerManager {
         this.worker = null;
         this.pendingOperations = new Map();
         this.nextId = 1;
+        this.workerAvailable = false;
     }
 
     /**
@@ -24,12 +25,15 @@ class WorkerManager {
 
             this.worker.addEventListener('error', (e) => {
                 console.error('Worker error:', e);
-                showNotification('Background processing error', 'error');
+                this.workerAvailable = false;
             });
 
+            this.workerAvailable = true;
             console.log('Worker Manager initialized');
         } catch (error) {
-            console.error('Failed to initialize worker:', error);
+            console.warn('Workers not available (file:// protocol?), using fallback:', error.message);
+            this.workerAvailable = false;
+            this.worker = null;
         }
     }
 
@@ -60,11 +64,17 @@ class WorkerManager {
     }
 
     /**
-     * Execute operation in worker
+     * Execute operation in worker (or fallback to sync)
      */
     async execute(operation, data) {
         if (!this.worker) {
             this.init();
+        }
+
+        // Fallback to synchronous operations if worker not available
+        if (!this.workerAvailable) {
+            console.log(`Using fallback for ${operation} (workers unavailable)`);
+            return this.executeFallback(operation, data);
         }
 
         const id = this.nextId++;
@@ -87,6 +97,42 @@ class WorkerManager {
                 }
             }, 120000);
         });
+    }
+
+    /**
+     * Fallback to synchronous operations using pdfTools
+     */
+    async executeFallback(operation, data) {
+        showNotification(`Processing ${operation}...`, 'info', 2000);
+
+        try {
+            let result;
+
+            switch (operation) {
+                case 'merge':
+                    result = await tools.mergePDFs(data.pdfs);
+                    break;
+                case 'split':
+                    result = await tools.splitPDF(data.pdfData, data.splitAt);
+                    break;
+                case 'rotate':
+                    result = await tools.rotatePDF(data.pdfData, data.pageIndices, data.rotation);
+                    break;
+                case 'reorder':
+                    result = await tools.reorderPages(data.pdfData, data.fromPage, data.toPage);
+                    break;
+                case 'compress':
+                    result = await tools.compressPDF(data.pdfData);
+                    break;
+                default:
+                    throw new Error(`Unknown operation: ${operation}`);
+            }
+
+            return result;
+        } catch (error) {
+            console.error('Fallback operation failed:', error);
+            throw error;
+        }
     }
 
     /**
