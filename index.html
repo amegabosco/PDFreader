@@ -30,56 +30,11 @@
             </div>
 
             <div class="tools-menu">
-                <h2>Tools</h2>
+                <h2>Quick Actions</h2>
 
                 <button class="tool-btn" data-tool="upload" title="Upload one or more PDF files from your computer">
                     <i class="ti ti-upload"></i>
                     <span>Upload PDF</span>
-                </button>
-
-                <button class="tool-btn" data-tool="merge" disabled title="Combine multiple PDF files into one document">
-                    <i class="ti ti-files"></i>
-                    <span>Merge PDFs</span>
-                </button>
-
-                <button class="tool-btn" data-tool="split" disabled title="Split PDF into two parts at a specific page">
-                    <i class="ti ti-cut"></i>
-                    <span>Split PDF</span>
-                </button>
-
-                <button class="tool-btn" data-tool="rotate" disabled title="Rotate selected pages 90° clockwise">
-                    <i class="ti ti-rotate-clockwise"></i>
-                    <span>Rotate Pages</span>
-                </button>
-
-                <button class="tool-btn" data-tool="compress" disabled title="Reduce PDF file size by optimizing images">
-                    <i class="ti ti-file-zip"></i>
-                    <span>Compress</span>
-                </button>
-
-                <button class="tool-btn" data-tool="image" disabled title="Insert an image (PNG/JPG) onto a PDF page">
-                    <i class="ti ti-photo-plus"></i>
-                    <span>Insert Image</span>
-                </button>
-
-                <button class="tool-btn" data-tool="annotate" disabled title="Add text annotations to PDF pages">
-                    <i class="ti ti-pencil"></i>
-                    <span>Annotate</span>
-                </button>
-
-                <button class="tool-btn" data-tool="sign" disabled title="Draw or insert your signature on the PDF">
-                    <i class="ti ti-signature"></i>
-                    <span>Sign</span>
-                </button>
-
-                <button class="tool-btn" id="handToolBtn" data-tool="hand" disabled title="Pan and move around zoomed PDF pages">
-                    <i class="ti ti-hand-grab"></i>
-                    <span>Hand Tool</span>
-                </button>
-
-                <button class="tool-btn download-btn" data-tool="download" disabled title="Download the current PDF with all edits">
-                    <i class="ti ti-download"></i>
-                    <span>Download</span>
                 </button>
             </div>
 
@@ -130,6 +85,7 @@
                 </div>
 
                 <div class="viewer-controls">
+                    <!-- Navigation Controls -->
                     <button id="prevPage" class="control-btn" title="Go to previous page">
                         <i class="ti ti-chevron-left"></i>
                     </button>
@@ -137,6 +93,10 @@
                     <button id="nextPage" class="control-btn" title="Go to next page">
                         <i class="ti ti-chevron-right"></i>
                     </button>
+
+                    <div class="toolbar-separator"></div>
+
+                    <!-- Zoom Controls -->
                     <div class="zoom-controls">
                         <button id="zoomOut" class="control-btn" title="Zoom out">
                             <i class="ti ti-zoom-out"></i>
@@ -149,6 +109,10 @@
                             <i class="ti ti-arrows-maximize"></i>
                         </button>
                     </div>
+
+                    <div class="toolbar-separator"></div>
+
+                    <!-- View Mode Controls -->
                     <div class="view-mode-controls">
                         <button id="singlePageView" class="control-btn active" title="Single Page View">
                             <i class="ti ti-file"></i>
@@ -157,11 +121,51 @@
                             <i class="ti ti-files"></i>
                         </button>
                     </div>
+
+                    <div class="toolbar-separator"></div>
+
+                    <!-- Edit Tools -->
+                    <button class="control-btn tool-btn" data-tool="annotate" disabled title="Add text annotations to PDF pages">
+                        <i class="ti ti-pencil"></i>
+                    </button>
+                    <button class="control-btn tool-btn" data-tool="sign" disabled title="Draw or insert your signature on the PDF">
+                        <i class="ti ti-signature"></i>
+                    </button>
+                    <button class="control-btn tool-btn" data-tool="image" disabled title="Insert an image (PNG/JPG) onto a PDF page">
+                        <i class="ti ti-photo-plus"></i>
+                    </button>
+
+                    <div class="toolbar-separator"></div>
+
+                    <!-- Document Tools -->
+                    <button class="control-btn tool-btn" data-tool="rotate" disabled title="Rotate selected pages 90° clockwise">
+                        <i class="ti ti-rotate-clockwise"></i>
+                    </button>
+                    <button class="control-btn tool-btn" data-tool="split" disabled title="Split PDF into two parts at a specific page">
+                        <i class="ti ti-cut"></i>
+                    </button>
+                    <button class="control-btn tool-btn" data-tool="merge" disabled title="Combine multiple PDF files into one document">
+                        <i class="ti ti-files"></i>
+                    </button>
+                    <button class="control-btn tool-btn" data-tool="compress" disabled title="Reduce PDF file size by optimizing images">
+                        <i class="ti ti-file-zip"></i>
+                    </button>
+
+                    <div class="toolbar-separator"></div>
+
+                    <!-- History Controls -->
                     <button id="undoBtn" class="control-btn" title="Undo (Ctrl+Z)" disabled onclick="undo()">
                         <i class="ti ti-arrow-back-up"></i>
                     </button>
                     <button id="redoBtn" class="control-btn" title="Redo (Ctrl+Y)" disabled onclick="redo()">
                         <i class="ti ti-arrow-forward-up"></i>
+                    </button>
+
+                    <div class="toolbar-separator"></div>
+
+                    <!-- Utility Tools -->
+                    <button class="control-btn tool-btn" id="handToolBtn" data-tool="hand" disabled title="Pan and move around zoomed PDF pages">
+                        <i class="ti ti-hand-grab"></i>
                     </button>
                     <button id="searchBtn" class="control-btn" title="Search Text (Ctrl+F)">
                         <i class="ti ti-search"></i>
@@ -171,6 +175,13 @@
                     </button>
                     <button id="toggleInfoBar" class="control-btn" title="Toggle Information Bar">
                         <i class="ti ti-info-circle"></i>
+                    </button>
+
+                    <div class="toolbar-separator"></div>
+
+                    <!-- Download -->
+                    <button class="control-btn tool-btn download-btn" data-tool="download" disabled title="Download the current PDF with all edits">
+                        <i class="ti ti-download"></i>
                     </button>
                 </div>
 

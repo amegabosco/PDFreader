@@ -774,10 +774,21 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 2rem;
-    padding: 1rem;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
     background-color: var(--white);
     border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.toolbar-separator {
+    width: 1px;
+    height: 24px;
+    background-color: var(--border);
+    margin: 0 0.25rem;
+    flex-shrink: 0;
 }
 
 /* Info Bar */
@@ -936,10 +947,12 @@ body {
 }
 
 #pageInfo {
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
     color: var(--text);
-    min-width: 150px;
+    min-width: 120px;
     text-align: center;
+    font-weight: 500;
+    white-space: nowrap;
 }
 
 .navigation-controls {
@@ -954,23 +967,21 @@ body {
 .zoom-controls {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
 }
 
 #zoomLevel {
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
     color: var(--text);
-    min-width: 60px;
+    min-width: 50px;
     text-align: center;
+    font-weight: 500;
 }
 
 .view-mode-controls {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    margin-left: 1rem;
-    padding-left: 1rem;
-    border-left: 2px solid var(--border);
 }
 
 .pdf-canvas-container {
