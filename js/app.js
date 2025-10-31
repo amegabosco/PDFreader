@@ -892,12 +892,22 @@ async function switchToDocument(docId) {
     // Load into viewer
     await viewer.loadPDF(currentPDFData.slice(0));
 
-    // Restore viewer state
-    if (doc.viewerState) {
+    // Restore viewer scale (but always start at page 1)
+    if (doc.viewerState && doc.viewerState.scale !== viewer.scale) {
         viewer.scale = doc.viewerState.scale;
-        viewer.currentPage = doc.viewerState.currentPage;
-        await viewer.renderPage(viewer.currentPage);
         viewer.updateZoomLevel();
+        await viewer.renderScrollView();
+    }
+
+    // Always scroll to top (first page) on document load
+    const container = document.querySelector('.pdf-canvas-container');
+    if (container) {
+        container.scrollTop = 0;
+    }
+    viewer.currentPage = 1;
+    const pageInput = document.getElementById('pageInput');
+    if (pageInput) {
+        pageInput.value = 1;
     }
 
     // Update UI

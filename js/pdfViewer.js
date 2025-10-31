@@ -611,6 +611,11 @@ class PDFViewer {
         // Setup scroll listener to update current page indicator
         this.setupScrollPageTracking();
 
+        // Always scroll to top after rendering
+        requestAnimationFrame(() => {
+            container.scrollTop = 0;
+        });
+
         // Mark rendering as complete
         this.isRendering = false;
 
