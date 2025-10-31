@@ -12,17 +12,17 @@ Notre système de versionnage suit le modèle **Semantic Versioning** avec des n
 
 ### 🍌 Noms de Code (par ordre alphabétique de fruits/emojis fun)
 - **Banane** 🍌 : Version initiale (Prototype fonctionnel)
-- **Caca** 💩 : Refonte interface + Navigation avancée
+- **Cacao** 🍫 : Refonte interface + Navigation avancée
 - **Datte** 🍯 : *Future - Focus sur la performance*
 - **Érable** 🍁 : *Future - Collaboration et partage*
 - **Fraise** 🍓 : *Future - Mobile responsive*
 
 ---
 
-## 🔥 Version Actuelle : **Caca 1.0.0** 💩
+## 🔥 Version Actuelle : **Cacao 1.0.0** 🍫
 
 **Date de release** : 31 Octobre 2025
-**Nom de code** : Caca
+**Nom de code** : Cacao
 
 ### 🎉 Changements Majeurs (1.0.0)
 
@@ -102,9 +102,9 @@ Notre système de versionnage suit le modèle **Semantic Versioning** avec des n
 
 ## 📈 Statistiques de Développement
 
-### Banane → Caca
+### Banane → Cacao
 
-| Métrique | Banane | Caca | Évolution |
+| Métrique | Banane | Cacao | Évolution |
 |----------|--------|------|-----------|
 | Commits | ~40 | ~55 | +37% |
 | Fichiers JS | 6 | 7 | +1 (floatingPanel) |
@@ -116,7 +116,7 @@ Notre système de versionnage suit le modèle **Semantic Versioning** avec des n
 
 ## 🗓️ Roadmap Future
 
-### Caca 1.1.0 (Patch majeur)
+### Cacao 1.1.0 (Patch majeur)
 - [ ] Migration complète vers FloatingPanels
 - [ ] Tests de tous les boutons toolbar
 - [ ] Optimisations performances supplémentaires
@@ -147,7 +147,7 @@ Notre système de versionnage suit le modèle **Semantic Versioning** avec des n
 
 Chaque version majeure porte un nom de code amusant qui reflète l'esprit du projet :
 - **🍌 Banane** : Fruit classique, fondations solides
-- **💩 Caca** : Fun, moderne, ne se prend pas au sérieux mais très performant !
+- **🍫 Cacao** : Fun, moderne, ne se prend pas au sérieux mais très performant !
 - **🍯 Datte** : Douce et performante
 - **🍁 Érable** : Naturel et collaboratif
 - **🍓 Fraise** : Fraîche et accessible

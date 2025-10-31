@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Caca 1.0.0] 💩 - 2025-10-31
+## [Cacao 1.0.0] 🍫 - 2025-10-31
 
 ### 🎉 Major Changes
 
@@ -126,14 +126,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Codename | Major Features |
 |---------|------|----------|----------------|
-| 1.0.0 | 2025-10-31 | Caca 💩 | Mouse wheel nav, Floating panels, UI refactor |
+| 1.0.0 | 2025-10-31 | Cacao 🍫 | Mouse wheel nav, Floating panels, UI refactor |
 | 1.0.0 | 2025-10-30 | Banane 🍌 | Initial release, All core features |
 
 ---
 
 ## Upcoming Versions
 
-### [Caca 1.1.0] - Planned
+### [Cacao 1.1.0] - Planned
 - Migrate all tool panels to FloatingPanel system
 - Comprehensive button testing
 - Additional performance optimizations
@@ -150,7 +150,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Development Stats
 
-### Caca 1.0.0
+### Cacao 1.0.0
 - **Commits**: 15 new commits
 - **Files changed**: 12
 - **Lines added**: 847
