@@ -346,17 +346,26 @@ class PDFViewer {
             const page = await this.pdfDoc.getPage(pageNum);
             const viewport = page.getViewport({ scale: this.scale });
 
-            // Set canvas dimensions
-            this.canvas.height = viewport.height;
-            this.canvas.width = viewport.width;
+            // Create temporary canvas for rendering to avoid flickering
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = viewport.width;
+            tempCanvas.height = viewport.height;
+            const tempCtx = tempCanvas.getContext('2d');
 
-            // Render the page
+            // Render to temporary canvas
             const renderContext = {
-                canvasContext: this.ctx,
+                canvasContext: tempCtx,
                 viewport: viewport
             };
 
             await page.render(renderContext).promise;
+
+            // Update main canvas dimensions
+            this.canvas.height = viewport.height;
+            this.canvas.width = viewport.width;
+
+            // Copy from temp canvas to main canvas (atomic operation, no flicker)
+            this.ctx.drawImage(tempCanvas, 0, 0);
 
             // Update page info
             document.getElementById('currentPage').textContent = pageNum;

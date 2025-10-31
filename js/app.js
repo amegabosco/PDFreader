@@ -3047,21 +3047,45 @@ function handleHandTool() {
 }
 
 /**
- * Show tool panel
+ * Show tool panel (now using FloatingPanel)
  */
-function showToolPanel(content) {
-    const panel = document.getElementById('toolPanel');
-    panel.innerHTML = content;
-    panel.style.display = 'block';
+function showToolPanel(content, title = 'Tool Panel', icon = 'ti-tool') {
+    // Clean up content by removing old close button and h3 title if present
+    let cleanContent = content;
+
+    // Remove close button
+    cleanContent = cleanContent.replace(/<button[^>]*class="close-btn"[^>]*>[\s\S]*?<\/button>/gi, '');
+
+    // Extract title from h3 if title not explicitly provided and remove h3
+    const h3Match = cleanContent.match(/<h3[^>]*>([\s\S]*?)<\/h3>/i);
+    if (h3Match && title === 'Tool Panel') {
+        // Extract text from h3 (removing icons)
+        const h3Content = h3Match[1].replace(/<i[^>]*>[\s\S]*?<\/i>/gi, '').trim();
+        if (h3Content) {
+            title = h3Content;
+        }
+        // Extract icon from h3 if present
+        const iconMatch = h3Match[1].match(/<i[^>]*class="[^"]*?(ti-[^"\s]+)/i);
+        if (iconMatch && icon === 'ti-tool') {
+            icon = iconMatch[1];
+        }
+    }
+    cleanContent = cleanContent.replace(/<h3[^>]*>[\s\S]*?<\/h3>/gi, '');
+
+    // Remove tool-content wrapper divs (content is already wrapped by FloatingPanel)
+    cleanContent = cleanContent.replace(/<div[^>]*class="tool-content"[^>]*>/gi, '');
+    cleanContent = cleanContent.replace(/<\/div>\s*$/gi, ''); // Remove last closing div
+
+    // Use floating panel manager to create draggable panel
+    return window.FloatingPanelManager.create('tool-panel', title, icon, cleanContent);
 }
 
 /**
  * Close tool panel
  */
 function closeToolPanel() {
-    const panel = document.getElementById('toolPanel');
-    panel.style.display = 'none';
-    panel.innerHTML = '';
+    // Close the floating panel
+    window.FloatingPanelManager.close('tool-panel');
 
     // Clear any active preview states
     if (imagePreviewState.image || imagePreviewState.isActive) {
