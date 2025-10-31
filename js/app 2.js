@@ -716,18 +716,8 @@ window.handlePageReorder = async function(fromPage, toPage) {
         }
 
         // Reload PDF and regenerate thumbnails
-        viewer.thumbnails = []; // Clear existing thumbnails array
-        const navThumbnails = document.getElementById('navThumbnails');
-        if (navThumbnails) {
-            navThumbnails.innerHTML = ''; // Clear thumbnail DOM
-        }
-
+        viewer.thumbnails = []; // Clear existing thumbnails
         await viewer.loadPDF(currentPDFData.slice(0));
-
-        // Force thumbnail regeneration if navigator is open
-        if (viewer.navPanelOpen) {
-            await viewer.generateThumbnails();
-        }
 
         // Navigate to the moved page's new position
         await viewer.goToPage(toPage);
@@ -1444,12 +1434,9 @@ async function executeRotate(degrees) {
             return;
         }
 
-        // Use Web Worker for rotation
-        const rotatedPDF = await workerManager.execute('rotate', {
-            pdfData: currentPDFData.slice(0),
-            pageIndices: selectedPages,
-            rotation: degrees
-        });
+        // Create a copy to avoid detachment issues
+        const pdfCopy = currentPDFData.slice(0);
+        const rotatedPDF = await tools.rotatePDF(pdfCopy, selectedPages, degrees);
 
         // Create a fresh copy to avoid detachment issues
         const newArray = new Uint8Array(rotatedPDF);
@@ -1478,12 +1465,9 @@ async function handleCompress() {
 
     try {
         const originalSize = currentPDFData.byteLength;
-
-        // Use Web Worker for compression
-        const compressedPDF = await workerManager.execute('compress', {
-            pdfData: currentPDFData.slice(0)
-        });
-
+        // Create a copy to avoid detachment issues
+        const pdfCopy = currentPDFData.slice(0);
+        const compressedPDF = await tools.compressPDF(pdfCopy);
         const newSize = compressedPDF.byteLength;
 
         // Create a fresh copy to avoid detachment issues
