@@ -629,13 +629,18 @@ class PDFViewer {
 
         container.appendChild(pagesWrapper);
 
-        // Setup scroll listener to update current page indicator
-        this.setupScrollPageTracking();
+        // IMPORTANT: Scroll to top BEFORE setting up tracking to prevent wrong page detection
+        container.scrollTop = 0;
 
-        // Always scroll to top after rendering
-        requestAnimationFrame(() => {
-            container.scrollTop = 0;
-        });
+        // Force page 1 as current page
+        this.currentPage = 1;
+        const pageInput = document.getElementById('pageInput');
+        if (pageInput) {
+            pageInput.value = 1;
+        }
+
+        // Now setup scroll listener to update current page indicator
+        this.setupScrollPageTracking();
 
         // Hide loading overlay
         if (loadingOverlay) {
