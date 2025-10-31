@@ -1495,26 +1495,49 @@ async function handleCompress() {
     }
 
     try {
+        console.log('Starting compression...');
         const originalSize = currentPDFData.byteLength;
+        console.log('Original size:', originalSize, 'bytes');
 
         // Use Web Worker for compression
         const compressedPDF = await workerManager.execute('compress', {
             pdfData: currentPDFData.slice(0)
         });
 
+        console.log('Compression completed');
         const newSize = compressedPDF.byteLength;
+        console.log('Compressed size:', newSize, 'bytes');
 
         // Create a fresh copy to avoid detachment issues
         const newArray = new Uint8Array(compressedPDF);
         currentPDFData = newArray.buffer;
+
+        // Update document in tabs
+        const activeDoc = getActiveDocument();
+        if (activeDoc) {
+            activeDoc.pdfData = currentPDFData.slice(0);
+        }
+
+        // Update cache
+        if (currentCacheId && currentPDFData) {
+            await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
+        }
+
+        // Save current page to restore after reload
+        const currentPage = viewer.currentPage;
+
         // IMPORTANT: Always pass a copy to viewer to prevent detachment
         await viewer.loadPDF(currentPDFData.slice(0));
+
+        // Restore page position
+        viewer.currentPage = currentPage;
+        await viewer.renderPage(currentPage);
 
         const reduction = ((originalSize - newSize) / originalSize * 100).toFixed(1);
         const saved = reduction > 0 ? reduction : 0;
 
         addEditToHistory(`Compressed (${saved}% reduction)`);
-        showNotification(`PDF optimized! Original: ${(originalSize / 1024).toFixed(1)} KB → Compressed: ${(newSize / 1024).toFixed(1)} KB (${saved}% reduction)`, 'success');
+        showNotification(`PDF optimized! Original: ${(originalSize / 1024).toFixed(1)} KB → Compressed: ${(newSize / 1024).toFixed(1)} KB (${saved}% reduction)`, 'success', 5000);
     } catch (error) {
         console.error('Compression failed:', error);
         showNotification('Failed to compress PDF: ' + error.message, 'error');
