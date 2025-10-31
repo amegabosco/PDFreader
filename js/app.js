@@ -1438,6 +1438,9 @@ async function executeRotate(degrees) {
             return;
         }
 
+        // Save current page to restore after rotation
+        const currentPage = viewer.currentPage;
+
         // Use Web Worker for rotation
         const rotatedPDF = await workerManager.execute('rotate', {
             pdfData: currentPDFData.slice(0),
@@ -1448,8 +1451,29 @@ async function executeRotate(degrees) {
         // Create a fresh copy to avoid detachment issues
         const newArray = new Uint8Array(rotatedPDF);
         currentPDFData = newArray.buffer;
+
+        // Update document in tabs
+        const activeDoc = getActiveDocument();
+        if (activeDoc) {
+            activeDoc.pdfData = currentPDFData.slice(0);
+        }
+
+        // Update cache
+        if (currentCacheId && currentPDFData) {
+            await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
+        }
+
         // IMPORTANT: Always pass a copy to viewer to prevent detachment
         await viewer.loadPDF(currentPDFData.slice(0));
+
+        // Restore the page position
+        viewer.currentPage = currentPage;
+        await viewer.renderPage(currentPage);
+
+        // Force thumbnail regeneration if navigator is open
+        if (viewer.navPanelOpen) {
+            await viewer.generateThumbnails(true);
+        }
 
         const pageText = selectedPages.length === 1 ? 'page' : 'pages';
         addEditToHistory(`Rotated ${selectedPages.length} ${pageText} by ${degrees}°`);
