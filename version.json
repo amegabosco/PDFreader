@@ -1,24 +1,22 @@
 {
-  "version": "1.2.2",
+  "version": "1.2.3",
   "codename": "Cacao",
   "emoji": "🍫",
   "releaseDate": "2025-10-31",
   "previousVersion": {
-    "version": "1.2.1",
+    "version": "1.2.2",
     "codename": "Cacao",
     "emoji": "🍫",
     "releaseDate": "2025-10-31"
   },
   "changelog": {
     "major": [],
-    "minor": [
-      "Transparent loading overlay with real-time progress"
-    ],
+    "minor": [],
     "patches": [
-      "Always start at page 1 on document load",
-      "Maintain page position after rotation/compression",
-      "Refresh thumbnails after insertions",
-      "Fixed large documents opening at wrong page"
+      "CRITICAL: Definitively fixed documents opening at page 10",
+      "Added initialLoad flag to block scroll tracking during render",
+      "500ms delay before activating scroll tracking",
+      "Enhanced logging for debugging page detection"
     ]
   },
   "stats": {
