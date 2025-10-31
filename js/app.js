@@ -258,8 +258,14 @@ class PendingObjectsManager {
 
             // Refresh the view
             await viewer.loadPDF(currentPDFData.slice(0));
-            viewer.currentPage = currentPage;
-            // loadPDF already calls renderScrollView(), no need to render again
+
+            // Restore page position in scroll view
+            await viewer.goToPage(currentPage);
+
+            // Regenerate thumbnails after insertion
+            if (viewer.navPanelOpen) {
+                await viewer.generateThumbnails(true);
+            }
 
             // Update cache if document is cached
             if (currentCacheId && currentPDFData) {
@@ -1534,9 +1540,8 @@ async function executeRotate(degrees) {
         // IMPORTANT: Always pass a copy to viewer to prevent detachment
         await viewer.loadPDF(currentPDFData.slice(0));
 
-        // Restore the page position
-        viewer.currentPage = currentPage;
-        await viewer.renderPage(currentPage);
+        // Restore the page position in scroll view
+        await viewer.goToPage(currentPage);
 
         // Force thumbnail regeneration if navigator is open
         if (viewer.navPanelOpen) {
@@ -1597,9 +1602,8 @@ async function handleCompress() {
         // IMPORTANT: Always pass a copy to viewer to prevent detachment
         await viewer.loadPDF(currentPDFData.slice(0));
 
-        // Restore page position
-        viewer.currentPage = currentPage;
-        await viewer.renderPage(currentPage);
+        // Restore page position in scroll view
+        await viewer.goToPage(currentPage);
 
         const reduction = ((originalSize - newSize) / originalSize * 100).toFixed(1);
         const saved = reduction > 0 ? reduction : 0;
