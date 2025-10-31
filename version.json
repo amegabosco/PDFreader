@@ -1,27 +1,24 @@
 {
-  "version": "1.2.1",
+  "version": "1.2.2",
   "codename": "Cacao",
   "emoji": "🍫",
   "releaseDate": "2025-10-31",
   "previousVersion": {
-    "version": "1.1.2",
+    "version": "1.2.1",
     "codename": "Cacao",
     "emoji": "🍫",
     "releaseDate": "2025-10-31"
   },
   "changelog": {
-    "major": [
-      "Complete floating panel redesign - ultra-compact (200-280px)"
-    ],
+    "major": [],
     "minor": [
-      "Real-time page number updates during scroll",
-      "Debounced zoom for smooth performance"
+      "Transparent loading overlay with real-time progress"
     ],
     "patches": [
-      "Concurrent render protection",
-      "Faster animations (150ms)",
-      "Lighter shadows and borders",
-      "All UI elements 25-30% more compact"
+      "Always start at page 1 on document load",
+      "Maintain page position after rotation/compression",
+      "Refresh thumbnails after insertions",
+      "Fixed large documents opening at wrong page"
     ]
   },
   "stats": {
