@@ -747,22 +747,30 @@ class PDFViewer {
      * Generate thumbnails for all pages
      */
     async generateThumbnails(force = false) {
-        if (!this.pdfDoc) return;
+        console.log('generateThumbnails called, force:', force);
 
-        const navThumbnails = document.getElementById('navThumbnails');
-
-        // Only generate if empty (unless force is true)
-        if (this.thumbnails.length > 0 && !force) {
-            console.log('Thumbnails already generated');
+        if (!this.pdfDoc) {
+            console.error('Cannot generate thumbnails: no PDF document loaded');
             return;
         }
 
+        const navThumbnails = document.getElementById('navThumbnails');
+        if (!navThumbnails) {
+            console.error('Cannot generate thumbnails: navThumbnails element not found');
+            return;
+        }
+
+        // Only generate if empty (unless force is true)
+        if (this.thumbnails.length > 0 && !force) {
+            console.log('Thumbnails already generated, skipping');
+            return;
+        }
+
+        console.log(`Starting to generate ${this.totalPages} thumbnails...`);
         navThumbnails.innerHTML = ''; // Clear existing thumbnails
         this.thumbnails = [];
 
-        const thumbnailScale = 0.5; // Increased scale for better quality
-
-        console.log(`Generating ${this.totalPages} thumbnails...`);
+        const thumbnailScale = 0.3; // Reduced scale for better performance
 
         for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
             console.log(`Rendering thumbnail for page ${pageNum}`);

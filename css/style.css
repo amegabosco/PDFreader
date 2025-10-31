@@ -1813,3 +1813,116 @@ textarea.text-input {
     transition: width 0.3s ease;
 }
 
+/* ===================================
+   Floating Panels
+   =================================== */
+
+.floating-panel {
+    position: fixed;
+    background: var(--white);
+    border-radius: 12px;
+    box-shadow: 0 12px 48px rgba(15, 23, 42, 0.2);
+    min-width: 320px;
+    max-width: 600px;
+    max-height: 80vh;
+    z-index: 10001;
+    opacity: 0;
+    transform: scale(0.95);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.floating-panel.show {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.floating-panel.dragging {
+    cursor: move;
+    user-select: none;
+}
+
+.floating-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--background);
+    border-radius: 12px 12px 0 0;
+    cursor: move;
+}
+
+.floating-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text);
+}
+
+.floating-panel-title i {
+    font-size: 1.25rem;
+    color: var(--primary);
+}
+
+.floating-panel-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.floating-panel-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.floating-panel-btn:hover {
+    background: var(--white);
+    color: var(--text);
+}
+
+.floating-panel-btn.close-btn:hover {
+    background: #EF4444;
+    color: white;
+}
+
+.floating-panel-btn i {
+    font-size: 1rem;
+}
+
+.floating-panel-content {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Scrollbar for floating panel content */
+.floating-panel-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.floating-panel-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.floating-panel-content::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+
+.floating-panel-content::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
