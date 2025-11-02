@@ -1162,14 +1162,43 @@ function readFileAsArrayBuffer(file) {
  * Setup tool button interactions
  */
 function setupToolButtons() {
-    const toolButtons = document.querySelectorAll('.tool-btn');
+    // Create tool buttons dynamically with i18n support
+    const toolsMenu = document.querySelector('.tools-menu');
+    if (!toolsMenu) return;
 
-    toolButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const tool = button.dataset.tool;
-            handleToolClick(tool);
-        });
+    const tools = [
+        { name: 'upload', icon: 'ti-upload', i18nKey: 'upload.pdf' },
+        { name: 'split', icon: 'ti-cut', i18nKey: 'tool.split', requiresPDF: true },
+        { name: 'merge', icon: 'ti-arrows-join', i18nKey: 'tool.merge' },
+        { name: 'rotate', icon: 'ti-rotate-clockwise', i18nKey: 'tool.rotate', requiresPDF: true },
+        { name: 'compress', icon: 'ti-file-zip', i18nKey: 'tool.compress', requiresPDF: true },
+        { name: 'image', icon: 'ti-photo', i18nKey: 'tool.image', requiresPDF: true },
+        { name: 'annotate', icon: 'ti-pencil', i18nKey: 'tool.annotate', requiresPDF: true },
+        { name: 'sign', icon: 'ti-signature', i18nKey: 'tool.sign', requiresPDF: true }
+    ];
+
+    // Clear existing buttons except header
+    const header = toolsMenu.querySelector('h2');
+    toolsMenu.innerHTML = '';
+    if (header) toolsMenu.appendChild(header);
+
+    // Create buttons
+    tools.forEach(tool => {
+        const button = document.createElement('button');
+        button.className = 'tool-btn';
+        button.dataset.tool = tool.name;
+        if (tool.requiresPDF) button.setAttribute('disabled', 'disabled');
+
+        button.innerHTML = `
+            <i class="ti ${tool.icon}"></i>
+            <span data-i18n="${tool.i18nKey}">${i18n.t(tool.i18nKey)}</span>
+        `;
+
+        button.addEventListener('click', () => handleToolClick(tool.name));
+        toolsMenu.appendChild(button);
     });
+
+    console.log('✅ Tool buttons created with i18n support');
 }
 
 /**
