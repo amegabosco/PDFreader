@@ -837,10 +837,43 @@ function init() {
     pendingObjects.initialize();
     setupDrawingHandlers();
 
+    // Initialize language system
+    setupLanguageToggle();
+    i18n.updateUI();
+
     // Update memory usage periodically
     setInterval(updateMemoryUsage, 2000);
 
     console.log('PDF Power-Tool initialized');
+}
+
+/**
+ * Setup language toggle button
+ */
+function setupLanguageToggle() {
+    const langBtn = document.getElementById('langToggleBtn');
+    const langSpan = document.getElementById('currentLang');
+
+    if (!langBtn) return;
+
+    // Set initial language display
+    langSpan.textContent = i18n.getLanguage().toUpperCase();
+
+    // Toggle language on click
+    langBtn.addEventListener('click', () => {
+        const currentLang = i18n.getLanguage();
+        const newLang = currentLang === 'fr' ? 'en' : 'fr';
+
+        i18n.setLanguage(newLang);
+        langSpan.textContent = newLang.toUpperCase();
+
+        showNotification(
+            newLang === 'fr' ? 'Langue changée en Français' : 'Language changed to English',
+            'success'
+        );
+    });
+
+    console.log('🌍 Language toggle initialized');
 }
 
 /**

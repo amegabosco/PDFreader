@@ -1,44 +1,40 @@
 {
-  "version": "1.6.11",
+  "version": "1.7.0",
   "codename": "Tweakpane",
   "emoji": "🎛️",
   "releaseDate": "2025-11-02",
   "previousVersion": {
-    "version": "1.6.8",
+    "version": "1.6.11",
     "codename": "Tweakpane",
     "emoji": "🎛️",
     "releaseDate": "2025-11-02"
   },
   "changelog": {
     "major": [
-      "COMPLETE REDESIGN: Tweakpane-inspired UI aesthetic",
-      "Inline horizontal form layouts (label: value style)",
-      "Professional tool aesthetic with technical feel"
+      "NEW: Full internationalization system (i18n)",
+      "French as default language, English available",
+      "Language toggle button in sidebar header",
+      "Complete translation system with 100+ strings"
     ],
     "minor": [
-      "Panels: Light gray theme (#fafafa bg, #d4d4d4 borders)",
-      "Form groups: Inline flex layout with 70px label column",
-      "Inputs: Borderless with hover/focus states",
-      "Buttons: Flat design with 28-32px height, no rounded corners",
-      "Color picker: Inline swatch layout with blue active state",
-      "Signature library: Redesigned with Tweakpane aesthetic",
-      "Typography: 10-11px, uppercase headers, 500 weight"
+      "Floating panels now positioned at 10px from left window edge",
+      "Language preference saved in localStorage",
+      "Automatic UI update on language change",
+      "Language toggle with FR/EN indicator",
+      "Comprehensive translation coverage (sidebar, tools, panels, notifications)"
     ],
     "patches": [
-      "CRITICAL: Fixed signature panel crash (null pdfCanvas check)",
-      "Fixed signatures not loading when reopening panel",
-      "Added rotation progress notifications (rotating, reloading, thumbnails)",
-      "Fixed signature library CSS variables (replaced with actual colors)",
-      "Added DB initialization check before loading signatures",
-      "Improved signature item styling (40px height, 60px width)",
-      "Enhanced debug logging for signature operations"
+      "Improved panel positioning (10px from left vs centered)",
+      "Added language icon (ti-language) to toggle button",
+      "Language system with fallback for missing translations",
+      "Debug logging for i18n operations"
     ]
   },
   "stats": {
-    "totalCommits": 64,
-    "totalFeatures": 21,
-    "filesChanged": 1,
-    "linesAdded": 8,
-    "linesRemoved": 1
+    "totalCommits": 65,
+    "totalFeatures": 22,
+    "filesChanged": 5,
+    "linesAdded": 450,
+    "linesRemoved": 12
   }
 }

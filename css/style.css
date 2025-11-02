@@ -111,6 +111,7 @@ body {
     align-items: center;
     gap: 0.75rem;
     margin-bottom: 3rem;
+    position: relative;
 }
 
 .sidebar-header i {
@@ -152,6 +153,43 @@ body {
     font-size: 0.5625rem;
     color: var(--text-muted);
     font-weight: 400;
+}
+
+/* Language Toggle */
+.language-toggle {
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+
+.lang-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.375rem 0.625rem;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.lang-btn:hover {
+    background: var(--primary-light);
+    color: white;
+    border-color: var(--primary-light);
+}
+
+.lang-btn i {
+    font-size: 1rem;
+}
+
+.lang-btn span {
+    font-size: 0.625rem;
+    letter-spacing: 0.5px;
 }
 
 .tools-menu {
