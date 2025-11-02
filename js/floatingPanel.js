@@ -76,11 +76,14 @@ class FloatingPanel {
     }
 
     /**
-     * Center panel on screen
+     * Center panel on screen (aligned with recent documents sidebar)
      */
     center() {
         const rect = this.panel.getBoundingClientRect();
-        const x = (window.innerWidth - rect.width) / 2;
+
+        // Align left edge with the recent documents section (sidebar width = 280px)
+        const sidebarWidth = 280;
+        const x = sidebarWidth + 20; // 20px padding from sidebar edge
         const y = Math.max(60, (window.innerHeight - rect.height) / 2 - 40); // Offset from top
 
         this.panel.style.left = x + 'px';
