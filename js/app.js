@@ -399,6 +399,9 @@ class PendingObjectsManager {
 
     // Draw box interaction
     startDrawing(type, data) {
+        console.log('📦 startDrawing called, type:', type, 'data:', data);
+        console.log('📦 Overlay element:', this.overlay);
+
         // In scroll mode, we work with the scroll view directly
         // No need to switch view modes anymore
 
@@ -416,16 +419,26 @@ class PendingObjectsManager {
         this.overlay.style.cursor = 'crosshair';
         this.overlay.classList.add('active');
 
+        console.log('📦 Drawing state set:', this.drawingState);
+        console.log('📦 Overlay cursor:', this.overlay.style.cursor);
+        console.log('📦 Overlay classes:', this.overlay.className);
+
         // Show a message to guide the user
         console.log('Drawing mode active. Draw a box on the PDF to place your', type);
     }
 
     handleDrawMouseDown(e) {
-        if (!this.drawingState) return;
+        console.log('🖱️ Mouse down on overlay, drawingState:', this.drawingState);
+        if (!this.drawingState) {
+            console.warn('⚠️ No drawing state, ignoring mousedown');
+            return;
+        }
 
         const rect = this.overlay.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
+
+        console.log('🖱️ Drawing start position:', x, y);
 
         this.drawingState.startX = x;
         this.drawingState.startY = y;
@@ -440,6 +453,7 @@ class PendingObjectsManager {
 
         this.drawingState.element = element;
         this.overlay.appendChild(element);
+        console.log('✅ Drawing element created and appended');
     }
 
     handleDrawMouseMove(e) {
@@ -2339,7 +2353,10 @@ function showAnnotatePanel() {
  * Add text annotation to page using draw-box system
  */
 async function addTextAnnotationToPage() {
+    console.log('📝 addTextAnnotationToPage called');
     const text = document.getElementById('annotationText').value;
+    console.log('📝 Text:', text);
+
     if (!text) {
         showNotification('Please enter annotation text', 'warning');
         return;
@@ -2348,6 +2365,8 @@ async function addTextAnnotationToPage() {
     const fontSize = parseInt(document.getElementById('annotationSize').value);
     const colorRGB = document.getElementById('annotationColor').value;
 
+    console.log('📝 Font size:', fontSize, 'Color RGB:', colorRGB);
+
     // Parse RGB color
     const [r, g, b] = colorRGB.split(',').map(parseFloat);
     const hexColor = '#' + [r, g, b].map(v => {
@@ -2355,7 +2374,10 @@ async function addTextAnnotationToPage() {
         return hex.length === 1 ? '0' + hex : hex;
     }).join('');
 
+    console.log('📝 Hex color:', hexColor, 'RGB array:', [r, g, b]);
+
     // Start drawing mode
+    console.log('📝 Calling pendingObjects.startDrawing...');
     pendingObjects.startDrawing('text', {
         text: text,
         fontSize: fontSize,
@@ -2364,6 +2386,7 @@ async function addTextAnnotationToPage() {
     });
 
     showNotification('Draw a box on the PDF to place your text', 'info');
+    console.log('📝 Notification shown');
     // Don't close panel - let user see it while drawing
     // closeToolPanel();
 }
