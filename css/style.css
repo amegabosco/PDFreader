@@ -35,12 +35,12 @@ body {
 }
 
 /* ===================================
-   App Title Badge - Fixed Top Left
+   App Title Badge - Fixed Bottom Left
    =================================== */
 
 .app-title-badge {
     position: fixed;
-    top: 10px;
+    bottom: 10px;
     left: 10px;
     background: var(--white);
     border: 2px solid var(--primary);
