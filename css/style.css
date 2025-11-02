@@ -69,6 +69,13 @@ body {
     letter-spacing: 0.3px;
 }
 
+.app-author {
+    font-size: 0.5625rem;
+    font-weight: 400;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
 /* ===================================
    Notification Banner
    =================================== */
