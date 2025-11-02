@@ -839,6 +839,7 @@ function init() {
 
     // Initialize language system
     setupLanguageToggle();
+    setupRecentDocsButton();
     i18n.updateUI();
 
     // Update memory usage periodically
@@ -852,12 +853,7 @@ function init() {
  */
 function setupLanguageToggle() {
     const langBtn = document.getElementById('langToggleBtn');
-    const langSpan = document.getElementById('currentLang');
-
     if (!langBtn) return;
-
-    // Set initial language display
-    langSpan.textContent = i18n.getLanguage().toUpperCase();
 
     // Toggle language on click
     langBtn.addEventListener('click', () => {
@@ -865,7 +861,6 @@ function setupLanguageToggle() {
         const newLang = currentLang === 'fr' ? 'en' : 'fr';
 
         i18n.setLanguage(newLang);
-        langSpan.textContent = newLang.toUpperCase();
 
         showNotification(
             newLang === 'fr' ? 'Langue changée en Français' : 'Language changed to English',
@@ -874,6 +869,60 @@ function setupLanguageToggle() {
     });
 
     console.log('🌍 Language toggle initialized');
+}
+
+/**
+ * Setup recent documents button
+ */
+function setupRecentDocsButton() {
+    const recentDocsBtn = document.getElementById('recentDocsBtn');
+    if (!recentDocsBtn) return;
+
+    recentDocsBtn.addEventListener('click', () => {
+        showRecentDocsPanel();
+    });
+
+    console.log('📁 Recent docs button initialized');
+}
+
+/**
+ * Show recent documents floating panel
+ */
+async function showRecentDocsPanel() {
+    const recentDocs = await pdfCache.getAllCached();
+
+    const panel = `
+        <button class="close-btn" onclick="closeToolPanel()">
+            <i class="ti ti-x"></i>
+        </button>
+        <h3><i class="ti ti-clock-history"></i> <span data-i18n="recent.documents">${i18n.t('recent.documents')}</span></h3>
+        <div class="tool-content">
+            <div id="recentDocsFloatingList" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 400px; overflow-y: auto;">
+                ${recentDocs.length === 0 ?
+                    `<div style="text-align: center; color: #999; font-size: 10px; padding: 2rem;">${i18n.t('no.recent')}</div>` :
+                    recentDocs.map(doc => `
+                        <div class="recent-doc-item" style="display: flex; align-items: center; gap: 0.5rem; padding: 8px; background: white; border: 1px solid #e8e8e8; border-radius: 2px; cursor: pointer;" onclick="loadFromCache('${doc.id}')">
+                            <i class="ti ti-file-type-pdf" style="font-size: 1.5rem; color: #4a90e2;"></i>
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="font-size: 10px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${doc.fileName}</div>
+                                <div style="font-size: 9px; color: #999;">${new Date(doc.timestamp).toLocaleString(i18n.getLanguage())}</div>
+                            </div>
+                        </div>
+                    `).join('')
+                }
+            </div>
+
+            ${recentDocs.length > 0 ? `
+                <div style="border-top: 1px solid #e8e8e8; padding: 8px 10px; margin-top: 1rem;">
+                    <button class="action-btn" onclick="clearAllCache()" style="width: 100%; background-color: #EF4444;">
+                        <i class="ti ti-trash"></i> ${i18n.t('clear.cache')}
+                    </button>
+                </div>
+            ` : ''}
+        </div>
+    `;
+
+    showToolPanel(panel);
 }
 
 /**
