@@ -1199,43 +1199,17 @@ function readFileAsArrayBuffer(file) {
  * Setup tool button interactions
  */
 function setupToolButtons() {
-    // Create tool buttons dynamically with i18n support
-    const toolsMenu = document.querySelector('.tools-menu');
-    if (!toolsMenu) return;
+    // Setup click handlers for all tool buttons in the toolbar
+    const toolButtons = document.querySelectorAll('.tool-btn');
 
-    const tools = [
-        { name: 'upload', icon: 'ti-upload', i18nKey: 'upload.pdf' },
-        { name: 'split', icon: 'ti-cut', i18nKey: 'tool.split', requiresPDF: true },
-        { name: 'merge', icon: 'ti-arrows-join', i18nKey: 'tool.merge' },
-        { name: 'rotate', icon: 'ti-rotate-clockwise', i18nKey: 'tool.rotate', requiresPDF: true },
-        { name: 'compress', icon: 'ti-file-zip', i18nKey: 'tool.compress', requiresPDF: true },
-        { name: 'image', icon: 'ti-photo', i18nKey: 'tool.image', requiresPDF: true },
-        { name: 'annotate', icon: 'ti-pencil', i18nKey: 'tool.annotate', requiresPDF: true },
-        { name: 'sign', icon: 'ti-signature', i18nKey: 'tool.sign', requiresPDF: true }
-    ];
-
-    // Clear existing buttons except header
-    const header = toolsMenu.querySelector('h2');
-    toolsMenu.innerHTML = '';
-    if (header) toolsMenu.appendChild(header);
-
-    // Create buttons
-    tools.forEach(tool => {
-        const button = document.createElement('button');
-        button.className = 'tool-btn';
-        button.dataset.tool = tool.name;
-        if (tool.requiresPDF) button.setAttribute('disabled', 'disabled');
-
-        button.innerHTML = `
-            <i class="ti ${tool.icon}"></i>
-            <span data-i18n="${tool.i18nKey}">${i18n.t(tool.i18nKey)}</span>
-        `;
-
-        button.addEventListener('click', () => handleToolClick(tool.name));
-        toolsMenu.appendChild(button);
+    toolButtons.forEach(button => {
+        const tool = button.dataset.tool;
+        if (tool) {
+            button.addEventListener('click', () => handleToolClick(tool));
+        }
     });
 
-    console.log('✅ Tool buttons created with i18n support');
+    console.log('✅ Tool buttons initialized:', toolButtons.length);
 }
 
 /**
