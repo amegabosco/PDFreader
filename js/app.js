@@ -2681,6 +2681,11 @@ function initSignatureCanvas() {
 function initializeSignaturePositioning() {
     const pdfCanvas = document.getElementById('pdfCanvas');
 
+    if (!pdfCanvas) {
+        console.error('❌ pdfCanvas not found, cannot initialize signature positioning');
+        return;
+    }
+
     // Remove existing listeners to avoid duplicates
     pdfCanvas.removeEventListener('mousedown', handleSignatureCanvasMouseDown);
     pdfCanvas.removeEventListener('mousemove', handleSignatureCanvasMouseMove);
@@ -2690,6 +2695,7 @@ function initializeSignaturePositioning() {
     pdfCanvas.addEventListener('mousedown', handleSignatureCanvasMouseDown);
     pdfCanvas.addEventListener('mousemove', handleSignatureCanvasMouseMove);
     pdfCanvas.addEventListener('mouseup', handleSignatureCanvasMouseUp);
+    console.log('✅ Signature positioning initialized');
 }
 
 /**

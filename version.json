@@ -1,13 +1,13 @@
 {
-  "version": "1.6.8",
+  "version": "1.6.9",
   "codename": "Tweakpane",
   "emoji": "🎛️",
   "releaseDate": "2025-11-02",
   "previousVersion": {
-    "version": "1.6.7",
+    "version": "1.6.8",
     "codename": "Tweakpane",
     "emoji": "🎛️",
-    "releaseDate": "2025-10-31"
+    "releaseDate": "2025-11-02"
   },
   "changelog": {
     "major": [
@@ -25,6 +25,7 @@
       "Typography: 10-11px, uppercase headers, 500 weight"
     ],
     "patches": [
+      "CRITICAL: Fixed signature panel crash (null pdfCanvas check)",
       "Fixed signatures not loading when reopening panel",
       "Added rotation progress notifications (rotating, reloading, thumbnails)",
       "Fixed signature library CSS variables (replaced with actual colors)",
@@ -34,10 +35,10 @@
     ]
   },
   "stats": {
-    "totalCommits": 63,
+    "totalCommits": 64,
     "totalFeatures": 21,
     "filesChanged": 1,
-    "linesAdded": 35,
-    "linesRemoved": 10
+    "linesAdded": 8,
+    "linesRemoved": 1
   }
 }
