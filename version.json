@@ -1,12 +1,12 @@
 {
-  "version": "1.6.7",
+  "version": "1.6.8",
   "codename": "Tweakpane",
   "emoji": "🎛️",
-  "releaseDate": "2025-10-31",
+  "releaseDate": "2025-11-02",
   "previousVersion": {
-    "version": "1.5.0",
-    "codename": "Cacao",
-    "emoji": "🍫",
+    "version": "1.6.7",
+    "codename": "Tweakpane",
+    "emoji": "🎛️",
     "releaseDate": "2025-10-31"
   },
   "changelog": {
@@ -17,26 +17,27 @@
     ],
     "minor": [
       "Panels: Light gray theme (#fafafa bg, #d4d4d4 borders)",
-      "Form groups: Inline flex layout with 90px label column",
+      "Form groups: Inline flex layout with 70px label column",
       "Inputs: Borderless with hover/focus states",
-      "Buttons: Flat design with 32px height, no rounded corners",
+      "Buttons: Flat design with 28-32px height, no rounded corners",
       "Color picker: Inline swatch layout with blue active state",
-      "Page selection: List-style with borders between items",
+      "Signature library: Redesigned with Tweakpane aesthetic",
       "Typography: 10-11px, uppercase headers, 500 weight"
     ],
     "patches": [
-      "Removed all border-radius (2px max)",
-      "Flat shadows and transitions (0.1s)",
-      "Blue accent color #4a90e2 throughout",
-      "Dense spacing with 8-10px padding",
-      "6px scrollbar with gray track"
+      "Fixed signatures not loading when reopening panel",
+      "Added rotation progress notifications (rotating, reloading, thumbnails)",
+      "Fixed signature library CSS variables (replaced with actual colors)",
+      "Added DB initialization check before loading signatures",
+      "Improved signature item styling (40px height, 60px width)",
+      "Enhanced debug logging for signature operations"
     ]
   },
   "stats": {
-    "totalCommits": 62,
+    "totalCommits": 63,
     "totalFeatures": 21,
     "filesChanged": 1,
-    "linesAdded": 120,
-    "linesRemoved": 85
+    "linesAdded": 35,
+    "linesRemoved": 10
   }
 }

@@ -1520,6 +1520,10 @@ async function executeRotate(degrees) {
             return;
         }
 
+        // Show loading notification
+        const pageText = selectedPages.length === 1 ? 'page' : 'pages';
+        showNotification(`Rotating ${selectedPages.length} ${pageText}... Please wait.`, 'info', 60000);
+
         // Save current page to restore after rotation
         const currentPage = viewer.currentPage;
 
@@ -1545,6 +1549,9 @@ async function executeRotate(degrees) {
             await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
         }
 
+        // Show reloading notification
+        showNotification('Reloading PDF...', 'info', 60000);
+
         // IMPORTANT: Always pass a copy to viewer to prevent detachment
         await viewer.loadPDF(currentPDFData.slice(0));
 
@@ -1553,10 +1560,10 @@ async function executeRotate(degrees) {
 
         // Force thumbnail regeneration if navigator is open
         if (viewer.navPanelOpen) {
+            showNotification('Regenerating thumbnails...', 'info', 60000);
             await viewer.generateThumbnails(true);
         }
 
-        const pageText = selectedPages.length === 1 ? 'page' : 'pages';
         addEditToHistory(`Rotated ${selectedPages.length} ${pageText} by ${degrees}°`);
         closeToolPanel();
         showNotification(`${selectedPages.length} ${pageText} rotated ${degrees}° clockwise!`, 'success');
@@ -2980,27 +2987,33 @@ async function loadSavedSignatures() {
             return;
         }
 
+        // Ensure DB is initialized
+        if (!signatureLibrary.db) {
+            console.log('🔵 Initializing signature library...');
+            await signatureLibrary.init();
+        }
+
         const signatures = await signatureLibrary.getAllSignatures();
-        console.log('🔵 Signatures loaded:', signatures.length);
+        console.log('🔵 Signatures loaded from DB:', signatures.length, signatures);
 
         if (signatures.length === 0) {
             console.log('🔵 No signatures, showing empty state');
-            container.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.75rem; padding: 0.5rem;">No saved signatures</div>';
+            container.innerHTML = '<div style="text-align: center; color: #999; font-size: 10px; padding: 1rem;">No saved signatures</div>';
             return;
         }
 
         console.log('🔵 Rendering', signatures.length, 'signatures');
         container.innerHTML = signatures.map(sig => `
-            <div class="saved-signature-item" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: var(--white); border: 1px solid var(--border); border-radius: 6px;">
-                <img src="${sig.dataUrl}" style="height: 40px; border: 1px solid var(--border); border-radius: 4px; background: white; flex-shrink: 0;" alt="${sig.name}">
+            <div class="saved-signature-item" style="display: flex; align-items: center; gap: 6px; padding: 8px; background: white; border: 1px solid #e8e8e8; border-radius: 2px; margin-bottom: 4px;">
+                <img src="${sig.dataUrl}" style="height: 40px; width: 60px; object-fit: contain; border: 1px solid #e8e8e8; border-radius: 2px; background: white; flex-shrink: 0;" alt="${sig.name}">
                 <div style="flex: 1; min-width: 0;">
-                    <div style="font-size: 0.75rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${sig.name}</div>
-                    <div style="font-size: 0.625rem; color: var(--text-muted);">${signatureLibrary.formatDate(sig.timestamp)}</div>
+                    <div style="font-size: 10px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${sig.name}</div>
+                    <div style="font-size: 9px; color: #999;">${signatureLibrary.formatDate(sig.timestamp)}</div>
                 </div>
-                <button class="option-btn" onclick="loadSignatureToCanvas(${sig.id})" title="Load to canvas" style="padding: 0.25rem 0.5rem;">
+                <button class="option-btn" onclick="loadSignatureToCanvas(${sig.id})" title="Load to canvas" style="padding: 4px 8px; height: 28px; font-size: 10px;">
                     <i class="ti ti-download"></i>
                 </button>
-                <button class="option-btn" onclick="deleteSignature(${sig.id})" title="Delete" style="padding: 0.25rem 0.5rem; color: #EF4444;">
+                <button class="option-btn" onclick="deleteSignature(${sig.id})" title="Delete" style="padding: 4px 8px; height: 28px; font-size: 10px; background-color: #EF4444;">
                     <i class="ti ti-trash"></i>
                 </button>
             </div>
@@ -3010,7 +3023,7 @@ async function loadSavedSignatures() {
         console.error('❌ Error loading signatures:', error);
         const container = document.getElementById('savedSignaturesList');
         if (container) {
-            container.innerHTML = '<div style="text-align: center; color: #EF4444; font-size: 0.75rem; padding: 0.5rem;">Error loading signatures</div>';
+            container.innerHTML = '<div style="text-align: center; color: #EF4444; font-size: 10px; padding: 1rem;">Error loading signatures</div>';
         }
     }
 }
@@ -3019,12 +3032,17 @@ async function loadSavedSignatures() {
  * Save current signature to library
  */
 async function saveCurrentSignature() {
+    console.log('💾 saveCurrentSignature called');
     const canvas = document.getElementById('signatureCanvas');
     const ctx = canvas.getContext('2d');
+
+    console.log('💾 Canvas found:', canvas);
 
     // Check if signature is drawn
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const isBlank = !imageData.data.some(channel => channel !== 0);
+
+    console.log('💾 Is canvas blank?', isBlank);
 
     if (isBlank) {
         showNotification('Please draw a signature first', 'warning');
@@ -3033,15 +3051,25 @@ async function saveCurrentSignature() {
 
     // Prompt for name
     const name = prompt('Enter a name for this signature:', `Signature ${Date.now().toString().slice(-4)}`);
+    console.log('💾 User entered name:', name);
+
     if (!name) return;
 
     try {
         const dataUrl = canvas.toDataURL('image/png');
-        await signatureLibrary.saveSignature(name, dataUrl);
+        console.log('💾 DataURL created, length:', dataUrl.length);
+
+        console.log('💾 Calling signatureLibrary.saveSignature...');
+        const id = await signatureLibrary.saveSignature(name, dataUrl);
+        console.log('💾 Signature saved with ID:', id);
+
+        console.log('💾 Reloading signatures list...');
         await loadSavedSignatures();
+
         showNotification('Signature saved to library', 'success');
+        console.log('✅ Save complete');
     } catch (error) {
-        console.error('Error saving signature:', error);
+        console.error('❌ Error saving signature:', error);
         showNotification('Failed to save signature: ' + error.message, 'error');
     }
 }
