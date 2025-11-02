@@ -839,8 +839,10 @@ function init() {
 
     // Initialize language system
     setupLanguageToggle();
-    setupRecentDocsButton();
     i18n.updateUI();
+
+    // Show recent documents panel by default
+    showRecentDocsPanel();
 
     // Update memory usage periodically
     setInterval(updateMemoryUsage, 2000);
@@ -872,21 +874,7 @@ function setupLanguageToggle() {
 }
 
 /**
- * Setup recent documents button
- */
-function setupRecentDocsButton() {
-    const recentDocsBtn = document.getElementById('recentDocsBtn');
-    if (!recentDocsBtn) return;
-
-    recentDocsBtn.addEventListener('click', () => {
-        showRecentDocsPanel();
-    });
-
-    console.log('📁 Recent docs button initialized');
-}
-
-/**
- * Show recent documents floating panel
+ * Show recent documents floating panel (displayed by default on startup)
  */
 async function showRecentDocsPanel() {
     const recentDocs = await pdfCache.getAllCached();
