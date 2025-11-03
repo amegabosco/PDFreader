@@ -192,7 +192,7 @@ class FloatingPanel {
 window.FloatingPanelManager = {
     panels: {},
 
-    create(id, title, icon, content) {
+    create(id, title, icon, content, cssClass = '') {
         // Close existing panel with same ID
         if (this.panels[id]) {
             this.panels[id].close();
@@ -200,10 +200,16 @@ window.FloatingPanelManager = {
 
         // Create new panel
         const panel = new FloatingPanel(title, icon);
-        panel.create(content);
+        const panelElement = panel.create(content);
+
+        // Add optional CSS class
+        if (cssClass && panelElement) {
+            panelElement.classList.add(cssClass);
+        }
+
         this.panels[id] = panel;
 
-        return panel;
+        return panelElement;
     },
 
     close(id) {

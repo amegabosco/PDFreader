@@ -2072,6 +2072,12 @@ textarea.text-input {
     user-select: none;
 }
 
+/* Narrower panel for edit history (1/3 less width) */
+.floating-panel.narrow {
+    min-width: 240px;
+    max-width: 273px;
+}
+
 .floating-panel-header {
     display: flex;
     align-items: center;

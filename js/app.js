@@ -940,12 +940,13 @@ function showEditHistoryPanel() {
         </div>
     `;
 
-    // Use FloatingPanelManager directly with unique ID
+    // Use FloatingPanelManager directly with unique ID and narrow CSS class
     const panel = window.FloatingPanelManager.create(
         'edit-history',
         i18n.t('info.history'),
         'ti-history',
-        content
+        content,
+        'narrow'  // Apply narrow CSS class for 1/3 less width
     );
 
     // Position on right side
@@ -3935,6 +3936,13 @@ async function updateRecentDocuments() {
         console.error('Error updating recent documents:', error);
         recentDocsList.innerHTML = '<div class="recent-docs-empty">Error loading recent documents</div>';
     }
+}
+
+/**
+ * Load a document from cache (alias for openRecentDocument for floating panel)
+ */
+async function loadFromCache(id) {
+    return await openRecentDocument(id);
 }
 
 /**
