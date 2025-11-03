@@ -970,6 +970,8 @@ body {
     background: var(--background);
     border-bottom: 1px solid var(--border);
     animation: slideDown 0.3s ease;
+    position: relative;
+    z-index: 1;
 }
 
 @keyframes slideDown {
