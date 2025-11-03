@@ -841,8 +841,9 @@ function init() {
     setupLanguageToggle();
     i18n.updateUI();
 
-    // Show recent documents panel by default
+    // Show recent documents and edit history panels by default
     showRecentDocsPanel();
+    showEditHistoryPanel();
 
     // Update memory usage periodically
     setInterval(updateMemoryUsage, 2000);
@@ -879,38 +880,80 @@ function setupLanguageToggle() {
 async function showRecentDocsPanel() {
     const recentDocs = await pdfCache.getAllCached();
 
-    const panel = `
-        <button class="close-btn" onclick="closeToolPanel()">
-            <i class="ti ti-x"></i>
-        </button>
-        <h3><i class="ti ti-clock-history"></i> <span data-i18n="recent.documents">${i18n.t('recent.documents')}</span></h3>
-        <div class="tool-content">
-            <div id="recentDocsFloatingList" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 400px; overflow-y: auto;">
-                ${recentDocs.length === 0 ?
-                    `<div style="text-align: center; color: #999; font-size: 10px; padding: 2rem;">${i18n.t('no.recent')}</div>` :
-                    recentDocs.map(doc => `
-                        <div class="recent-doc-item" style="display: flex; align-items: center; gap: 0.5rem; padding: 8px; background: white; border: 1px solid #e8e8e8; border-radius: 2px; cursor: pointer;" onclick="loadFromCache('${doc.id}')">
-                            <i class="ti ti-file-type-pdf" style="font-size: 1.5rem; color: #4a90e2;"></i>
-                            <div style="flex: 1; min-width: 0;">
-                                <div style="font-size: 10px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${doc.fileName}</div>
-                                <div style="font-size: 9px; color: #999;">${new Date(doc.timestamp).toLocaleString(i18n.getLanguage())}</div>
-                            </div>
+    const content = `
+        <div id="recentDocsFloatingList" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 400px; overflow-y: auto;">
+            ${recentDocs.length === 0 ?
+                `<div style="text-align: center; color: #999; font-size: 10px; padding: 2rem;">${i18n.t('no.recent')}</div>` :
+                recentDocs.map(doc => `
+                    <div class="recent-doc-item" style="display: flex; align-items: center; gap: 0.5rem; padding: 8px; background: white; border: 1px solid #e8e8e8; border-radius: 2px; cursor: pointer;" onclick="loadFromCache('${doc.id}')">
+                        <i class="ti ti-file-type-pdf" style="font-size: 1.5rem; color: #4a90e2;"></i>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-size: 10px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${doc.fileName}</div>
+                            <div style="font-size: 9px; color: #999;">${new Date(doc.timestamp).toLocaleString(i18n.getLanguage())}</div>
                         </div>
-                    `).join('')
-                }
-            </div>
+                    </div>
+                `).join('')
+            }
+        </div>
 
-            ${recentDocs.length > 0 ? `
-                <div style="border-top: 1px solid #e8e8e8; padding: 8px 10px; margin-top: 1rem;">
-                    <button class="action-btn" onclick="clearAllCache()" style="width: 100%; background-color: #EF4444;">
-                        <i class="ti ti-trash"></i> ${i18n.t('clear.cache')}
-                    </button>
-                </div>
-            ` : ''}
+        ${recentDocs.length > 0 ? `
+            <div style="border-top: 1px solid #e8e8e8; padding: 8px 10px; margin-top: 1rem;">
+                <button class="action-btn" onclick="clearAllCache()" style="width: 100%; background-color: #EF4444;">
+                    <i class="ti ti-trash"></i> ${i18n.t('clear.cache')}
+                </button>
+            </div>
+        ` : ''}
+    `;
+
+    // Use FloatingPanelManager directly with unique ID
+    const panel = window.FloatingPanelManager.create(
+        'recent-docs',
+        i18n.t('recent.documents'),
+        'ti-clock-history',
+        content
+    );
+
+    // Position on left side (10px from left)
+    if (panel) {
+        panel.style.left = '10px';
+        panel.style.top = '80px';
+    }
+}
+
+/**
+ * Show edit history floating panel (displayed by default on startup)
+ */
+function showEditHistoryPanel() {
+    const content = `
+        <div id="editHistoryFloatingList" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 400px; overflow-y: auto;">
+            ${editHistory.length === 0 ?
+                `<div style="text-align: center; color: #999; font-size: 10px; padding: 2rem;">${i18n.t('info.no.edits')}</div>` :
+                editHistory.map((edit, index) => `
+                    <div class="edit-item" style="display: flex; align-items: start; gap: 0.5rem; padding: 8px; background: white; border: 1px solid #e8e8e8; border-radius: 2px;">
+                        <div style="min-width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: #4a90e2; color: white; border-radius: 50%; font-size: 9px; font-weight: 700;">${index + 1}</div>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-size: 10px; font-weight: 500; color: #333; word-wrap: break-word;">${edit}</div>
+                        </div>
+                    </div>
+                `).join('')
+            }
         </div>
     `;
 
-    showToolPanel(panel);
+    // Use FloatingPanelManager directly with unique ID
+    const panel = window.FloatingPanelManager.create(
+        'edit-history',
+        i18n.t('info.history'),
+        'ti-history',
+        content
+    );
+
+    // Position on right side
+    if (panel) {
+        panel.style.right = '10px';
+        panel.style.left = 'auto';
+        panel.style.top = '80px';
+    }
 }
 
 /**
@@ -3285,6 +3328,8 @@ function handleHandTool() {
 
     if (isActive) {
         handBtn.classList.add('active');
+        // Close all floating panels when hand tool is activated
+        window.FloatingPanelManager.closeAll();
     } else {
         handBtn.classList.remove('active');
     }

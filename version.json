@@ -1,40 +1,38 @@
 {
-  "version": "1.8.7",
+  "version": "1.8.8",
   "codename": "Tweakpane",
   "emoji": "🎛️",
-  "releaseDate": "2025-11-02",
+  "releaseDate": "2025-11-03",
   "previousVersion": {
-    "version": "1.6.11",
+    "version": "1.8.7",
     "codename": "Tweakpane",
     "emoji": "🎛️",
     "releaseDate": "2025-11-02"
   },
   "changelog": {
     "major": [
-      "NEW: Full internationalization system (i18n)",
-      "French as default language, English available",
-      "Language toggle button in sidebar header",
-      "Complete translation system with 100+ strings"
+      "NEW: Multiple floating panels support",
+      "Both Recent Documents and Edit History panels visible at startup",
+      "Panels automatically close when hand tool is activated"
     ],
     "minor": [
-      "Floating panels now positioned at 10px from left window edge",
-      "Language preference saved in localStorage",
-      "Automatic UI update on language change",
-      "Language toggle with FR/EN indicator",
-      "Comprehensive translation coverage (sidebar, tools, panels, notifications)"
+      "Recent Documents panel positioned on left (10px from left edge)",
+      "Edit History panel positioned on right (10px from right edge)",
+      "FloatingPanelManager now supports multiple simultaneous panels",
+      "Panel positioning independent for each panel type"
     ],
     "patches": [
-      "Improved panel positioning (10px from left vs centered)",
-      "Added language icon (ti-language) to toggle button",
-      "Language system with fallback for missing translations",
-      "Debug logging for i18n operations"
+      "Modified showRecentDocsPanel() to use unique panel ID",
+      "Modified showEditHistoryPanel() to use unique panel ID",
+      "Added FloatingPanelManager.closeAll() call when hand tool activates",
+      "Improved panel management logic"
     ]
   },
   "stats": {
-    "totalCommits": 65,
-    "totalFeatures": 22,
-    "filesChanged": 5,
-    "linesAdded": 450,
-    "linesRemoved": 12
+    "totalCommits": 66,
+    "totalFeatures": 23,
+    "filesChanged": 2,
+    "linesAdded": 35,
+    "linesRemoved": 30
   }
 }
