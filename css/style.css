@@ -1170,6 +1170,7 @@ body {
 
 .insertion-overlay.active {
     pointer-events: auto;
+    z-index: 10002; /* Above floating panels (10001) to ensure drawing works */
 }
 
 /* Pending Objects */
@@ -1178,7 +1179,7 @@ body {
     border: 2px solid var(--primary);
     background: rgba(37, 99, 235, 0.1);
     cursor: move;
-    z-index: 11;
+    z-index: 10003; /* Above active insertion overlay (10002) */
     box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
 }
 

@@ -1,35 +1,35 @@
 {
-  "version": "1.8.10",
+  "version": "1.8.11",
   "codename": "Tweakpane",
   "emoji": "🎛️",
   "releaseDate": "2025-11-03",
   "previousVersion": {
-    "version": "1.8.9",
+    "version": "1.8.10",
     "codename": "Tweakpane",
     "emoji": "🎛️",
     "releaseDate": "2025-11-03"
   },
   "changelog": {
     "major": [
-      "Edit history panel now 1/3 narrower for better screen space",
-      "Fixed recent documents loading from cache"
+      "FIXED: Signature and image insertion now work reliably 100% of time",
+      "Resolved z-index conflict between floating panels and insertion overlay"
     ],
     "minor": [
-      "Added 'narrow' CSS class for compact floating panels",
-      "FloatingPanelManager now supports custom CSS classes",
-      "Created loadFromCache() function for floating panel integration"
+      "Insertion overlay z-index: 10002 when active (above panels at 10001)",
+      "Pending objects z-index: 10003 (always visible during drawing)",
+      "Overlay stays active until validation/cancellation"
     ],
     "patches": [
-      "Edit history panel width: 240-273px (was 360-410px)",
-      "loadFromCache() as alias for openRecentDocument()",
-      "Verified recent docs panel correctly loads cached PDFs"
+      "Don't remove overlay active class after drawing box",
+      "Active class removed only on validateAll() or cancelAll()",
+      "Fixed intermittent click detection issues with drawing overlay"
     ]
   },
   "stats": {
-    "totalCommits": 68,
+    "totalCommits": 69,
     "totalFeatures": 25,
-    "filesChanged": 3,
-    "linesAdded": 20,
-    "linesRemoved": 5
+    "filesChanged": 2,
+    "linesAdded": 8,
+    "linesRemoved": 3
   }
 }

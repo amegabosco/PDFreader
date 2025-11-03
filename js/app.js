@@ -544,7 +544,9 @@ class PendingObjectsManager {
 
         this.drawingState = null;
         this.overlay.style.cursor = '';
-        this.overlay.classList.remove('active');
+        // DON'T remove active class - keep overlay active for potential additional objects
+        // The active class will be removed when validateAll() or cancelAll() is called
+        // this.overlay.classList.remove('active');
     }
 }
 
