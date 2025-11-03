@@ -1,38 +1,39 @@
 {
-  "version": "1.8.8",
+  "version": "1.8.9",
   "codename": "Tweakpane",
   "emoji": "🎛️",
   "releaseDate": "2025-11-03",
   "previousVersion": {
-    "version": "1.8.7",
+    "version": "1.8.8",
     "codename": "Tweakpane",
     "emoji": "🎛️",
-    "releaseDate": "2025-11-02"
+    "releaseDate": "2025-11-03"
   },
   "changelog": {
     "major": [
-      "NEW: Multiple floating panels support",
-      "Both Recent Documents and Edit History panels visible at startup",
-      "Panels automatically close when hand tool is activated"
+      "NEW: Complete favicon and app icon system",
+      "Professional PDF-themed icons with UNOPS branding",
+      "PWA support with web app manifest"
     ],
     "minor": [
-      "Recent Documents panel positioned on left (10px from left edge)",
-      "Edit History panel positioned on right (10px from right edge)",
-      "FloatingPanelManager now supports multiple simultaneous panels",
-      "Panel positioning independent for each panel type"
+      "Generated favicon.ico (16x16, 32x32)",
+      "Apple touch icon (180x180)",
+      "Android Chrome icons (192x192, 512x512)",
+      "Web App Manifest for PWA installation",
+      "Theme color and mobile app metadata"
     ],
     "patches": [
-      "Modified showRecentDocsPanel() to use unique panel ID",
-      "Modified showEditHistoryPanel() to use unique panel ID",
-      "Added FloatingPanelManager.closeAll() call when hand tool activates",
-      "Improved panel management logic"
+      "Created SVG source icon (icon.svg)",
+      "Generated all PNG sizes using ImageMagick",
+      "Added comprehensive meta tags for mobile/PWA",
+      "Updated page title to 'UNOPS CAR PDF Power-Tool'"
     ]
   },
   "stats": {
-    "totalCommits": 66,
-    "totalFeatures": 23,
-    "filesChanged": 2,
-    "linesAdded": 35,
-    "linesRemoved": 30
+    "totalCommits": 67,
+    "totalFeatures": 24,
+    "filesChanged": 3,
+    "linesAdded": 40,
+    "linesRemoved": 8
   }
 }

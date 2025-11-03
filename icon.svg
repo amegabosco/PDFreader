@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#4a90e2" rx="80"/>
+
+  <!-- PDF Document Shape -->
+  <path d="M160 100 L160 100 L352 100 L392 140 L392 412 L160 412 Z" fill="white" stroke="none"/>
+  <path d="M352 100 L352 140 L392 140" fill="#e8f4ff" stroke="none"/>
+
+  <!-- PDF Text -->
+  <text x="256" y="280" font-family="Arial, sans-serif" font-size="80" font-weight="bold" fill="#4a90e2" text-anchor="middle">PDF</text>
+
+  <!-- Small UNOPS indicator -->
+  <circle cx="200" cy="360" r="8" fill="#EF4444"/>
+  <circle cx="220" cy="360" r="8" fill="#4a90e2"/>
+  <circle cx="240" cy="360" r="8" fill="#10b981"/>
+</svg>

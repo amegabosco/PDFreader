@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Icon Generator - UNOPS CAR PDF</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            margin: 10px;
+        }
+        .icon-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .icon-item {
+            text-align: center;
+        }
+        button {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #357abd;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>UNOPS CAR PDF - Icon Generator</h1>
+    <p>This page generates favicon and app icons for the application.</p>
+
+    <button onclick="generateAllIcons()">Generate All Icons</button>
+    <button onclick="downloadAllIcons()">Download All Icons</button>
+
+    <div class="status" id="status">Click "Generate All Icons" to start...</div>
+
+    <div class="icon-grid" id="iconGrid"></div>
+
+    <script>
+        const sizes = [
+            { name: 'favicon-16x16.png', size: 16 },
+            { name: 'favicon-32x32.png', size: 32 },
+            { name: 'apple-touch-icon.png', size: 180 },
+            { name: 'android-chrome-192x192.png', size: 192 },
+            { name: 'android-chrome-512x512.png', size: 512 }
+        ];
+
+        const canvases = {};
+
+        function drawIcon(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            const scale = size / 512;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, size, size);
+
+            // Background with rounded corners
+            const radius = 80 * scale;
+            ctx.fillStyle = '#4a90e2';
+            ctx.beginPath();
+            ctx.moveTo(radius, 0);
+            ctx.lineTo(size - radius, 0);
+            ctx.quadraticCurveTo(size, 0, size, radius);
+            ctx.lineTo(size, size - radius);
+            ctx.quadraticCurveTo(size, size, size - radius, size);
+            ctx.lineTo(radius, size);
+            ctx.quadraticCurveTo(0, size, 0, size - radius);
+            ctx.lineTo(0, radius);
+            ctx.quadraticCurveTo(0, 0, radius, 0);
+            ctx.closePath();
+            ctx.fill();
+
+            // PDF Document Shape
+            const docLeft = 160 * scale;
+            const docTop = 100 * scale;
+            const docWidth = 192 * scale;
+            const docHeight = 312 * scale;
+            const foldSize = 40 * scale;
+
+            // Main document body
+            ctx.fillStyle = 'white';
+            ctx.fillRect(docLeft, docTop, docWidth, docHeight);
+
+            // Folded corner
+            ctx.fillStyle = '#e8f4ff';
+            ctx.beginPath();
+            ctx.moveTo(docLeft + docWidth, docTop);
+            ctx.lineTo(docLeft + docWidth, docTop + foldSize);
+            ctx.lineTo(docLeft + docWidth - foldSize, docTop + foldSize);
+            ctx.closePath();
+            ctx.fill();
+
+            // PDF Text
+            ctx.fillStyle = '#4a90e2';
+            ctx.font = `bold ${80 * scale}px Arial, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('PDF', size / 2, size / 2 + 10 * scale);
+
+            // Small UNOPS indicator dots (only for larger sizes)
+            if (size >= 32) {
+                const dotY = 360 * scale;
+                const dotRadius = 8 * scale;
+
+                // Red dot
+                ctx.fillStyle = '#EF4444';
+                ctx.beginPath();
+                ctx.arc(200 * scale, dotY, dotRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Blue dot
+                ctx.fillStyle = '#4a90e2';
+                ctx.beginPath();
+                ctx.arc(220 * scale, dotY, dotRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Green dot
+                ctx.fillStyle = '#10b981';
+                ctx.beginPath();
+                ctx.arc(240 * scale, dotY, dotRadius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function generateAllIcons() {
+            const grid = document.getElementById('iconGrid');
+            grid.innerHTML = '';
+
+            sizes.forEach(config => {
+                const item = document.createElement('div');
+                item.className = 'icon-item';
+
+                const canvas = document.createElement('canvas');
+                canvas.width = config.size;
+                canvas.height = config.size;
+                canvas.style.width = Math.min(config.size, 128) + 'px';
+                canvas.style.height = Math.min(config.size, 128) + 'px';
+
+                drawIcon(canvas, config.size);
+                canvases[config.name] = canvas;
+
+                const label = document.createElement('div');
+                label.textContent = `${config.name} (${config.size}x${config.size})`;
+
+                const downloadBtn = document.createElement('button');
+                downloadBtn.textContent = 'Download';
+                downloadBtn.onclick = () => downloadIcon(config.name);
+
+                item.appendChild(canvas);
+                item.appendChild(label);
+                item.appendChild(downloadBtn);
+                grid.appendChild(item);
+            });
+
+            document.getElementById('status').innerHTML = `
+                ✅ Generated ${sizes.length} icons successfully!<br>
+                Click individual "Download" buttons or "Download All Icons" to save them.
+            `;
+        }
+
+        function downloadIcon(name) {
+            const canvas = canvases[name];
+            if (!canvas) return;
+
+            canvas.toBlob(blob => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = name;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        function downloadAllIcons() {
+            if (Object.keys(canvases).length === 0) {
+                alert('Please generate icons first!');
+                return;
+            }
+
+            sizes.forEach((config, index) => {
+                setTimeout(() => downloadIcon(config.name), index * 500);
+            });
+        }
+    </script>
+</body>
+</html>
