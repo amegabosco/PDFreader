@@ -288,7 +288,6 @@ class PendingObjectsManager {
             editHistory.push(`Inserted ${objectCount} object(s) (${timestamp})`);
             updateMetadataDisplay();
             updateUndoRedoButtons();
-            refreshEditHistoryPanel();
 
             // Close the tool panel after successful insertion
             closeToolPanel();
@@ -844,9 +843,8 @@ function init() {
     setupLanguageToggle();
     i18n.updateUI();
 
-    // Show recent documents and edit history panels by default
+    // Show recent documents panel by default
     showRecentDocsPanel();
-    showEditHistoryPanel();
 
     // Update memory usage periodically
     setInterval(updateMemoryUsage, 2000);
@@ -984,72 +982,6 @@ async function refreshRecentDocsPanel() {
 }
 
 /**
- * Show edit history floating panel (displayed by default on startup)
- */
-function showEditHistoryPanel() {
-    const content = `
-        <div id="editHistoryFloatingList" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 400px; overflow-y: auto;">
-            ${editHistory.length === 0 ?
-                `<div style="text-align: center; color: #999; font-size: 10px; padding: 2rem;">${i18n.t('info.no.edits')}</div>` :
-                editHistory.map((edit, index) => `
-                    <div class="edit-item" style="display: flex; align-items: start; gap: 0.5rem; padding: 8px; background: white; border: 1px solid #e8e8e8; border-radius: 2px;">
-                        <div style="min-width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: #4a90e2; color: white; border-radius: 50%; font-size: 9px; font-weight: 700;">${index + 1}</div>
-                        <div style="flex: 1; min-width: 0;">
-                            <div style="font-size: 10px; font-weight: 500; color: #333; word-wrap: break-word;">${edit}</div>
-                        </div>
-                    </div>
-                `).join('')
-            }
-        </div>
-    `;
-
-    // Use FloatingPanelManager directly with unique ID and narrow CSS class
-    const panel = window.FloatingPanelManager.create(
-        'edit-history',
-        i18n.t('info.history'),
-        'ti-history',
-        content,
-        'narrow'  // Apply narrow CSS class for 1/3 less width
-    );
-
-    // Position on right side
-    if (panel) {
-        panel.style.right = '10px';
-        panel.style.left = 'auto';
-        panel.style.top = '80px';
-    }
-}
-
-/**
- * Refresh the edit history panel content (called when editHistory is updated)
- */
-function refreshEditHistoryPanel() {
-    // Check if the panel exists
-    const panel = window.FloatingPanelManager?.getPanel('edit-history');
-    if (!panel) {
-        return; // Panel not visible, no need to update
-    }
-
-    // Find the content container
-    const contentContainer = panel.querySelector('#editHistoryFloatingList');
-    if (!contentContainer) {
-        return;
-    }
-
-    // Update the content
-    contentContainer.innerHTML = editHistory.length === 0 ?
-        `<div style="text-align: center; color: #999; font-size: 10px; padding: 2rem;">${i18n.t('info.no.edits')}</div>` :
-        editHistory.map((edit, index) => `
-            <div class="edit-item" style="display: flex; align-items: start; gap: 0.5rem; padding: 8px; background: white; border: 1px solid #e8e8e8; border-radius: 2px;">
-                <div style="min-width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: #4a90e2; color: white; border-radius: 50%; font-size: 9px; font-weight: 700;">${index + 1}</div>
-                <div style="flex: 1; min-width: 0;">
-                    <div style="font-size: 10px; font-weight: 500; color: #333; word-wrap: break-word;">${edit}</div>
-                </div>
-            </div>
-        `).join('');
-}
-
-/**
  * Setup drawing handlers for the overlay
  */
 function setupDrawingHandlers() {
@@ -1147,7 +1079,6 @@ async function switchToDocument(docId) {
     // Update UI
     updateTabsUI();
     updateMetadataDisplay();
-    refreshEditHistoryPanel();
     enableToolButtons();
 }
 
@@ -3717,7 +3648,6 @@ async function undo() {
     updateMetadataDisplay();
     updateTabsUI();
     updateUndoRedoButtons();
-    refreshEditHistoryPanel();
     showNotification('Action undone', 'success');
 }
 
@@ -3769,7 +3699,6 @@ async function redo() {
     updateMetadataDisplay();
     updateTabsUI();
     updateUndoRedoButtons();
-    refreshEditHistoryPanel();
     showNotification('Action redone', 'success');
 }
 
@@ -3994,7 +3923,6 @@ async function addEditToHistory(editType) {
     }
 
     updateMetadataDisplay();
-    refreshEditHistoryPanel();
     updateTabsUI();
 }
 
