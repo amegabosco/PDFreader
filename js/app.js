@@ -288,6 +288,7 @@ class PendingObjectsManager {
             editHistory.push(`Inserted ${objectCount} object(s) (${timestamp})`);
             updateMetadataDisplay();
             updateUndoRedoButtons();
+            refreshEditHistoryPanel();
 
             // Close the tool panel after successful insertion
             closeToolPanel();
@@ -923,6 +924,66 @@ async function showRecentDocsPanel() {
 }
 
 /**
+ * Refresh the recent documents panel content
+ */
+async function refreshRecentDocsPanel() {
+    // Check if the panel exists
+    const panel = window.FloatingPanelManager?.getPanel('recent-docs');
+    if (!panel) {
+        return; // Panel not visible, no need to update
+    }
+
+    // Find the content container
+    const contentContainer = panel.querySelector('#recentDocsFloatingList');
+    if (!contentContainer) {
+        return;
+    }
+
+    // Get fresh data from cache
+    const recentDocs = await pdfCache.getAllCached();
+
+    // Update the content
+    const newContent = `
+        ${recentDocs.length === 0 ?
+            `<div style="text-align: center; color: #999; font-size: 10px; padding: 2rem;">${i18n.t('no.recent')}</div>` :
+            recentDocs.map(doc => `
+                <div class="recent-doc-item" style="display: flex; align-items: center; gap: 0.5rem; padding: 8px; background: white; border: 1px solid #e8e8e8; border-radius: 2px; cursor: pointer;" onclick="loadFromCache('${doc.id}')">
+                    <i class="ti ti-file-type-pdf" style="font-size: 1.5rem; color: #4a90e2;"></i>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 10px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${doc.fileName}</div>
+                        <div style="font-size: 9px; color: #999;">${new Date(doc.timestamp).toLocaleString(i18n.getLanguage())}</div>
+                    </div>
+                </div>
+            `).join('')
+        }
+    `;
+
+    contentContainer.innerHTML = newContent;
+
+    // Update the clear cache button (it's outside the main container)
+    const panelContent = panel.querySelector('.floating-panel-content');
+    if (panelContent) {
+        // Remove old button if exists
+        const oldButton = panelContent.querySelector('.action-btn');
+        if (oldButton) {
+            oldButton.parentElement.remove();
+        }
+
+        // Add new button if there are docs
+        if (recentDocs.length > 0) {
+            const buttonHTML = `
+                <div style="border-top: 1px solid #e8e8e8; padding: 8px 10px; margin-top: 1rem;">
+                    <button class="action-btn" onclick="clearAllCache()" style="width: 100%; background-color: #EF4444;">
+                        <i class="ti ti-trash"></i> ${i18n.t('clear.cache')}
+                    </button>
+                </div>
+            `;
+            panelContent.insertAdjacentHTML('beforeend', buttonHTML);
+        }
+    }
+}
+
+/**
  * Show edit history floating panel (displayed by default on startup)
  */
 function showEditHistoryPanel() {
@@ -957,6 +1018,35 @@ function showEditHistoryPanel() {
         panel.style.left = 'auto';
         panel.style.top = '80px';
     }
+}
+
+/**
+ * Refresh the edit history panel content (called when editHistory is updated)
+ */
+function refreshEditHistoryPanel() {
+    // Check if the panel exists
+    const panel = window.FloatingPanelManager?.getPanel('edit-history');
+    if (!panel) {
+        return; // Panel not visible, no need to update
+    }
+
+    // Find the content container
+    const contentContainer = panel.querySelector('#editHistoryFloatingList');
+    if (!contentContainer) {
+        return;
+    }
+
+    // Update the content
+    contentContainer.innerHTML = editHistory.length === 0 ?
+        `<div style="text-align: center; color: #999; font-size: 10px; padding: 2rem;">${i18n.t('info.no.edits')}</div>` :
+        editHistory.map((edit, index) => `
+            <div class="edit-item" style="display: flex; align-items: start; gap: 0.5rem; padding: 8px; background: white; border: 1px solid #e8e8e8; border-radius: 2px;">
+                <div style="min-width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: #4a90e2; color: white; border-radius: 50%; font-size: 9px; font-weight: 700;">${index + 1}</div>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 10px; font-weight: 500; color: #333; word-wrap: break-word;">${edit}</div>
+                </div>
+            </div>
+        `).join('');
 }
 
 /**
@@ -1057,6 +1147,7 @@ async function switchToDocument(docId) {
     // Update UI
     updateTabsUI();
     updateMetadataDisplay();
+    refreshEditHistoryPanel();
     enableToolButtons();
 }
 
@@ -1219,6 +1310,7 @@ async function handleFiles(files) {
 
         // Update recent documents display
         updateRecentDocuments();
+        refreshRecentDocsPanel();
 
         console.log(`Loaded ${allUploadedFiles.length} PDF file(s) as tabs`);
     } catch (error) {
@@ -3616,6 +3708,7 @@ async function undo() {
         try {
             await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
             await updateRecentDocuments();
+            await refreshRecentDocsPanel();
         } catch (error) {
             console.error('Failed to auto-save after undo:', error);
         }
@@ -3624,6 +3717,7 @@ async function undo() {
     updateMetadataDisplay();
     updateTabsUI();
     updateUndoRedoButtons();
+    refreshEditHistoryPanel();
     showNotification('Action undone', 'success');
 }
 
@@ -3666,6 +3760,7 @@ async function redo() {
         try {
             await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
             await updateRecentDocuments();
+            await refreshRecentDocsPanel();
         } catch (error) {
             console.error('Failed to auto-save after redo:', error);
         }
@@ -3674,6 +3769,7 @@ async function redo() {
     updateMetadataDisplay();
     updateTabsUI();
     updateUndoRedoButtons();
+    refreshEditHistoryPanel();
     showNotification('Action redone', 'success');
 }
 
@@ -3890,6 +3986,7 @@ async function addEditToHistory(editType) {
         try {
             await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
             await updateRecentDocuments(); // Refresh the recent documents list
+            await refreshRecentDocsPanel();
             console.log('PDF auto-saved to cache');
         } catch (error) {
             console.error('Failed to auto-save PDF to cache:', error);
@@ -3897,6 +3994,7 @@ async function addEditToHistory(editType) {
     }
 
     updateMetadataDisplay();
+    refreshEditHistoryPanel();
     updateTabsUI();
 }
 
@@ -4012,6 +4110,7 @@ async function deleteRecentDocument(id) {
     try {
         await pdfCache.removePDF(id);
         await updateRecentDocuments();
+        await refreshRecentDocsPanel();
         showNotification('Document removed from cache', 'success');
     } catch (error) {
         console.error('Error deleting document:', error);
@@ -4020,20 +4119,28 @@ async function deleteRecentDocument(id) {
 }
 
 /**
- * Clear cache
+ * Clear cache (called from floating panel)
  */
-async function clearCache() {
+async function clearAllCache() {
     const confirmed = confirm('Are you sure you want to clear all cached documents?');
     if (!confirmed) return;
 
     try {
         await pdfCache.clearCache();
         await updateRecentDocuments();
+        await refreshRecentDocsPanel();
         showNotification('Cache cleared successfully', 'success');
     } catch (error) {
         console.error('Error clearing cache:', error);
         showNotification('Failed to clear cache: ' + error.message, 'error');
     }
+}
+
+/**
+ * Clear cache (legacy function)
+ */
+async function clearCache() {
+    return await clearAllCache();
 }
 
 // Close recent doc menus when clicking outside

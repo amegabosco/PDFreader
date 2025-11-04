@@ -212,6 +212,13 @@ window.FloatingPanelManager = {
         return panelElement;
     },
 
+    getPanel(id) {
+        if (this.panels[id]) {
+            return this.panels[id].getPanel();
+        }
+        return null;
+    },
+
     close(id) {
         if (this.panels[id]) {
             this.panels[id].close();
