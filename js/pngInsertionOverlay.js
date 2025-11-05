@@ -126,8 +126,32 @@ class PNGInsertionOverlay {
         wrapper.insertBefore(this.pngCanvas, wrapper.firstChild);
         this.pngCanvas.className = 'png-render-canvas';
 
+        // Sync drawing area with canvas after rendering
+        setTimeout(() => this.syncDrawingAreaWithCanvas(), 0);
+
         // Setup event handlers
         this.setupEventHandlers();
+    }
+
+    /**
+     * Sync drawing area position and size with the displayed canvas
+     */
+    syncDrawingAreaWithCanvas() {
+        const drawingArea = document.getElementById('pngDrawingArea');
+        const canvasRect = this.pngCanvas.getBoundingClientRect();
+        const wrapperRect = drawingArea.parentElement.getBoundingClientRect();
+
+        // Position drawing area exactly over the canvas
+        drawingArea.style.left = (canvasRect.left - wrapperRect.left) + 'px';
+        drawingArea.style.top = (canvasRect.top - wrapperRect.top) + 'px';
+        drawingArea.style.width = canvasRect.width + 'px';
+        drawingArea.style.height = canvasRect.height + 'px';
+
+        console.log('📐 [Drawing Area Sync]', {
+            canvas: { left: canvasRect.left, top: canvasRect.top, width: canvasRect.width, height: canvasRect.height },
+            wrapper: { left: wrapperRect.left, top: wrapperRect.top },
+            drawingArea: { left: drawingArea.style.left, top: drawingArea.style.top, width: drawingArea.style.width, height: drawingArea.style.height }
+        });
     }
 
     /**
@@ -385,10 +409,13 @@ class PNGInsertionOverlay {
 
     /**
      * Transform PNG coordinates to PDF coordinates
-     * @param {Object} boxOnPNG - { x, y, width, height } in CSS pixels (screen space)
+     * @param {Object} boxOnPNG - { x, y, width, height } in CSS pixels relative to drawing area
      * @returns {Object} - { x, y, width, height } in PDF space
      */
     async transformCoordinates(boxOnPNG) {
+        // The box coordinates are relative to the drawing area, which is synced with the canvas
+        // So we can use them directly - no offset needed
+
         // Get the displayed dimensions of the canvas (CSS pixels)
         const displayedWidth = this.pngCanvas.offsetWidth;
         const displayedHeight = this.pngCanvas.offsetHeight;
