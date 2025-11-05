@@ -202,6 +202,7 @@ class PDFTools {
      * @param {string} imageType - 'png' or 'jpg'
      * @param {number} pageIndex - Page to insert image (0-based)
      * @param {Object} options - Position, size, rotation
+     *   - coordsAlreadyTransformed: boolean - if true, Y coord is already in PDF space (v2.0.0)
      * @returns {Promise<Uint8Array>} Modified PDF
      */
     async insertImage(pdfArrayBuffer, imageBuffer, imageType, pageIndex, options = {}) {
@@ -231,10 +232,17 @@ class PDFTools {
                 height = imageDims.height;
             }
 
-            // Convert canvas Y coordinate (top-left origin) to PDF coordinate (bottom-left origin)
-            const pdfY = pageHeight - (options.y || 50) - height;
-
-            console.log(`Inserting image: x=${options.x}, canvas_y=${options.y}, pdf_y=${pdfY}, width=${width}, height=${height}`);
+            // Determine Y coordinate based on whether coords are already transformed
+            let pdfY;
+            if (options.coordsAlreadyTransformed) {
+                // v2.0.0: Coordinates already in PDF space from PNG overlay
+                pdfY = options.y;
+                console.log(`✅ [v2.0.0] Using pre-transformed coords: x=${options.x}, y=${pdfY}, width=${width}, height=${height}`);
+            } else {
+                // Legacy: Convert canvas Y coordinate (top-left origin) to PDF coordinate (bottom-left origin)
+                pdfY = pageHeight - (options.y || 50) - height;
+                console.log(`⚠️ [Legacy] Converting coords: x=${options.x}, canvas_y=${options.y}, pdf_y=${pdfY}, width=${width}, height=${height}`);
+            }
 
             // Draw the image
             page.drawImage(image, {

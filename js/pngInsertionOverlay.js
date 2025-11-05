@@ -459,7 +459,8 @@ class PNGInsertionOverlay {
                 y: coords.y,
                 width: coords.width,
                 height: coords.height,
-                opacity: 1
+                opacity: 1,
+                coordsAlreadyTransformed: true // v2.0.0 flag
             }
         );
 
@@ -501,7 +502,8 @@ class PNGInsertionOverlay {
                 y: coords.y,
                 width: coords.width,
                 height: coords.height,
-                opacity: 1
+                opacity: 1,
+                coordsAlreadyTransformed: true // v2.0.0 flag
             }
         );
 
