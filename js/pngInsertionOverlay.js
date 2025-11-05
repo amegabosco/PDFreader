@@ -52,7 +52,7 @@ class PNGInsertionOverlay {
 
         try {
             // Get the current page from PDF.js
-            const page = await viewer.pdfDocument.getPage(this.pageNumber);
+            const page = await viewer.pdfDoc.getPage(this.pageNumber);
 
             // Calculate scale to match current zoom/viewport
             const viewport = page.getViewport({ scale: viewer.scale });
