@@ -843,8 +843,8 @@ function init() {
     setupLanguageToggle();
     i18n.updateUI();
 
-    // Show recent documents panel by default
-    showRecentDocsPanel();
+    // Don't show recent documents panel by default anymore
+    // showRecentDocsPanel();
 
     // Update memory usage periodically
     setInterval(updateMemoryUsage, 2000);
