@@ -2249,3 +2249,240 @@ textarea.text-input {
     font-weight: 600;
     color: var(--text-muted);
 }
+
+/* ===================================
+   PNG Insertion Overlay v2.0.0
+   =================================== */
+
+.png-insertion-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.png-overlay-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+}
+
+.png-overlay-content {
+    position: relative;
+    background: var(--white);
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 90vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.png-overlay-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    border-bottom: 2px solid var(--border);
+    background: var(--background);
+}
+
+.png-overlay-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0;
+}
+
+.png-overlay-header h3 i {
+    font-size: 1.25rem;
+    color: var(--primary);
+}
+
+.png-overlay-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.png-overlay-close:hover {
+    background: var(--border);
+}
+
+.png-overlay-close i {
+    font-size: 1.25rem;
+    color: var(--text);
+}
+
+.png-overlay-body {
+    flex: 1;
+    overflow: auto;
+    padding: 1.5rem;
+    position: relative;
+}
+
+.png-canvas-wrapper {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    max-height: calc(90vh - 200px);
+    overflow: auto;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--background);
+}
+
+.png-render-canvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.png-drawing-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    z-index: 10;
+}
+
+.drawing-box {
+    position: absolute;
+    border: 3px solid var(--primary);
+    background: rgba(37, 99, 235, 0.1);
+    cursor: move;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8);
+}
+
+.drawing-box .resize-handle {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: var(--primary);
+    border: 2px solid white;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.drawing-box .resize-handle.nw {
+    top: -6px;
+    left: -6px;
+    cursor: nw-resize;
+}
+
+.drawing-box .resize-handle.ne {
+    top: -6px;
+    right: -6px;
+    cursor: ne-resize;
+}
+
+.drawing-box .resize-handle.sw {
+    bottom: -6px;
+    left: -6px;
+    cursor: sw-resize;
+}
+
+.drawing-box .resize-handle.se {
+    bottom: -6px;
+    right: -6px;
+    cursor: se-resize;
+}
+
+.box-preview-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.png-overlay-instruction {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    margin-top: 1rem;
+    background: var(--background);
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.png-overlay-instruction i {
+    font-size: 1.5rem;
+    color: var(--primary);
+}
+
+.png-overlay-footer {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    border-top: 2px solid var(--border);
+    background: var(--background);
+    justify-content: flex-end;
+}
+
+.png-overlay-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.png-overlay-btn.cancel {
+    background: var(--background-darker);
+    color: var(--text);
+}
+
+.png-overlay-btn.cancel:hover {
+    background: var(--border);
+}
+
+.png-overlay-btn.validate {
+    background: var(--primary);
+    color: white;
+}
+
+.png-overlay-btn.validate:hover:not(:disabled) {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.png-overlay-btn.validate:disabled {
+    background: var(--disabled);
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.png-overlay-btn i {
+    font-size: 1rem;
+}

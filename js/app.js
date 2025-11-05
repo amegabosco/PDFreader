@@ -1809,7 +1809,7 @@ function showImagePanel() {
 
             <div class="info-box" style="background: var(--background); padding: 1rem; border-radius: 8px; margin: 1rem 0;">
                 <p style="font-size: 0.875rem; color: var(--text-muted); margin: 0;">
-                    <i class="ti ti-info-circle"></i> After selecting an image, draw a box on the PDF where you want to place it. You can then drag and resize the box before validating.
+                    <i class="ti ti-info-circle"></i> Select an image to open the precision placement overlay.
                 </p>
             </div>
         </div>
@@ -1821,15 +1821,15 @@ function showImagePanel() {
     setTimeout(() => {
         const fileInput = document.getElementById('imageFile');
         if (fileInput) {
-            fileInput.addEventListener('change', handleImageFileSelection);
+            fileInput.addEventListener('change', handleImageFileSelectionV2);
         }
     }, 0);
 }
 
 /**
- * Handle image file selection for draw-box insertion
+ * Handle image file selection - v2.0.0 PNG Overlay
  */
-async function handleImageFileSelection(event) {
+async function handleImageFileSelectionV2(event) {
     const file = event.target.files[0];
     if (!file) return;
 
@@ -1846,24 +1846,20 @@ async function handleImageFileSelection(event) {
         const imageBuffer = await readFileAsArrayBuffer(file);
         const imageType = file.type.includes('png') ? 'png' : 'jpg';
 
-        // Load image to get dimensions
-        const img = new Image();
-        await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = reject;
-            img.src = dataUrl;
-        });
+        // Close the tool panel
+        closeToolPanel();
 
-        // Start drawing mode
-        pendingObjects.startDrawing('image', {
-            imageUrl: dataUrl,
-            imageData: imageBuffer,
-            imageType: imageType,
-            originalWidth: img.width,
-            originalHeight: img.height
-        });
+        // Open PNG overlay for precise placement
+        await window.pngInsertionOverlay.show(
+            viewer.currentPage,
+            'image',
+            {
+                url: dataUrl,
+                buffer: imageBuffer,
+                imageType: imageType
+            }
+        );
 
-        showNotification('Draw a box on the PDF to place your image. Click Validate when done.', 'info');
     } catch (error) {
         console.error('Error loading image:', error);
         showNotification('Failed to load image: ' + error.message, 'error');
@@ -3129,15 +3125,20 @@ async function addSignatureToPage() {
         // Convert to data URL for preview
         const signatureUrl = canvas.toDataURL('image/png');
 
-        // Start drawing mode
-        pendingObjects.startDrawing('signature', {
-            signatureUrl: signatureUrl,
-            signatureData: signatureBuffer,
-            originalWidth: canvas.width,
-            originalHeight: canvas.height
-        });
+        // Close the tool panel
+        closeToolPanel();
 
-        showNotification('Draw a box on the PDF to place your signature. Click Validate when done.', 'info');
+        // Open PNG overlay for precise placement - v2.0.0
+        await window.pngInsertionOverlay.show(
+            viewer.currentPage,
+            'signature',
+            {
+                url: signatureUrl,
+                buffer: signatureBuffer,
+                imageType: 'png'
+            }
+        );
+
     } catch (error) {
         console.error('Error preparing signature:', error);
         showNotification('Failed to prepare signature: ' + error.message, 'error');
@@ -3181,6 +3182,9 @@ async function loadSavedSignatures() {
                     <div style="font-size: 10px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${sig.name}</div>
                     <div style="font-size: 9px; color: #999;">${signatureLibrary.formatDate(sig.timestamp)}</div>
                 </div>
+                <button class="option-btn" onclick="useSavedSignature(${sig.id})" title="Use this signature" style="padding: 4px 8px; height: 28px; font-size: 10px; background-color: var(--primary); color: white;">
+                    <i class="ti ti-check"></i>
+                </button>
                 <button class="option-btn" onclick="loadSignatureToCanvas(${sig.id})" title="Load to canvas" style="padding: 4px 8px; height: 28px; font-size: 10px;">
                     <i class="ti ti-download"></i>
                 </button>
@@ -3275,6 +3279,41 @@ async function loadSignatureToCanvas(id) {
 /**
  * Delete a signature from library
  */
+/**
+ * Use a saved signature directly (v2.0.0)
+ */
+async function useSavedSignature(id) {
+    try {
+        const signature = await signatureLibrary.getSignature(id);
+        if (!signature) {
+            showNotification('Signature not found', 'error');
+            return;
+        }
+
+        // Convert data URL to ArrayBuffer
+        const response = await fetch(signature.dataUrl);
+        const signatureBuffer = await response.arrayBuffer();
+
+        // Close the tool panel
+        closeToolPanel();
+
+        // Open PNG overlay for precise placement - v2.0.0
+        await window.pngInsertionOverlay.show(
+            viewer.currentPage,
+            'signature',
+            {
+                url: signature.dataUrl,
+                buffer: signatureBuffer,
+                imageType: 'png'
+            }
+        );
+
+    } catch (error) {
+        console.error('Error using saved signature:', error);
+        showNotification('Failed to use signature: ' + error.message, 'error');
+    }
+}
+
 async function deleteSignature(id) {
     if (!confirm('Delete this signature?')) return;
 
