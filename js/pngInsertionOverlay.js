@@ -163,6 +163,8 @@ class PNGInsertionOverlay {
     handleMouseDown(e) {
         const drawingArea = document.getElementById('pngDrawingArea');
         const rect = drawingArea.getBoundingClientRect();
+
+        // Get coordinates relative to the drawing area
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
@@ -383,42 +385,60 @@ class PNGInsertionOverlay {
 
     /**
      * Transform PNG coordinates to PDF coordinates
-     * @param {Object} boxOnPNG - { x, y, width, height } in PNG space
+     * @param {Object} boxOnPNG - { x, y, width, height } in CSS pixels (screen space)
      * @returns {Object} - { x, y, width, height } in PDF space
      */
     async transformCoordinates(boxOnPNG) {
-        // PNG dimensions
-        const pngWidth = this.pngCanvas.width;
-        const pngHeight = this.pngCanvas.height;
+        // Get the displayed dimensions of the canvas (CSS pixels)
+        const displayedWidth = this.pngCanvas.offsetWidth;
+        const displayedHeight = this.pngCanvas.offsetHeight;
+
+        // Get the internal canvas dimensions (actual pixels)
+        const canvasWidth = this.pngCanvas.width;
+        const canvasHeight = this.pngCanvas.height;
+
+        console.log('📐 [Display vs Canvas]', {
+            displayed: { width: displayedWidth, height: displayedHeight },
+            canvas: { width: canvasWidth, height: canvasHeight }
+        });
+
+        // First, convert from CSS pixels to canvas pixels
+        const canvasScaleX = canvasWidth / displayedWidth;
+        const canvasScaleY = canvasHeight / displayedHeight;
+
+        const boxOnCanvas = {
+            x: boxOnPNG.x * canvasScaleX,
+            y: boxOnPNG.y * canvasScaleY,
+            width: boxOnPNG.width * canvasScaleX,
+            height: boxOnPNG.height * canvasScaleY
+        };
+
+        console.log('📐 [Box on Canvas]', boxOnCanvas);
 
         // Get the actual PDF page dimensions using pdf-lib
-        // We need to load the PDF to get accurate dimensions
         const pdfDoc = await PDFLib.PDFDocument.load(currentPDFData);
         const pageIndex = this.pageNumber - 1;
         const page = pdfDoc.getPage(pageIndex);
         const { width: pdfWidth, height: pdfHeight } = page.getSize();
 
-        console.log('📐 [Coordinate Transform]', {
-            pngSize: { width: pngWidth, height: pngHeight },
-            pdfSize: { width: pdfWidth, height: pdfHeight },
-            boxOnPNG
-        });
+        console.log('📐 [PDF Dimensions]', { width: pdfWidth, height: pdfHeight });
 
-        // Calculate scale ratios
-        const scaleX = pdfWidth / pngWidth;
-        const scaleY = pdfHeight / pngHeight;
+        // Now convert from canvas pixels to PDF coordinates
+        // The canvas was rendered at viewer.scale, so we need to scale back
+        const pdfScaleX = pdfWidth / canvasWidth;
+        const pdfScaleY = pdfHeight / canvasHeight;
 
         // Transform coordinates
         // Note: PDF coordinate system has origin at bottom-left, Y increases upward
-        // PNG/Canvas has origin at top-left, Y increases downward
+        // Canvas has origin at top-left, Y increases downward
         const pdfCoords = {
-            x: boxOnPNG.x * scaleX,
-            y: pdfHeight - (boxOnPNG.y + boxOnPNG.height) * scaleY,
-            width: boxOnPNG.width * scaleX,
-            height: boxOnPNG.height * scaleY
+            x: boxOnCanvas.x * pdfScaleX,
+            y: pdfHeight - (boxOnCanvas.y + boxOnCanvas.height) * pdfScaleY,
+            width: boxOnCanvas.width * pdfScaleX,
+            height: boxOnCanvas.height * pdfScaleY
         };
 
-        console.log('📐 [Transformed Coords]', pdfCoords);
+        console.log('📐 [Final PDF Coords]', pdfCoords);
 
         return pdfCoords;
     }
