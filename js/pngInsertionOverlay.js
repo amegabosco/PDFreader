@@ -408,92 +408,76 @@ class PNGInsertionOverlay {
     }
 
     /**
-     * Transform PNG coordinates to PDF coordinates
-     * @param {Object} boxOnPNG - { x, y, width, height } in CSS pixels relative to drawing area
-     * @returns {Object} - { x, y, width, height } in PDF space
+     * Transform PNG coordinates to PDF coordinates - SIMPLIFIED v2.1
+     * @param {Object} boxOnScreen - { x, y, width, height } in screen pixels (CSS)
+     * @returns {Object} - { x, y, width, height } in PDF points
      */
-    async transformCoordinates(boxOnPNG) {
-        // The box coordinates are relative to the drawing area, which is synced with the canvas
-        // So we can use them directly - no offset needed
+    async transformCoordinates(boxOnScreen) {
+        console.log('🔄 [v2.1 SIMPLIFIED] Starting transformation...');
+        console.log('📍 [Input] Box on screen (CSS pixels):', boxOnScreen);
 
-        // Get the displayed dimensions of the canvas (CSS pixels)
-        const displayedWidth = this.pngCanvas.offsetWidth;
-        const displayedHeight = this.pngCanvas.offsetHeight;
-
-        // Get the internal canvas dimensions (actual pixels)
-        const canvasWidth = this.pngCanvas.width;
-        const canvasHeight = this.pngCanvas.height;
-
-        console.log('📐 [Display vs Canvas]', {
-            displayed: { width: displayedWidth, height: displayedHeight },
-            canvas: { width: canvasWidth, height: canvasHeight }
-        });
-
-        // First, convert from CSS pixels to canvas pixels
-        const canvasScaleX = canvasWidth / displayedWidth;
-        const canvasScaleY = canvasHeight / displayedHeight;
-
-        const boxOnCanvas = {
-            x: boxOnPNG.x * canvasScaleX,
-            y: boxOnPNG.y * canvasScaleY,
-            width: boxOnPNG.width * canvasScaleX,
-            height: boxOnPNG.height * canvasScaleY
-        };
-
-        console.log('📐 [Box on Canvas]', boxOnCanvas);
-
-        // Get the actual PDF page dimensions using pdf-lib
+        // Get the actual PDF page dimensions
         const pdfDoc = await PDFLib.PDFDocument.load(currentPDFData);
         const pageIndex = this.pageNumber - 1;
         const page = pdfDoc.getPage(pageIndex);
         const { width: pdfWidth, height: pdfHeight } = page.getSize();
 
-        console.log('📐 [PDF Dimensions]', { width: pdfWidth, height: pdfHeight });
+        console.log('📄 [PDF] Original page size:', { width: pdfWidth, height: pdfHeight });
 
-        // Now convert from canvas pixels to PDF coordinates
-        // The canvas was rendered at viewer.scale, so we need to scale back
-        const pdfScaleX = pdfWidth / canvasWidth;
-        const pdfScaleY = pdfHeight / canvasHeight;
+        // Get canvas displayed size (what user sees)
+        const displayedWidth = this.pngCanvas.offsetWidth;
+        const displayedHeight = this.pngCanvas.offsetHeight;
 
-        // Transform coordinates step by step for clarity
-        //
-        // CANVAS SPACE (origin: top-left, Y increases downward):
-        //   boxOnCanvas.y = distance from top edge to TOP of box
-        //   boxOnCanvas.y + boxOnCanvas.height = distance from top edge to BOTTOM of box
-        //
-        // PDF SPACE (origin: bottom-left, Y increases upward):
-        //   We need to specify the Y coordinate of the BOTTOM-LEFT corner of the image
-        //
-        // Calculation:
-        //   1. boxOnCanvas.y = pixels from top to box top
-        //   2. boxOnCanvas.y + boxOnCanvas.height = pixels from top to box bottom
-        //   3. In PDF: pixels from top = (pdfHeight - pixels from bottom)
-        //   4. So: pixels from bottom = pdfHeight - pixels from top
-        //   5. Y_bottom = pdfHeight - (boxOnCanvas.y + boxOnCanvas.height) * pdfScaleY
+        console.log('🖥️ [Display] Canvas displayed size:', { width: displayedWidth, height: displayedHeight });
 
-        const boxTopFromTop = boxOnCanvas.y * pdfScaleY;
-        const boxHeightScaled = boxOnCanvas.height * pdfScaleY;
-        const boxBottomFromTop = boxTopFromTop + boxHeightScaled;
-        const boxBottomFromBottom = pdfHeight - boxBottomFromTop;
+        // Simple ratio: screen pixels → PDF points
+        const ratioX = pdfWidth / displayedWidth;
+        const ratioY = pdfHeight / displayedHeight;
 
-        const pdfCoords = {
-            x: boxOnCanvas.x * pdfScaleX,
-            y: boxBottomFromBottom,
-            width: boxOnCanvas.width * pdfScaleX,
-            height: boxHeightScaled
+        console.log('📊 [Ratio] Screen → PDF:', { x: ratioX, y: ratioY });
+
+        // Convert screen coordinates to PDF coordinates
+        // X: simple scaling
+        const pdfX = boxOnScreen.x * ratioX;
+        const pdfWidth_box = boxOnScreen.width * ratioX;
+
+        // Y: flip coordinate system (screen top-left → PDF bottom-left)
+        // In screen: y=0 is top, y increases downward
+        // In PDF: y=0 is bottom, y increases upward
+        const screenTopY = boxOnScreen.y;
+        const screenBottomY = boxOnScreen.y + boxOnScreen.height;
+
+        // Convert to PDF coordinates
+        const pdfTopY = pdfHeight - (screenTopY * ratioY);
+        const pdfBottomY = pdfHeight - (screenBottomY * ratioY);
+
+        // PDF drawImage uses bottom-left corner
+        const pdfY = pdfBottomY;
+        const pdfHeight_box = boxOnScreen.height * ratioY;
+
+        const result = {
+            x: pdfX,
+            y: pdfY,
+            width: pdfWidth_box,
+            height: pdfHeight_box
         };
 
-        console.log('📐 [Final PDF Coords]', pdfCoords);
-        console.log('📐 [Y-Axis Calculation]', {
-            pdfHeight: pdfHeight,
-            boxTopFromTop: boxTopFromTop,
-            boxHeightScaled: boxHeightScaled,
-            boxBottomFromTop: boxBottomFromTop,
-            boxBottomFromBottom: boxBottomFromBottom,
-            scale: pdfScaleY
+        console.log('✅ [Output] Final PDF coordinates:', result);
+        console.log('📐 [Details]', {
+            screen: {
+                top: screenTopY,
+                bottom: screenBottomY,
+                height: boxOnScreen.height
+            },
+            pdf: {
+                top: pdfTopY,
+                bottom: pdfBottomY,
+                height: pdfHeight_box,
+                totalHeight: pdfHeight
+            }
         });
 
-        return pdfCoords;
+        return result;
     }
 
     /**
