@@ -428,17 +428,43 @@ class PNGInsertionOverlay {
         const pdfScaleX = pdfWidth / canvasWidth;
         const pdfScaleY = pdfHeight / canvasHeight;
 
-        // Transform coordinates
-        // Note: PDF coordinate system has origin at bottom-left, Y increases upward
-        // Canvas has origin at top-left, Y increases downward
+        // Transform coordinates step by step for clarity
+        //
+        // CANVAS SPACE (origin: top-left, Y increases downward):
+        //   boxOnCanvas.y = distance from top edge to TOP of box
+        //   boxOnCanvas.y + boxOnCanvas.height = distance from top edge to BOTTOM of box
+        //
+        // PDF SPACE (origin: bottom-left, Y increases upward):
+        //   We need to specify the Y coordinate of the BOTTOM-LEFT corner of the image
+        //
+        // Calculation:
+        //   1. boxOnCanvas.y = pixels from top to box top
+        //   2. boxOnCanvas.y + boxOnCanvas.height = pixels from top to box bottom
+        //   3. In PDF: pixels from top = (pdfHeight - pixels from bottom)
+        //   4. So: pixels from bottom = pdfHeight - pixels from top
+        //   5. Y_bottom = pdfHeight - (boxOnCanvas.y + boxOnCanvas.height) * pdfScaleY
+
+        const boxTopFromTop = boxOnCanvas.y * pdfScaleY;
+        const boxHeightScaled = boxOnCanvas.height * pdfScaleY;
+        const boxBottomFromTop = boxTopFromTop + boxHeightScaled;
+        const boxBottomFromBottom = pdfHeight - boxBottomFromTop;
+
         const pdfCoords = {
             x: boxOnCanvas.x * pdfScaleX,
-            y: pdfHeight - (boxOnCanvas.y + boxOnCanvas.height) * pdfScaleY,
+            y: boxBottomFromBottom,
             width: boxOnCanvas.width * pdfScaleX,
-            height: boxOnCanvas.height * pdfScaleY
+            height: boxHeightScaled
         };
 
         console.log('📐 [Final PDF Coords]', pdfCoords);
+        console.log('📐 [Y-Axis Calculation]', {
+            pdfHeight: pdfHeight,
+            boxTopFromTop: boxTopFromTop,
+            boxHeightScaled: boxHeightScaled,
+            boxBottomFromTop: boxBottomFromTop,
+            boxBottomFromBottom: boxBottomFromBottom,
+            scale: pdfScaleY
+        });
 
         return pdfCoords;
     }
