@@ -1721,7 +1721,7 @@ async function executeRotate(degrees) {
         }
 
         addEditToHistory(`Rotated ${selectedPages.length} ${pageText} by ${degrees}°`);
-        closeToolPanel();
+        // Don't close panel - user may want to rotate again
         showNotification(`${selectedPages.length} ${pageText} rotated ${degrees}° clockwise!`, 'success');
     } catch (error) {
         console.error('Rotation failed:', error);
