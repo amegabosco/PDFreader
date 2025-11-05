@@ -519,6 +519,12 @@ class PNGInsertionOverlay {
         await viewer.loadPDF(currentPDFData.slice(0));
         await viewer.goToPage(this.pageNumber);
 
+        // Refresh thumbnails if navigator panel is open
+        if (viewer.navPanelOpen) {
+            console.log('🔄 Refreshing thumbnails after image insertion...');
+            await viewer.generateThumbnails(true);
+        }
+
         // Add to history
         addEditToHistory(`Inserted image on page ${this.pageNumber}`);
     }
@@ -561,6 +567,12 @@ class PNGInsertionOverlay {
         // Reload viewer
         await viewer.loadPDF(currentPDFData.slice(0));
         await viewer.goToPage(this.pageNumber);
+
+        // Refresh thumbnails if navigator panel is open
+        if (viewer.navPanelOpen) {
+            console.log('🔄 Refreshing thumbnails after signature insertion...');
+            await viewer.generateThumbnails(true);
+        }
 
         // Add to history
         addEditToHistory(`Inserted signature on page ${this.pageNumber}`);
