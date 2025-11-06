@@ -1454,6 +1454,24 @@ body {
     overflow: hidden;
 }
 
+/* Allow scrolling for page selection grid */
+.form-group:has(.page-selection-grid) {
+    overflow: visible;
+    flex-direction: column;
+}
+
+.form-group:has(.page-selection-grid) label {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #e8e8e8;
+}
+
+.form-group:has(.page-selection-grid) > div {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+}
+
 .form-group:last-child {
     border-bottom: none;
 }
