@@ -54,8 +54,12 @@ class PNGInsertionOverlay {
             // Get the current page from PDF.js
             const page = await viewer.pdfDoc.getPage(this.pageNumber);
 
-            // Calculate scale to match current zoom/viewport
-            const viewport = page.getViewport({ scale: viewer.scale });
+            // Get page rotation
+            const rotation = page.rotate || 0;
+            console.log(`🔄 [PNG Overlay] Page rotation: ${rotation}°`);
+
+            // Calculate scale to match current zoom/viewport (with rotation)
+            const viewport = page.getViewport({ scale: viewer.scale, rotation: rotation });
 
             // Create a canvas to render the page
             const canvas = document.createElement('canvas');
@@ -70,8 +74,9 @@ class PNGInsertionOverlay {
             }).promise;
 
             this.pngCanvas = canvas;
+            this.pageRotation = rotation; // Store rotation for coordinate transformation
 
-            console.log(`✅ [PNG Overlay] PNG generated: ${canvas.width}x${canvas.height}`);
+            console.log(`✅ [PNG Overlay] PNG generated: ${canvas.width}x${canvas.height} (rotation: ${rotation}°)`);
         } catch (error) {
             console.error('❌ [PNG Overlay] Failed to generate PNG:', error);
             throw error;

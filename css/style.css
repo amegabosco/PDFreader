@@ -1701,8 +1701,9 @@ textarea.text-input {
     display: flex;
     flex-direction: column;
     gap: 0;
-    max-height: 300px;
-    overflow-y: auto;
+    max-height: 50vh;
+    overflow-y: scroll !important;
+    overflow-x: hidden;
     padding: 0;
     background-color: #fafafa;
     border-radius: 0;
