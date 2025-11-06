@@ -416,85 +416,138 @@ class PNGInsertionOverlay {
     }
 
     /**
-     * Transform PNG coordinates to PDF coordinates - v2.3.4 COMPLETE REWRITE
+     * Transform PNG coordinates to PDF coordinates - v2.3.2 WITH ROTATION
      * @param {Object} boxOnScreen - { x, y, width, height } in screen pixels (CSS)
      * @returns {Object} - { x, y, width, height } in PDF points
      */
     async transformCoordinates(boxOnScreen) {
-        console.log('=== v2.3.4 COORDINATE TRANSFORMATION ===');
-        console.log('Screen box:', boxOnScreen);
+        console.log('🔄 [v2.3.2 WITH ROTATION] Starting transformation...');
+        console.log('📍 [Input] Box on screen (CSS pixels):', boxOnScreen);
+        console.log('🔄 [Page Rotation]:', this.pageRotation, '°');
 
-        // Get dimensions
-        const screenW = this.pngCanvas.offsetWidth;
-        const screenH = this.pngCanvas.offsetHeight;
-        const canvasW = this.pngCanvas.width;
-        const canvasH = this.pngCanvas.height;
+        // Get the PNG canvas actual rendered size (matches what user sees WITH rotation)
+        const pngWidth = this.pngCanvas.width;
+        const pngHeight = this.pngCanvas.height;
 
-        console.log('Screen:', { w: screenW, h: screenH });
-        console.log('Canvas:', { w: canvasW, h: canvasH });
-        console.log('Rotation:', this.pageRotation || 0, '°');
+        console.log('🖼️ [PNG Canvas] Rendered size (rotated):', { width: pngWidth, height: pngHeight });
 
-        // Convert screen to canvas
-        const scaleX = canvasW / screenW;
-        const scaleY = canvasH / screenH;
-        const cx = boxOnScreen.x * scaleX;
-        const cy = boxOnScreen.y * scaleY;
-        const cw = boxOnScreen.width * scaleX;
-        const ch = boxOnScreen.height * scaleY;
+        // Get canvas displayed size (what user sees on screen)
+        const displayedWidth = this.pngCanvas.offsetWidth;
+        const displayedHeight = this.pngCanvas.offsetHeight;
 
-        console.log('Canvas:', { x: cx, y: cy, w: cw, h: ch });
+        console.log('🖥️ [Display] Canvas displayed size:', { width: displayedWidth, height: displayedHeight });
 
-        // Get PDF dimensions
+        // Get the actual PDF page dimensions from pdf-lib (UNROTATED)
         const pdfDoc = await PDFLib.PDFDocument.load(currentPDFData);
-        const page = pdfDoc.getPage(this.pageNumber - 1);
-        const pdfW = page.getWidth();
-        const pdfH = page.getHeight();
+        const pageIndex = this.pageNumber - 1;
+        const page = pdfDoc.getPage(pageIndex);
+        const { width: pdfOrigWidth, height: pdfOrigHeight } = page.getSize();
 
-        console.log('PDF:', { w: pdfW, h: pdfH });
+        console.log('📄 [PDF-lib] Original page size (unrotated):', { width: pdfOrigWidth, height: pdfOrigHeight });
 
-        // Transform based on rotation
-        let pdfX, pdfY, pdfBoxW, pdfBoxH;
-        const rot = ((this.pageRotation || 0) % 360 + 360) % 360;
+        // First convert screen CSS pixels to PNG canvas pixels
+        const scaleX = pngWidth / displayedWidth;
+        const scaleY = pngHeight / displayedHeight;
 
-        if (rot === 0) {
-            const ratioX = pdfW / canvasW;
-            const ratioY = pdfH / canvasH;
-            pdfX = cx * ratioX;
-            pdfY = (canvasH - cy - ch) * ratioY;
-            pdfBoxW = cw * ratioX;
-            pdfBoxH = ch * ratioY;
-        } else if (rot === 90) {
-            const ratioX = pdfW / canvasH;
-            const ratioY = pdfH / canvasW;
-            pdfX = (canvasH - cy - ch) * ratioX;
-            pdfY = cx * ratioY;
-            pdfBoxW = ch * ratioX;
-            pdfBoxH = cw * ratioY;
-        } else if (rot === 180) {
-            const ratioX = pdfW / canvasW;
-            const ratioY = pdfH / canvasH;
-            pdfX = (canvasW - cx - cw) * ratioX;
-            pdfY = cy * ratioY;
-            pdfBoxW = cw * ratioX;
-            pdfBoxH = ch * ratioY;
-        } else if (rot === 270) {
-            const ratioX = pdfW / canvasH;
-            const ratioY = pdfH / canvasW;
-            pdfX = cy * ratioX;
-            pdfY = (canvasW - cx - cw) * ratioY;
-            pdfBoxW = ch * ratioX;
-            pdfBoxH = cw * ratioY;
+        const pngX = boxOnScreen.x * scaleX;
+        const pngY = boxOnScreen.y * scaleY;
+        const pngBoxWidth = boxOnScreen.width * scaleX;
+        const pngBoxHeight = boxOnScreen.height * scaleY;
+
+        console.log('🎨 [PNG Coords]:', { x: pngX, y: pngY, width: pngBoxWidth, height: pngBoxHeight });
+
+        // Convert PNG coordinates to PDF coordinates based on rotation
+        let pdfX, pdfY, pdfWidth_box, pdfHeight_box;
+
+        // Normalize rotation to 0, 90, 180, 270
+        const rotation = ((this.pageRotation % 360) + 360) % 360;
+
+        if (rotation === 0) {
+            // No rotation: direct mapping
+            const ratioX = pdfOrigWidth / pngWidth;
+            const ratioY = pdfOrigHeight / pngHeight;
+
+            pdfX = pngX * ratioX;
+            pdfWidth_box = pngBoxWidth * ratioX;
+
+            // Y flip (PNG top-left → PDF bottom-left)
+            const pngBottomY = pngY + pngBoxHeight;
+            pdfY = (pngHeight - pngBottomY) * ratioY;
+            pdfHeight_box = pngBoxHeight * ratioY;
+
+        } else if (rotation === 90) {
+            // 90° clockwise rotation
+            // When page is rotated 90° CW: original top becomes right side
+            // PNG coords (on rotated view) → PDF coords (on original)
+            const ratioX = pdfOrigHeight / pngWidth;
+            const ratioY = pdfOrigWidth / pngHeight;
+
+            // Map rotated view back to original: x→y, y→(width-x)
+            pdfX = (pngHeight - pngY - pngBoxHeight) * ratioX;
+            pdfY = pngX * ratioY;
+            pdfWidth_box = pngBoxHeight * ratioX;
+            pdfHeight_box = pngBoxWidth * ratioY;
+
+        } else if (rotation === 180) {
+            // 180°: flip both axes
+            const ratioX = pdfOrigWidth / pngWidth;
+            const ratioY = pdfOrigHeight / pngHeight;
+
+            pdfX = (pngWidth - pngX - pngBoxWidth) * ratioX;
+            pdfY = pngY * ratioY;
+            pdfWidth_box = pngBoxWidth * ratioX;
+            pdfHeight_box = pngBoxHeight * ratioY;
+
+        } else if (rotation === 270) {
+            // 270° counter-clockwise (or -90°)
+            // When page is rotated 270° CCW: original top becomes left side
+            const ratioX = pdfOrigHeight / pngWidth;
+            const ratioY = pdfOrigWidth / pngHeight;
+
+            // Map rotated view back to original
+            pdfX = pngY * ratioX;
+            pdfY = (pngWidth - pngX - pngBoxWidth) * ratioY;
+            pdfWidth_box = pngBoxHeight * ratioX;
+            pdfHeight_box = pngBoxWidth * ratioY;
         } else {
-            const ratioX = pdfW / canvasW;
-            const ratioY = pdfH / canvasH;
-            pdfX = cx * ratioX;
-            pdfY = (canvasH - cy - ch) * ratioY;
-            pdfBoxW = cw * ratioX;
-            pdfBoxH = ch * ratioY;
+            console.warn('⚠️ Unsupported rotation angle:', rotation, '- using 0° mapping');
+            const ratioX = pdfOrigWidth / pngWidth;
+            const ratioY = pdfOrigHeight / pngHeight;
+            pdfX = pngX * ratioX;
+            pdfY = (pngHeight - pngY - pngBoxHeight) * ratioY;
+            pdfWidth_box = pngBoxWidth * ratioX;
+            pdfHeight_box = pngBoxHeight * ratioY;
         }
 
-        const result = { x: pdfX, y: pdfY, width: pdfBoxW, height: pdfBoxH };
-        console.log('✅ PDF result:', result);
+        const result = {
+            x: pdfX,
+            y: pdfY,
+            width: pdfWidth_box,
+            height: pdfHeight_box
+        };
+
+        console.log('✅ [Output] Final PDF coordinates:', result);
+        console.log('📐 [Details]', {
+            screen: {
+                x: boxOnScreen.x,
+                y: boxOnScreen.y,
+                width: boxOnScreen.width,
+                height: boxOnScreen.height
+            },
+            png: {
+                x: pngX,
+                y: pngY,
+                width: pngBoxWidth,
+                height: pngBoxHeight
+            },
+            pdf: {
+                x: result.x,
+                y: result.y,
+                width: result.width,
+                height: result.height
+            }
+        });
+
         return result;
     }
 
