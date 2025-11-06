@@ -1844,9 +1844,9 @@ textarea.text-input {
 }
 
 .nav-thumbnail.active {
-    border-color: #10B981;
-    background: rgba(16, 185, 129, 0.05);
-    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.25);
+    border-color: var(--primary);
+    background: var(--white);
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.25);
     transform: translateX(-4px);
 }
 
@@ -1857,8 +1857,8 @@ textarea.text-input {
 }
 
 .nav-thumbnail.drag-over {
-    border-color: #10B981;
-    background: rgba(16, 185, 129, 0.05);
+    border-color: var(--primary);
+    background: rgba(37, 99, 235, 0.05);
 }
 
 .nav-thumbnail.active::before {
@@ -1869,7 +1869,7 @@ textarea.text-input {
     transform: translateY(-50%);
     width: 4px;
     height: 60%;
-    background: #10B981;
+    background: var(--primary);
     border-radius: 0 2px 2px 0;
 }
 
@@ -1906,8 +1906,8 @@ textarea.text-input {
 }
 
 .nav-thumbnail.active .nav-thumbnail-badge {
-    background: rgba(16, 185, 129, 1);
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+    background: rgba(37, 99, 235, 1);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
 }
 
 .nav-thumbnail-label {
@@ -1919,7 +1919,7 @@ textarea.text-input {
 }
 
 .nav-thumbnail.active .nav-thumbnail-label {
-    color: #10B981;
+    color: var(--primary);
     font-weight: 700;
 }
 
