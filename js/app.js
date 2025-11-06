@@ -882,15 +882,18 @@ async function showRecentDocsPanel() {
     const recentDocs = await pdfCache.getAllCached();
 
     const content = `
-        <div id="recentDocsFloatingList" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 400px; overflow-y: auto;">
+        <div id="recentDocsFloatingList" style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 500px; overflow-y: auto; overflow-x: hidden;">
             ${recentDocs.length === 0 ?
-                `<div style="text-align: center; color: #999; font-size: 10px; padding: 2rem;">${i18n.t('no.recent')}</div>` :
+                `<div style="text-align: center; color: #999; font-size: 0.875rem; padding: 3rem 1rem;">${i18n.t('no.recent')}</div>` :
                 recentDocs.map(doc => `
-                    <div class="recent-doc-item" style="display: flex; align-items: center; gap: 0.5rem; padding: 8px; background: white; border: 1px solid #e8e8e8; border-radius: 2px; cursor: pointer;" onclick="loadFromCache('${doc.id}')">
-                        <i class="ti ti-file-type-pdf" style="font-size: 1.5rem; color: #4a90e2;"></i>
-                        <div style="flex: 1; min-width: 0;">
-                            <div style="font-size: 10px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${doc.fileName}</div>
-                            <div style="font-size: 9px; color: #999;">${new Date(doc.timestamp).toLocaleString(i18n.getLanguage())}</div>
+                    <div class="recent-doc-item" style="display: flex; align-items: center; gap: 0.875rem; padding: 12px 14px; background: var(--white); border: 2px solid #e8e8e8; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;"
+                         onclick="loadFromCache('${doc.id}')"
+                         onmouseenter="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 4px 12px rgba(37, 99, 235, 0.15)'; this.style.transform='translateY(-2px)';"
+                         onmouseleave="this.style.borderColor='#e8e8e8'; this.style.boxShadow='none'; this.style.transform='translateY(0)';">
+                        <i class="ti ti-file-type-pdf" style="font-size: 2rem; color: var(--primary); flex-shrink: 0;"></i>
+                        <div style="flex: 1; min-width: 0; overflow: hidden;">
+                            <div style="font-size: 0.875rem; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;" title="${doc.fileName}">${doc.fileName}</div>
+                            <div style="font-size: 0.75rem; color: #666; white-space: nowrap;">${new Date(doc.timestamp).toLocaleString(i18n.getLanguage())}</div>
                         </div>
                     </div>
                 `).join('')
@@ -898,8 +901,8 @@ async function showRecentDocsPanel() {
         </div>
 
         ${recentDocs.length > 0 ? `
-            <div style="border-top: 1px solid #e8e8e8; padding: 8px 10px; margin-top: 1rem;">
-                <button class="action-btn" onclick="clearAllCache()" style="width: 100%; background-color: #EF4444;">
+            <div style="border-top: 2px solid #e8e8e8; padding: 12px 14px; margin-top: 1rem;">
+                <button class="action-btn" onclick="clearAllCache()" style="width: 100%; background-color: #EF4444; font-size: 0.875rem; padding: 10px;">
                     <i class="ti ti-trash"></i> ${i18n.t('clear.cache')}
                 </button>
             </div>
@@ -918,6 +921,7 @@ async function showRecentDocsPanel() {
     if (panel) {
         panel.style.left = '10px';
         panel.style.top = '80px';
+        panel.style.minWidth = '320px';
     }
 }
 
@@ -943,13 +947,16 @@ async function refreshRecentDocsPanel() {
     // Update the content
     const newContent = `
         ${recentDocs.length === 0 ?
-            `<div style="text-align: center; color: #999; font-size: 10px; padding: 2rem;">${i18n.t('no.recent')}</div>` :
+            `<div style="text-align: center; color: #999; font-size: 0.875rem; padding: 3rem 1rem;">${i18n.t('no.recent')}</div>` :
             recentDocs.map(doc => `
-                <div class="recent-doc-item" style="display: flex; align-items: center; gap: 0.5rem; padding: 8px; background: white; border: 1px solid #e8e8e8; border-radius: 2px; cursor: pointer;" onclick="loadFromCache('${doc.id}')">
-                    <i class="ti ti-file-type-pdf" style="font-size: 1.5rem; color: #4a90e2;"></i>
-                    <div style="flex: 1; min-width: 0;">
-                        <div style="font-size: 10px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${doc.fileName}</div>
-                        <div style="font-size: 9px; color: #999;">${new Date(doc.timestamp).toLocaleString(i18n.getLanguage())}</div>
+                <div class="recent-doc-item" style="display: flex; align-items: center; gap: 0.875rem; padding: 12px 14px; background: var(--white); border: 2px solid #e8e8e8; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;"
+                     onclick="loadFromCache('${doc.id}')"
+                     onmouseenter="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 4px 12px rgba(37, 99, 235, 0.15)'; this.style.transform='translateY(-2px)';"
+                     onmouseleave="this.style.borderColor='#e8e8e8'; this.style.boxShadow='none'; this.style.transform='translateY(0)';">
+                    <i class="ti ti-file-type-pdf" style="font-size: 2rem; color: var(--primary); flex-shrink: 0;"></i>
+                    <div style="flex: 1; min-width: 0; overflow: hidden;">
+                        <div style="font-size: 0.875rem; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;" title="${doc.fileName}">${doc.fileName}</div>
+                        <div style="font-size: 0.75rem; color: #666; white-space: nowrap;">${new Date(doc.timestamp).toLocaleString(i18n.getLanguage())}</div>
                     </div>
                 </div>
             `).join('')
@@ -970,8 +977,8 @@ async function refreshRecentDocsPanel() {
         // Add new button if there are docs
         if (recentDocs.length > 0) {
             const buttonHTML = `
-                <div style="border-top: 1px solid #e8e8e8; padding: 8px 10px; margin-top: 1rem;">
-                    <button class="action-btn" onclick="clearAllCache()" style="width: 100%; background-color: #EF4444;">
+                <div style="border-top: 2px solid #e8e8e8; padding: 12px 14px; margin-top: 1rem;">
+                    <button class="action-btn" onclick="clearAllCache()" style="width: 100%; background-color: #EF4444; font-size: 0.875rem; padding: 10px;">
                         <i class="ti ti-trash"></i> ${i18n.t('clear.cache')}
                     </button>
                 </div>
@@ -1080,6 +1087,11 @@ async function switchToDocument(docId) {
     updateTabsUI();
     updateMetadataDisplay();
     enableToolButtons();
+
+    // Auto-open thumbnail navigator
+    if (!viewer.navPanelOpen) {
+        viewer.toggleNavigator();
+    }
 }
 
 /**
