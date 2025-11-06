@@ -1683,13 +1683,34 @@ textarea.text-input {
     display: flex;
     flex-direction: column;
     gap: 0;
-    max-height: 180px;
+    max-height: 300px;
     overflow-y: auto;
     padding: 0;
     background-color: #fafafa;
     border-radius: 0;
     border: none;
     border-top: 1px solid #e8e8e8;
+    scrollbar-width: thin;
+    scrollbar-color: #4a90e2 #e8e8e8;
+}
+
+/* Webkit scrollbar styles */
+.page-selection-grid::-webkit-scrollbar {
+    width: 8px;
+}
+
+.page-selection-grid::-webkit-scrollbar-track {
+    background: #e8e8e8;
+    border-radius: 4px;
+}
+
+.page-selection-grid::-webkit-scrollbar-thumb {
+    background: #4a90e2;
+    border-radius: 4px;
+}
+
+.page-selection-grid::-webkit-scrollbar-thumb:hover {
+    background: #357abd;
 }
 
 .page-checkbox {
