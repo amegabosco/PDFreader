@@ -413,52 +413,62 @@ class PNGInsertionOverlay {
     }
 
     /**
-     * Transform PNG coordinates to PDF coordinates - SIMPLIFIED v2.1
+     * Transform PNG coordinates to PDF coordinates - v2.3.0 FIXED
      * @param {Object} boxOnScreen - { x, y, width, height } in screen pixels (CSS)
      * @returns {Object} - { x, y, width, height } in PDF points
      */
     async transformCoordinates(boxOnScreen) {
-        console.log('🔄 [v2.1 SIMPLIFIED] Starting transformation...');
+        console.log('🔄 [v2.3.0 FIXED] Starting transformation...');
         console.log('📍 [Input] Box on screen (CSS pixels):', boxOnScreen);
 
-        // Get the actual PDF page dimensions
-        const pdfDoc = await PDFLib.PDFDocument.load(currentPDFData);
-        const pageIndex = this.pageNumber - 1;
-        const page = pdfDoc.getPage(pageIndex);
-        const { width: pdfWidth, height: pdfHeight } = page.getSize();
+        // Get the PNG canvas actual rendered size (matches what user sees)
+        const pngWidth = this.pngCanvas.width;
+        const pngHeight = this.pngCanvas.height;
 
-        console.log('📄 [PDF] Original page size:', { width: pdfWidth, height: pdfHeight });
+        console.log('🖼️ [PNG Canvas] Rendered size:', { width: pngWidth, height: pngHeight });
 
-        // Get canvas displayed size (what user sees)
+        // Get canvas displayed size (what user sees on screen)
         const displayedWidth = this.pngCanvas.offsetWidth;
         const displayedHeight = this.pngCanvas.offsetHeight;
 
         console.log('🖥️ [Display] Canvas displayed size:', { width: displayedWidth, height: displayedHeight });
 
-        // Simple ratio: screen pixels → PDF points
-        const ratioX = pdfWidth / displayedWidth;
-        const ratioY = pdfHeight / displayedHeight;
+        // Get the actual PDF page dimensions from pdf-lib
+        const pdfDoc = await PDFLib.PDFDocument.load(currentPDFData);
+        const pageIndex = this.pageNumber - 1;
+        const page = pdfDoc.getPage(pageIndex);
+        const { width: pdfWidth, height: pdfHeight } = page.getSize();
 
-        console.log('📊 [Ratio] Screen → PDF:', { x: ratioX, y: ratioY });
+        console.log('📄 [PDF-lib] Page size:', { width: pdfWidth, height: pdfHeight });
 
-        // Convert screen coordinates to PDF coordinates
-        // X: simple scaling
-        const pdfX = boxOnScreen.x * ratioX;
-        const pdfWidth_box = boxOnScreen.width * ratioX;
+        // Calculate ratio: PNG canvas pixels → PDF points
+        // This accounts for any rotation or scaling differences
+        const ratioX = pdfWidth / pngWidth;
+        const ratioY = pdfHeight / pngHeight;
 
-        // Y: flip coordinate system (screen top-left → PDF bottom-left)
-        // In screen: y=0 is top, y increases downward
+        console.log('📊 [Ratio] PNG → PDF:', { x: ratioX, y: ratioY });
+
+        // First convert screen CSS pixels to PNG canvas pixels
+        const scaleX = pngWidth / displayedWidth;
+        const scaleY = pngHeight / displayedHeight;
+
+        const pngX = boxOnScreen.x * scaleX;
+        const pngY = boxOnScreen.y * scaleY;
+        const pngBoxWidth = boxOnScreen.width * scaleX;
+        const pngBoxHeight = boxOnScreen.height * scaleY;
+
+        console.log('🎨 [PNG Coords]:', { x: pngX, y: pngY, width: pngBoxWidth, height: pngBoxHeight });
+
+        // Then convert PNG canvas pixels to PDF points
+        const pdfX = pngX * ratioX;
+        const pdfWidth_box = pngBoxWidth * ratioX;
+
+        // Y: flip coordinate system (PNG top-left → PDF bottom-left)
+        // In PNG: y=0 is top, y increases downward
         // In PDF: y=0 is bottom, y increases upward
-        const screenTopY = boxOnScreen.y;
-        const screenBottomY = boxOnScreen.y + boxOnScreen.height;
-
-        // Convert to PDF coordinates
-        const pdfTopY = pdfHeight - (screenTopY * ratioY);
-        const pdfBottomY = pdfHeight - (screenBottomY * ratioY);
-
-        // PDF drawImage uses bottom-left corner
-        const pdfY = pdfBottomY;
-        const pdfHeight_box = boxOnScreen.height * ratioY;
+        const pngBottomY = pngY + pngBoxHeight;
+        const pdfY = (pngHeight - pngBottomY) * ratioY;
+        const pdfHeight_box = pngBoxHeight * ratioY;
 
         const result = {
             x: pdfX,

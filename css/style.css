@@ -1705,31 +1705,36 @@ textarea.text-input {
     overflow-y: scroll !important;
     overflow-x: hidden;
     padding: 0;
+    padding-right: 4px; /* Space for scrollbar */
     background-color: #fafafa;
     border-radius: 0;
-    border: none;
+    border: 1px solid #e8e8e8;
     border-top: 1px solid #e8e8e8;
     scrollbar-width: thin;
     scrollbar-color: #4a90e2 #e8e8e8;
 }
 
-/* Webkit scrollbar styles */
+/* Webkit scrollbar styles - more visible */
 .page-selection-grid::-webkit-scrollbar {
-    width: 8px;
+    width: 10px;
+    background: #f5f5f5;
 }
 
 .page-selection-grid::-webkit-scrollbar-track {
     background: #e8e8e8;
-    border-radius: 4px;
+    border-radius: 5px;
+    margin: 4px 0;
 }
 
 .page-selection-grid::-webkit-scrollbar-thumb {
     background: #4a90e2;
-    border-radius: 4px;
+    border-radius: 5px;
+    border: 2px solid #e8e8e8;
 }
 
 .page-selection-grid::-webkit-scrollbar-thumb:hover {
     background: #357abd;
+    border-color: #d0d0d0;
 }
 
 .page-checkbox {
