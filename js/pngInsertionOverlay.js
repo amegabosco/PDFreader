@@ -480,15 +480,22 @@ class PNGInsertionOverlay {
         console.log('✅ [Output] Final PDF coordinates:', result);
         console.log('📐 [Details]', {
             screen: {
-                top: screenTopY,
-                bottom: screenBottomY,
+                x: boxOnScreen.x,
+                y: boxOnScreen.y,
+                width: boxOnScreen.width,
                 height: boxOnScreen.height
             },
+            png: {
+                x: pngX,
+                y: pngY,
+                width: pngBoxWidth,
+                height: pngBoxHeight
+            },
             pdf: {
-                top: pdfTopY,
-                bottom: pdfBottomY,
-                height: pdfHeight_box,
-                totalHeight: pdfHeight
+                x: result.x,
+                y: result.y,
+                width: result.width,
+                height: result.height
             }
         });
 
