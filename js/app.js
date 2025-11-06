@@ -1687,6 +1687,10 @@ function showRotatePanel() {
  * Sync rotation panel selection to thumbnails (bidirectional sync)
  */
 function syncRotationPanelToThumbnails() {
+    if (viewer.syncInProgress) return; // Prevent loops
+
+    viewer.syncInProgress = true; // Set flag
+
     const checkedPages = Array.from(document.querySelectorAll('.page-checkbox input[type="checkbox"]:checked'))
         .map(cb => parseInt(cb.value));
 
@@ -1698,10 +1702,12 @@ function syncRotationPanelToThumbnails() {
         viewer.selectedPages.add(pageNum);
     });
 
-    // Update visual state
+    // Update visual state (this won't trigger sync back because of flag)
     viewer.updateThumbnailSelection();
 
     console.log('🔄 [Rotation Panel → Thumbnails] Synced selection:', checkedPages);
+
+    viewer.syncInProgress = false; // Reset flag
 }
 
 /**

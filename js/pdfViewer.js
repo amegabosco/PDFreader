@@ -10,6 +10,7 @@ class PDFViewer {
         this.totalPages = 0;
         this.scale = 1.5;
         this.selectedPages = new Set(); // Track selected pages for multi-select
+        this.syncInProgress = false; // Flag to prevent sync loops
         this.canvas = document.getElementById('pdfCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.canvasContainer = null;
@@ -1487,8 +1488,10 @@ class PDFViewer {
             }
         });
 
-        // Sync with rotation panel if it's open
-        this.syncThumbnailsToRotationPanel();
+        // Sync with rotation panel if it's open (avoid loops)
+        if (!this.syncInProgress) {
+            this.syncThumbnailsToRotationPanel();
+        }
     }
 
     /**
@@ -1498,6 +1501,8 @@ class PDFViewer {
         const checkboxes = document.querySelectorAll('.page-checkbox input[type="checkbox"]');
         if (checkboxes.length === 0) return; // Panel not open
 
+        this.syncInProgress = true; // Set flag to prevent loops
+
         const selectedPages = this.getSelectedPages();
 
         checkboxes.forEach(checkbox => {
@@ -1506,6 +1511,8 @@ class PDFViewer {
         });
 
         console.log('🔄 [Thumbnails → Rotation Panel] Synced selection:', selectedPages);
+
+        this.syncInProgress = false; // Reset flag
     }
 
     /**
