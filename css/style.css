@@ -1925,17 +1925,17 @@ textarea.text-input {
 
 /* Selected thumbnail (multi-select) */
 .nav-thumbnail.selected {
-    border-color: #10B981;
-    background: rgba(16, 185, 129, 0.05);
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+    border-color: var(--primary);
+    background: rgba(37, 99, 235, 0.05);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
 }
 
 .nav-thumbnail.selected .nav-thumbnail-badge {
-    background: #10B981;
+    background: rgba(37, 99, 235, 1);
 }
 
 .nav-thumbnail.selected .nav-thumbnail-label {
-    color: #10B981;
+    color: var(--primary);
     font-weight: 700;
 }
 

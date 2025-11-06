@@ -1486,6 +1486,26 @@ class PDFViewer {
                 thumb.classList.remove('selected');
             }
         });
+
+        // Sync with rotation panel if it's open
+        this.syncThumbnailsToRotationPanel();
+    }
+
+    /**
+     * Sync thumbnail selection to rotation panel checkboxes (if panel is open)
+     */
+    syncThumbnailsToRotationPanel() {
+        const checkboxes = document.querySelectorAll('.page-checkbox input[type="checkbox"]');
+        if (checkboxes.length === 0) return; // Panel not open
+
+        const selectedPages = this.getSelectedPages();
+
+        checkboxes.forEach(checkbox => {
+            const pageNum = parseInt(checkbox.value);
+            checkbox.checked = selectedPages.includes(pageNum);
+        });
+
+        console.log('🔄 [Thumbnails → Rotation Panel] Synced selection:', selectedPages);
     }
 
     /**
