@@ -1639,13 +1639,13 @@ function showRotatePanel() {
                 <label>Rotation Angle:</label>
                 <div class="button-group">
                     <button class="option-btn" onclick="executeRotate(90)">
-                        <i class="ti ti-rotate-clockwise"></i> 90°
+                        <i class="ti ti-rotate-clockwise"></i> 90° CW
+                    </button>
+                    <button class="option-btn" onclick="executeRotate(270)">
+                        <i class="ti ti-rotate"></i> 90° CCW
                     </button>
                     <button class="option-btn" onclick="executeRotate(180)">
                         <i class="ti ti-rotate-2"></i> 180°
-                    </button>
-                    <button class="option-btn" onclick="executeRotate(270)">
-                        <i class="ti ti-rotate"></i> 270°
                     </button>
                 </div>
             </div>
