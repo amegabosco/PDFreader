@@ -1039,9 +1039,7 @@ class PDFViewer {
             const thumbDiv = document.createElement('div');
             thumbDiv.className = 'nav-thumbnail';
             thumbDiv.dataset.pageNum = pageNum;
-            if (pageNum === this.currentPage) {
-                thumbDiv.classList.add('active');
-            }
+            // Selection is handled by updateThumbnailSelection(), not here
 
             // Create thumbnail wrapper (for positioning)
             const thumbWrapper = document.createElement('div');
@@ -1248,16 +1246,13 @@ class PDFViewer {
     }
 
     /**
-     * Update active thumbnail
+     * Update active thumbnail - now updates selection instead
      */
     updateActiveThumbnail(pageNum) {
-        this.thumbnails.forEach((thumb, index) => {
-            if (index + 1 === pageNum) {
-                thumb.classList.add('active');
-            } else {
-                thumb.classList.remove('active');
-            }
-        });
+        // Clear and select only the current page
+        this.selectedPages.clear();
+        this.selectedPages.add(pageNum);
+        this.updateThumbnailSelection();
     }
 
     /**

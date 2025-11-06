@@ -1923,15 +1923,29 @@ textarea.text-input {
     font-weight: 700;
 }
 
-/* Selected thumbnail (multi-select) */
+/* Selected thumbnail - same style as active */
 .nav-thumbnail.selected {
     border-color: var(--primary);
-    background: rgba(37, 99, 235, 0.05);
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    background: var(--white);
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.25);
+    transform: translateX(-4px);
+}
+
+.nav-thumbnail.selected::before {
+    content: '';
+    position: absolute;
+    left: -3px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 60%;
+    background: var(--primary);
+    border-radius: 0 2px 2px 0;
 }
 
 .nav-thumbnail.selected .nav-thumbnail-badge {
     background: rgba(37, 99, 235, 1);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
 }
 
 .nav-thumbnail.selected .nav-thumbnail-label {
