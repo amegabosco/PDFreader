@@ -1092,6 +1092,11 @@ async function switchToDocument(docId) {
     if (!viewer.navPanelOpen) {
         viewer.toggleNavigator();
     }
+
+    // Auto-select first page
+    viewer.selectedPages.clear();
+    viewer.selectedPages.add(1);
+    viewer.updateThumbnailSelection();
 }
 
 /**
