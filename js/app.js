@@ -1596,6 +1596,10 @@ function showRotatePanel() {
     const selectedPages = viewer.getSelectedPages();
     const hasSelection = selectedPages.length > 0;
 
+    if (hasSelection) {
+        console.log('📋 [Rotation Panel] Pre-selecting pages from thumbnails:', selectedPages);
+    }
+
     // Generate page checkboxes
     let pageCheckboxes = '';
     for (let i = 1; i <= viewer.totalPages; i++) {
@@ -1676,9 +1680,18 @@ function selectNoPages() {
  */
 async function executeRotate(degrees) {
     try {
-        // Get selected pages
-        const selectedPages = Array.from(document.querySelectorAll('.page-checkbox input[type="checkbox"]:checked'))
-            .map(cb => parseInt(cb.value) - 1); // Convert to 0-based index
+        // Get selected pages (1-based from UI)
+        const selectedPagesUI = Array.from(document.querySelectorAll('.page-checkbox input[type="checkbox"]:checked'))
+            .map(cb => parseInt(cb.value));
+
+        // Convert to 0-based index for pdf-lib
+        const selectedPages = selectedPagesUI.map(p => p - 1);
+
+        console.log('🔄 [Execute Rotate]', {
+            pagesFromUI: selectedPagesUI,
+            pagesFor0Based: selectedPages,
+            degrees: degrees
+        });
 
         if (selectedPages.length === 0) {
             showNotification('Please select at least one page to rotate', 'warning');
