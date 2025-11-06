@@ -9,6 +9,7 @@ class PDFViewer {
         this.currentPage = 1;
         this.totalPages = 0;
         this.scale = 1.5;
+        this.selectedPages = new Set(); // Track selected pages for multi-select
         this.canvas = document.getElementById('pdfCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.canvasContainer = null;
@@ -1077,9 +1078,16 @@ class PDFViewer {
             thumbDiv.appendChild(thumbWrapper);
             thumbDiv.appendChild(label);
 
-            // Click handler to navigate to page
-            thumbDiv.addEventListener('click', () => {
-                this.goToPage(pageNum);
+            // Click handler with multi-select support
+            thumbDiv.addEventListener('click', (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                    // Multi-select mode (Ctrl/Cmd + Click)
+                    this.togglePageSelection(pageNum);
+                } else {
+                    // Normal mode: clear selection and navigate
+                    this.clearPageSelection();
+                    this.goToPage(pageNum);
+                }
             });
 
             // Drag and drop handlers
@@ -1443,5 +1451,47 @@ class PDFViewer {
     clearSearchHighlights() {
         const existingLayers = document.querySelectorAll('.search-highlight-layer');
         existingLayers.forEach(layer => layer.remove());
+    }
+
+    /**
+     * Toggle page selection in thumbnails
+     */
+    togglePageSelection(pageNum) {
+        if (this.selectedPages.has(pageNum)) {
+            this.selectedPages.delete(pageNum);
+        } else {
+            this.selectedPages.add(pageNum);
+        }
+        this.updateThumbnailSelection();
+    }
+
+    /**
+     * Clear page selection
+     */
+    clearPageSelection() {
+        this.selectedPages.clear();
+        this.updateThumbnailSelection();
+    }
+
+    /**
+     * Update visual state of thumbnail selection
+     */
+    updateThumbnailSelection() {
+        const thumbnails = document.querySelectorAll('.nav-thumbnail');
+        thumbnails.forEach(thumb => {
+            const pageNum = parseInt(thumb.dataset.pageNum);
+            if (this.selectedPages.has(pageNum)) {
+                thumb.classList.add('selected');
+            } else {
+                thumb.classList.remove('selected');
+            }
+        });
+    }
+
+    /**
+     * Get array of selected page numbers
+     */
+    getSelectedPages() {
+        return Array.from(this.selectedPages).sort((a, b) => a - b);
     }
 }

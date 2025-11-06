@@ -1923,6 +1923,22 @@ textarea.text-input {
     font-weight: 700;
 }
 
+/* Selected thumbnail (multi-select) */
+.nav-thumbnail.selected {
+    border-color: #10B981;
+    background: rgba(16, 185, 129, 0.05);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.nav-thumbnail.selected .nav-thumbnail-badge {
+    background: #10B981;
+}
+
+.nav-thumbnail.selected .nav-thumbnail-label {
+    color: #10B981;
+    font-weight: 700;
+}
+
 /* Adjust main content when nav panel is visible */
 .app-container {
     transition: padding-right 0.3s ease;

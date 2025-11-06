@@ -1592,12 +1592,21 @@ function showRotatePanel() {
         return;
     }
 
+    // Get selected pages from thumbnail panel (if any)
+    const selectedPages = viewer.getSelectedPages();
+    const hasSelection = selectedPages.length > 0;
+
     // Generate page checkboxes
     let pageCheckboxes = '';
     for (let i = 1; i <= viewer.totalPages; i++) {
+        // Check if this page should be pre-selected
+        const shouldCheck = hasSelection
+            ? selectedPages.includes(i)  // Use thumbnail selection
+            : i === viewer.currentPage;   // Fallback to current page
+
         pageCheckboxes += `
             <label class="page-checkbox">
-                <input type="checkbox" value="${i}" ${i === viewer.currentPage ? 'checked' : ''}>
+                <input type="checkbox" value="${i}" ${shouldCheck ? 'checked' : ''}>
                 <span>Page ${i}</span>
             </label>
         `;
