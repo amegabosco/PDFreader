@@ -1085,8 +1085,10 @@ class PDFViewer {
                     // Multi-select mode (Ctrl/Cmd + Click)
                     this.togglePageSelection(pageNum);
                 } else {
-                    // Normal mode: clear selection and navigate
+                    // Normal mode: select this page only and navigate
                     this.clearPageSelection();
+                    this.selectedPages.add(pageNum);
+                    this.updateThumbnailSelection();
                     this.goToPage(pageNum);
                 }
             });
