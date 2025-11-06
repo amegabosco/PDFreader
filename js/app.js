@@ -1659,6 +1659,34 @@ function showRotatePanel() {
     `;
 
     showToolPanel(panel);
+
+    // Setup checkbox change listeners for bidirectional sync
+    setTimeout(() => {
+        document.querySelectorAll('.page-checkbox input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', syncRotationPanelToThumbnails);
+        });
+    }, 0);
+}
+
+/**
+ * Sync rotation panel selection to thumbnails (bidirectional sync)
+ */
+function syncRotationPanelToThumbnails() {
+    const checkedPages = Array.from(document.querySelectorAll('.page-checkbox input[type="checkbox"]:checked'))
+        .map(cb => parseInt(cb.value));
+
+    // Clear current selection
+    viewer.clearPageSelection();
+
+    // Add checked pages to selection
+    checkedPages.forEach(pageNum => {
+        viewer.selectedPages.add(pageNum);
+    });
+
+    // Update visual state
+    viewer.updateThumbnailSelection();
+
+    console.log('🔄 [Rotation Panel → Thumbnails] Synced selection:', checkedPages);
 }
 
 /**
@@ -1666,6 +1694,7 @@ function showRotatePanel() {
  */
 function selectAllPages() {
     document.querySelectorAll('.page-checkbox input[type="checkbox"]').forEach(cb => cb.checked = true);
+    syncRotationPanelToThumbnails();
 }
 
 /**
@@ -1673,6 +1702,7 @@ function selectAllPages() {
  */
 function selectNoPages() {
     document.querySelectorAll('.page-checkbox input[type="checkbox"]').forEach(cb => cb.checked = false);
+    syncRotationPanelToThumbnails();
 }
 
 /**
