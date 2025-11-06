@@ -383,6 +383,9 @@ class PNGInsertionOverlay {
 
         console.log('🎯 [PNG Overlay] Validating insertion...');
 
+        // Show loading notification
+        showNotification('Processing insertion...', 'info', 30000);
+
         try {
             // Calculate transformation from PNG coordinates to PDF coordinates
             const pdfCoords = await this.transformCoordinates(this.drawingBox);
@@ -473,14 +476,15 @@ class PNGInsertionOverlay {
             pdfHeight_box = pngBoxHeight * ratioY;
 
         } else if (rotation === 90) {
-            // 90° clockwise: PNG was rotated, so we need to reverse
-            // PNG: rotated view, PDF: original orientation
-            // Transform: x' = y, y' = pdfOrigWidth - (x + width)
+            // 90° clockwise rotation
+            // When page is rotated 90° CW: original top becomes right side
+            // PNG coords (on rotated view) → PDF coords (on original)
             const ratioX = pdfOrigHeight / pngWidth;
             const ratioY = pdfOrigWidth / pngHeight;
 
-            pdfX = pngY * ratioX;
-            pdfY = (pngWidth - pngX - pngBoxWidth) * ratioY;
+            // Map rotated view back to original: x→y, y→(width-x)
+            pdfX = (pngHeight - pngY - pngBoxHeight) * ratioX;
+            pdfY = pngX * ratioY;
             pdfWidth_box = pngBoxHeight * ratioX;
             pdfHeight_box = pngBoxWidth * ratioY;
 
@@ -495,13 +499,14 @@ class PNGInsertionOverlay {
             pdfHeight_box = pngBoxHeight * ratioY;
 
         } else if (rotation === 270) {
-            // 270° (or -90° counter-clockwise)
-            // Transform: x' = pdfOrigHeight - (y + height), y' = x
+            // 270° counter-clockwise (or -90°)
+            // When page is rotated 270° CCW: original top becomes left side
             const ratioX = pdfOrigHeight / pngWidth;
             const ratioY = pdfOrigWidth / pngHeight;
 
-            pdfX = (pngHeight - pngY - pngBoxHeight) * ratioX;
-            pdfY = pngX * ratioY;
+            // Map rotated view back to original
+            pdfX = pngY * ratioX;
+            pdfY = (pngWidth - pngX - pngBoxWidth) * ratioY;
             pdfWidth_box = pngBoxHeight * ratioX;
             pdfHeight_box = pngBoxWidth * ratioY;
         } else {
