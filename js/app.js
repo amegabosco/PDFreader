@@ -1615,10 +1615,8 @@ function showRotatePanel() {
     // Generate page checkboxes
     let pageCheckboxes = '';
     for (let i = 1; i <= viewer.totalPages; i++) {
-        // Check if this page should be pre-selected
-        const shouldCheck = hasSelection
-            ? selectedPages.includes(i)  // Use thumbnail selection
-            : i === viewer.currentPage;   // Fallback to current page
+        // Only pre-check if page is explicitly selected (not just active)
+        const shouldCheck = selectedPages.includes(i);
 
         pageCheckboxes += `
             <label class="page-checkbox">
