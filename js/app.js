@@ -2587,19 +2587,19 @@ async function addTextAnnotationToPage() {
 
     console.log('📝 Hex color:', hexColor, 'RGB array:', [r, g, b]);
 
-    // Start drawing mode
-    console.log('📝 Calling pendingObjects.startDrawing...');
-    pendingObjects.startDrawing('text', {
-        text: text,
-        fontSize: fontSize,
-        color: hexColor,
-        colorRGB: [r, g, b]  // Pass as array, not string
-    });
+    // Close the tool panel
+    closeToolPanel();
 
-    showNotification('Draw a box on the PDF to place your text', 'info');
-    console.log('📝 Notification shown');
-    // Don't close panel - let user see it while drawing
-    // closeToolPanel();
+    // Open annotation overlay for precise placement with multi-page support
+    await window.annotationInsertionOverlay.show(
+        viewer.currentPage,
+        {
+            text: text,
+            fontSize: fontSize,
+            color: hexColor,
+            colorRGB: [r, g, b]
+        }
+    );
 }
 
 /**

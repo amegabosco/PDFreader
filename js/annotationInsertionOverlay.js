@@ -1,16 +1,15 @@
 /**
- * PNG-Based Insertion Overlay v2.0.0
- * Renders PDF page as PNG for precise insertion positioning
+ * Annotation Insertion Overlay - Similar to PNG Insertion but for text annotations
+ * Allows batch annotation placement on multiple pages
  */
 
-class PNGInsertionOverlay {
+class AnnotationInsertionOverlay {
     constructor() {
         this.active = false;
         this.overlayContainer = null;
         this.pngCanvas = null;
         this.pageNumber = null;
-        this.insertionType = null; // 'image' or 'signature'
-        this.imageData = null; // Image/signature to insert
+        this.annotationData = null; // { text, fontSize, color, colorRGB }
         this.drawingBox = null; // { x, y, width, height } on PNG canvas
         this.isDragging = false;
         this.isResizing = false;
@@ -20,17 +19,15 @@ class PNGInsertionOverlay {
     }
 
     /**
-     * Show PNG overlay for insertion
+     * Show annotation overlay for insertion
      * @param {number} pageNumber - Page number (1-indexed)
-     * @param {string} type - 'image' or 'signature'
-     * @param {Object} imageData - { url, buffer, imageType }
+     * @param {Object} annotationData - { text, fontSize, color, colorRGB }
      */
-    async show(pageNumber, type, imageData) {
-        console.log(`🎯 [PNG Overlay] Opening for ${type} insertion on page ${pageNumber}`);
+    async show(pageNumber, annotationData) {
+        console.log(`📝 [Annotation Overlay] Opening for annotation on page ${pageNumber}`);
 
         this.pageNumber = pageNumber;
-        this.insertionType = type;
-        this.imageData = imageData;
+        this.annotationData = annotationData;
 
         // Generate PNG from current page
         await this.generatePagePNG();
@@ -49,7 +46,7 @@ class PNGInsertionOverlay {
      * Generate PNG image of the current PDF page
      */
     async generatePagePNG() {
-        console.log(`🖼️ [PNG Overlay] Generating PNG for page ${this.pageNumber}`);
+        console.log(`🖼️ [Annotation Overlay] Generating PNG for page ${this.pageNumber}`);
 
         try {
             // Get the current page from PDF.js
@@ -57,13 +54,10 @@ class PNGInsertionOverlay {
 
             // Get page rotation
             const rotation = page.rotate || 0;
-            console.log(`🔄 [PNG Overlay] Page rotation: ${rotation}°`);
+            console.log(`🔄 [Annotation Overlay] Page rotation: ${rotation}°`);
 
             // Calculate scale to match current zoom/viewport (with rotation)
             const viewport = page.getViewport({ scale: viewer.scale, rotation: rotation });
-
-            // Also get unrotated viewport for dimension comparison
-            const unrotatedViewport = page.getViewport({ scale: viewer.scale, rotation: 0 });
 
             // Create a canvas to render the page
             const canvas = document.createElement('canvas');
@@ -80,12 +74,10 @@ class PNGInsertionOverlay {
             this.pngCanvas = canvas;
             this.pageRotation = rotation; // Store rotation for coordinate transformation
             this.viewport = viewport; // Store viewport for coordinate conversion
-            this.rotatedViewportDimensions = { width: viewport.width, height: viewport.height };
-            this.unrotatedViewportDimensions = { width: unrotatedViewport.width, height: unrotatedViewport.height };
 
-            console.log(`✅ [PNG Overlay] PNG generated: ${canvas.width}x${canvas.height} (rotation: ${rotation}°)`);
+            console.log(`✅ [Annotation Overlay] PNG generated: ${canvas.width}x${canvas.height} (rotation: ${rotation}°)`);
         } catch (error) {
-            console.error('❌ [PNG Overlay] Failed to generate PNG:', error);
+            console.error('❌ [Annotation Overlay] Failed to generate PNG:', error);
             throw error;
         }
     }
@@ -96,7 +88,7 @@ class PNGInsertionOverlay {
     createOverlay() {
         // Create overlay container
         this.overlayContainer = document.createElement('div');
-        this.overlayContainer.className = 'png-insertion-overlay';
+        this.overlayContainer.className = 'annotation-insertion-overlay';
 
         // Generate page checkboxes
         const totalPages = viewer.pdfDoc ? viewer.pdfDoc.numPages : 1;
@@ -106,64 +98,74 @@ class PNGInsertionOverlay {
         for (let i = 1; i <= totalPages; i++) {
             const isChecked = this.selectedPages.has(i) ? 'checked' : '';
             pageCheckboxes += `
-                <label class="png-page-checkbox-item">
-                    <input type="checkbox" value="${i}" ${isChecked} class="png-page-checkbox">
+                <label class="annotation-page-checkbox-item">
+                    <input type="checkbox" value="${i}" ${isChecked} class="annotation-page-checkbox">
                     <span>Page ${i}</span>
                 </label>
             `;
         }
 
         this.overlayContainer.innerHTML = `
-            <div class="png-overlay-backdrop"></div>
-            <div class="png-overlay-content">
-                <div class="png-overlay-header">
+            <div class="annotation-overlay-backdrop"></div>
+            <div class="annotation-overlay-content">
+                <div class="annotation-overlay-header">
                     <h3>
-                        <i class="ti ti-crosshair"></i>
-                        ${this.insertionType === 'image' ? 'Insert Image' : 'Insert Signature'}
+                        <i class="ti ti-pencil"></i>
+                        Add Text Annotation
                     </h3>
-                    <button class="png-overlay-close" id="pngOverlayClose">
+                    <button class="annotation-overlay-close" id="annotationOverlayClose">
                         <i class="ti ti-x"></i>
                     </button>
                 </div>
-                <div class="png-overlay-body">
-                    <div class="png-overlay-sidebar">
-                        <div class="png-pages-panel">
-                            <div class="png-pages-header">
+                <div class="annotation-overlay-body">
+                    <div class="annotation-overlay-sidebar">
+                        <div class="annotation-pages-panel">
+                            <div class="annotation-pages-header">
                                 <h4><i class="ti ti-list-check"></i> Select Pages</h4>
-                                <div class="png-pages-actions">
-                                    <button class="png-select-all-btn" id="pngSelectAll" title="Select All">
+                                <div class="annotation-pages-actions">
+                                    <button class="annotation-select-all-btn" id="annotationSelectAll" title="Select All">
                                         <i class="ti ti-checkbox"></i>
                                     </button>
-                                    <button class="png-select-none-btn" id="pngSelectNone" title="Deselect All">
+                                    <button class="annotation-select-none-btn" id="annotationSelectNone" title="Deselect All">
                                         <i class="ti ti-square"></i>
                                     </button>
                                 </div>
                             </div>
-                            <div class="png-pages-list" id="pngPagesList">
+                            <div class="annotation-pages-list" id="annotationPagesList">
                                 ${pageCheckboxes}
                             </div>
-                            <div class="png-pages-summary">
-                                <span id="pngSelectedCount">${this.selectedPages.size}</span> page(s) selected
+                            <div class="annotation-pages-summary">
+                                <span id="annotationSelectedCount">${this.selectedPages.size}</span> page(s) selected
+                            </div>
+                        </div>
+                        <div class="annotation-preview-panel">
+                            <div class="annotation-preview-header">
+                                <h4><i class="ti ti-eye"></i> Preview</h4>
+                            </div>
+                            <div class="annotation-preview-content">
+                                <div class="annotation-preview-text" style="font-size: ${this.annotationData.fontSize}px; color: ${this.annotationData.color};">
+                                    ${this.annotationData.text}
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div class="png-overlay-main">
-                        <div class="png-canvas-wrapper" id="pngCanvasWrapper">
+                    <div class="annotation-overlay-main">
+                        <div class="annotation-canvas-wrapper" id="annotationCanvasWrapper">
                             <!-- PNG will be inserted here -->
-                            <div class="png-drawing-area" id="pngDrawingArea"></div>
+                            <div class="annotation-drawing-area" id="annotationDrawingArea"></div>
                         </div>
-                        <div class="png-overlay-instruction" id="pngInstruction">
+                        <div class="annotation-overlay-instruction" id="annotationInstruction">
                             <i class="ti ti-pointer"></i>
-                            <p>Click and drag to draw a box where you want to insert the ${this.insertionType}</p>
+                            <p>Click and drag to draw a box where you want to place the annotation</p>
                         </div>
                     </div>
                 </div>
-                <div class="png-overlay-footer">
-                    <button class="png-overlay-btn cancel" id="pngOverlayCancel">
+                <div class="annotation-overlay-footer">
+                    <button class="annotation-overlay-btn cancel" id="annotationOverlayCancel">
                         <i class="ti ti-x"></i> Cancel
                     </button>
-                    <button class="png-overlay-btn validate" id="pngOverlayValidate" disabled>
-                        <i class="ti ti-check"></i> Insert on <span id="pngInsertCount">${this.selectedPages.size}</span> page(s)
+                    <button class="annotation-overlay-btn validate" id="annotationOverlayValidate" disabled>
+                        <i class="ti ti-check"></i> Insert on <span id="annotationInsertCount">${this.selectedPages.size}</span> page(s)
                     </button>
                 </div>
             </div>
@@ -173,9 +175,9 @@ class PNGInsertionOverlay {
         document.body.appendChild(this.overlayContainer);
 
         // Insert the PNG canvas
-        const wrapper = document.getElementById('pngCanvasWrapper');
+        const wrapper = document.getElementById('annotationCanvasWrapper');
         wrapper.insertBefore(this.pngCanvas, wrapper.firstChild);
-        this.pngCanvas.className = 'png-render-canvas';
+        this.pngCanvas.className = 'annotation-render-canvas';
 
         // Sync drawing area with canvas after rendering
         setTimeout(() => this.syncDrawingAreaWithCanvas(), 0);
@@ -188,7 +190,7 @@ class PNGInsertionOverlay {
      * Sync drawing area position and size with the displayed canvas
      */
     syncDrawingAreaWithCanvas() {
-        const drawingArea = document.getElementById('pngDrawingArea');
+        const drawingArea = document.getElementById('annotationDrawingArea');
         const canvasRect = this.pngCanvas.getBoundingClientRect();
         const wrapperRect = drawingArea.parentElement.getBoundingClientRect();
 
@@ -198,7 +200,7 @@ class PNGInsertionOverlay {
         drawingArea.style.width = canvasRect.width + 'px';
         drawingArea.style.height = canvasRect.height + 'px';
 
-        console.log('📐 [Drawing Area Sync]', {
+        console.log('📐 [Annotation Drawing Area Sync]', {
             canvas: { left: canvasRect.left, top: canvasRect.top, width: canvasRect.width, height: canvasRect.height },
             wrapper: { left: wrapperRect.left, top: wrapperRect.top },
             drawingArea: { left: drawingArea.style.left, top: drawingArea.style.top, width: drawingArea.style.width, height: drawingArea.style.height }
@@ -209,13 +211,13 @@ class PNGInsertionOverlay {
      * Setup event handlers for drawing, resizing, and validation
      */
     setupEventHandlers() {
-        const drawingArea = document.getElementById('pngDrawingArea');
-        const validateBtn = document.getElementById('pngOverlayValidate');
-        const cancelBtn = document.getElementById('pngOverlayCancel');
-        const closeBtn = document.getElementById('pngOverlayClose');
-        const selectAllBtn = document.getElementById('pngSelectAll');
-        const selectNoneBtn = document.getElementById('pngSelectNone');
-        const pageCheckboxes = document.querySelectorAll('.png-page-checkbox');
+        const drawingArea = document.getElementById('annotationDrawingArea');
+        const validateBtn = document.getElementById('annotationOverlayValidate');
+        const cancelBtn = document.getElementById('annotationOverlayCancel');
+        const closeBtn = document.getElementById('annotationOverlayClose');
+        const selectAllBtn = document.getElementById('annotationSelectAll');
+        const selectNoneBtn = document.getElementById('annotationSelectNone');
+        const pageCheckboxes = document.querySelectorAll('.annotation-page-checkbox');
 
         // Page checkbox handlers
         pageCheckboxes.forEach(checkbox => {
@@ -268,7 +270,7 @@ class PNGInsertionOverlay {
         // Window resize handler - re-sync drawing area with canvas
         window.addEventListener('resize', () => {
             if (this.active) {
-                console.log('🔄 Window resized - re-syncing drawing area');
+                console.log('🔄 Window resized - re-syncing annotation drawing area');
                 this.syncDrawingAreaWithCanvas();
                 // Redraw the box if it exists
                 if (this.drawingBox) {
@@ -282,8 +284,8 @@ class PNGInsertionOverlay {
      * Update the selected page count display
      */
     updateSelectedCount() {
-        const countSpan = document.getElementById('pngSelectedCount');
-        const insertCountSpan = document.getElementById('pngInsertCount');
+        const countSpan = document.getElementById('annotationSelectedCount');
+        const insertCountSpan = document.getElementById('annotationInsertCount');
         if (countSpan) {
             countSpan.textContent = this.selectedPages.size;
         }
@@ -296,7 +298,7 @@ class PNGInsertionOverlay {
      * Handle mouse down - start drawing or dragging/resizing
      */
     handleMouseDown(e) {
-        const drawingArea = document.getElementById('pngDrawingArea');
+        const drawingArea = document.getElementById('annotationDrawingArea');
         const rect = drawingArea.getBoundingClientRect();
 
         // Get coordinates relative to the drawing area
@@ -334,98 +336,89 @@ class PNGInsertionOverlay {
         }
 
         // Start drawing new box
-        this.isDragging = true;
         this.drawingBox = { x, y, width: 0, height: 0 };
+        this.isDragging = false;
+        this.isResizing = false;
         this.dragStart = { x, y };
-        this.renderBox();
     }
 
     /**
-     * Handle mouse move - update box dimensions
+     * Handle mouse move - update drawing/dragging/resizing
      */
     handleMouseMove(e) {
-        if (!this.isDragging && !this.isResizing) return;
+        if (!this.dragStart) return;
 
-        const drawingArea = document.getElementById('pngDrawingArea');
+        const drawingArea = document.getElementById('annotationDrawingArea');
         const rect = drawingArea.getBoundingClientRect();
+
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
-        if (this.isResizing) {
+        if (this.isDragging) {
+            // Move the box
+            const dx = x - this.dragStart.x;
+            const dy = y - this.dragStart.y;
+
+            this.drawingBox.x = Math.max(0, Math.min(rect.width - this.drawingBox.width, this.dragStart.originalBox.x + dx));
+            this.drawingBox.y = Math.max(0, Math.min(rect.height - this.drawingBox.height, this.dragStart.originalBox.y + dy));
+        } else if (this.isResizing) {
             // Resize the box
-            const deltaX = x - this.dragStart.x;
-            const deltaY = y - this.dragStart.y;
+            const dx = x - this.dragStart.x;
+            const dy = y - this.dragStart.y;
             const originalBox = this.dragStart.originalBox;
 
-            switch (this.resizeHandle) {
-                case 'se': // Bottom-right
-                    this.drawingBox.width = Math.max(20, originalBox.width + deltaX);
-                    this.drawingBox.height = Math.max(20, originalBox.height + deltaY);
-                    break;
-                case 'sw': // Bottom-left
-                    this.drawingBox.x = originalBox.x + deltaX;
-                    this.drawingBox.width = Math.max(20, originalBox.width - deltaX);
-                    this.drawingBox.height = Math.max(20, originalBox.height + deltaY);
-                    break;
-                case 'ne': // Top-right
-                    this.drawingBox.y = originalBox.y + deltaY;
-                    this.drawingBox.width = Math.max(20, originalBox.width + deltaX);
-                    this.drawingBox.height = Math.max(20, originalBox.height - deltaY);
-                    break;
-                case 'nw': // Top-left
-                    this.drawingBox.x = originalBox.x + deltaX;
-                    this.drawingBox.y = originalBox.y + deltaY;
-                    this.drawingBox.width = Math.max(20, originalBox.width - deltaX);
-                    this.drawingBox.height = Math.max(20, originalBox.height - deltaY);
-                    break;
+            if (this.resizeHandle.includes('n')) {
+                this.drawingBox.y = Math.max(0, originalBox.y + dy);
+                this.drawingBox.height = originalBox.height - (this.drawingBox.y - originalBox.y);
             }
-        } else if (this.isDragging && this.dragStart.originalBox) {
-            // Dragging existing box
-            const deltaX = x - this.dragStart.x;
-            const deltaY = y - this.dragStart.y;
-            const originalBox = this.dragStart.originalBox;
-
-            this.drawingBox.x = Math.max(0, originalBox.x + deltaX);
-            this.drawingBox.y = Math.max(0, originalBox.y + deltaY);
+            if (this.resizeHandle.includes('s')) {
+                this.drawingBox.height = Math.max(10, originalBox.height + dy);
+            }
+            if (this.resizeHandle.includes('w')) {
+                this.drawingBox.x = Math.max(0, originalBox.x + dx);
+                this.drawingBox.width = originalBox.width - (this.drawingBox.x - originalBox.x);
+            }
+            if (this.resizeHandle.includes('e')) {
+                this.drawingBox.width = Math.max(10, originalBox.width + dx);
+            }
         } else {
             // Drawing new box
             const width = x - this.dragStart.x;
             const height = y - this.dragStart.y;
 
-            this.drawingBox.width = Math.abs(width);
-            this.drawingBox.height = Math.abs(height);
             this.drawingBox.x = width < 0 ? x : this.dragStart.x;
             this.drawingBox.y = height < 0 ? y : this.dragStart.y;
+            this.drawingBox.width = Math.abs(width);
+            this.drawingBox.height = Math.abs(height);
         }
 
-        this.renderBox();
+        this.renderDrawing();
     }
 
     /**
      * Handle mouse up - finish drawing/dragging/resizing
      */
     handleMouseUp(e) {
-        if (this.isDragging || this.isResizing) {
-            this.isDragging = false;
-            this.isResizing = false;
-            this.resizeHandle = null;
-
-            // Enable validate button if box is valid
-            if (this.drawingBox && this.drawingBox.width > 10 && this.drawingBox.height > 10) {
-                document.getElementById('pngOverlayValidate').disabled = false;
-                this.hideInstruction();
-            }
+        if (this.drawingBox && this.drawingBox.width > 5 && this.drawingBox.height > 5) {
+            // Valid box drawn
+            this.hideInstruction();
+            document.getElementById('annotationOverlayValidate').disabled = false;
         }
+
+        this.isDragging = false;
+        this.isResizing = false;
+        this.dragStart = null;
+        this.resizeHandle = null;
     }
 
     /**
-     * Render the drawing box on the PNG canvas
+     * Render the drawing box
      */
-    renderBox() {
-        const drawingArea = document.getElementById('pngDrawingArea');
+    renderDrawing() {
+        const drawingArea = document.getElementById('annotationDrawingArea');
 
-        // Remove existing box
-        const existingBox = drawingArea.querySelector('.drawing-box');
+        // Clear previous drawing
+        const existingBox = drawingArea.querySelector('.annotation-drawing-box');
         if (existingBox) {
             existingBox.remove();
         }
@@ -434,7 +427,7 @@ class PNGInsertionOverlay {
 
         // Create box element
         const boxEl = document.createElement('div');
-        boxEl.className = 'drawing-box';
+        boxEl.className = 'annotation-drawing-box';
         boxEl.style.left = this.drawingBox.x + 'px';
         boxEl.style.top = this.drawingBox.y + 'px';
         boxEl.style.width = this.drawingBox.width + 'px';
@@ -447,11 +440,13 @@ class PNGInsertionOverlay {
             boxEl.appendChild(handle);
         });
 
-        // Show preview of the image/signature inside the box
-        if (this.imageData && this.imageData.url) {
-            const preview = document.createElement('img');
-            preview.src = this.imageData.url;
-            preview.className = 'box-preview-image';
+        // Show preview of the text inside the box
+        if (this.annotationData && this.annotationData.text) {
+            const preview = document.createElement('div');
+            preview.className = 'annotation-box-preview-text';
+            preview.style.fontSize = this.annotationData.fontSize + 'px';
+            preview.style.color = this.annotationData.color;
+            preview.textContent = this.annotationData.text;
             boxEl.appendChild(preview);
         }
 
@@ -462,7 +457,7 @@ class PNGInsertionOverlay {
      * Show instruction message
      */
     showInstruction() {
-        const instruction = document.getElementById('pngInstruction');
+        const instruction = document.getElementById('annotationInstruction');
         if (instruction) {
             instruction.style.display = 'flex';
         }
@@ -472,7 +467,7 @@ class PNGInsertionOverlay {
      * Hide instruction message
      */
     hideInstruction() {
-        const instruction = document.getElementById('pngInstruction');
+        const instruction = document.getElementById('annotationInstruction');
         if (instruction) {
             instruction.style.display = 'none';
         }
@@ -482,8 +477,8 @@ class PNGInsertionOverlay {
      * Validate and perform the insertion
      */
     async validateInsertion() {
-        if (!this.drawingBox || !this.imageData) {
-            showNotification('No box drawn or no image data', 'error');
+        if (!this.drawingBox || !this.annotationData) {
+            showNotification('No box drawn or no annotation data', 'error');
             return;
         }
 
@@ -492,10 +487,10 @@ class PNGInsertionOverlay {
             return;
         }
 
-        console.log('🎯 [PNG Overlay] Validating batch insertion on', this.selectedPages.size, 'page(s)...');
+        console.log('📝 [Annotation Overlay] Validating batch insertion on', this.selectedPages.size, 'page(s)...');
 
         // Show loading notification
-        showNotification(`Processing insertion on ${this.selectedPages.size} page(s)...`, 'info', 30000);
+        showNotification(`Processing annotation on ${this.selectedPages.size} page(s)...`, 'info', 30000);
 
         try {
             const selectedPageArray = Array.from(this.selectedPages).sort((a, b) => a - b);
@@ -516,7 +511,7 @@ class PNGInsertionOverlay {
                     // Calculate transformation from PNG coordinates to PDF coordinates
                     const pdfCoords = await this.transformCoordinates(this.drawingBox);
 
-                    console.log(`📐 [PNG Overlay] Page ${pageNum} transformation:`, {
+                    console.log(`📐 [Annotation Overlay] Page ${pageNum} transformation:`, {
                         png: this.drawingBox,
                         pdf: pdfCoords,
                         rotation: this.pageRotation
@@ -525,18 +520,14 @@ class PNGInsertionOverlay {
                     // Perform the actual insertion using pdfTools
                     const pageIndex = pageNum - 1; // Convert to 0-indexed
 
-                    if (this.insertionType === 'image') {
-                        await this.insertImageIntoPDF(pageIndex, pdfCoords);
-                    } else if (this.insertionType === 'signature') {
-                        await this.insertSignatureIntoPDF(pageIndex, pdfCoords);
-                    }
+                    await this.insertAnnotationIntoPDF(pageIndex, pdfCoords);
 
                     successCount++;
 
                     // Restore original page number
                     this.pageNumber = originalPageNum;
                 } catch (pageError) {
-                    console.error(`❌ [PNG Overlay] Failed on page ${pageNum}:`, pageError);
+                    console.error(`❌ [Annotation Overlay] Failed on page ${pageNum}:`, pageError);
                     failCount++;
                 }
             }
@@ -546,23 +537,23 @@ class PNGInsertionOverlay {
 
             // Show result
             if (failCount === 0) {
-                showNotification(`${this.insertionType === 'image' ? 'Image' : 'Signature'} inserted successfully on ${successCount} page(s)!`, 'success');
+                showNotification(`Annotation inserted successfully on ${successCount} page(s)!`, 'success');
             } else {
                 showNotification(`Inserted on ${successCount} page(s), failed on ${failCount} page(s)`, 'warning');
             }
         } catch (error) {
-            console.error('❌ [PNG Overlay] Batch insertion failed:', error);
-            showNotification('Failed to insert: ' + error.message, 'error');
+            console.error('❌ [Annotation Overlay] Batch insertion failed:', error);
+            showNotification('Failed to insert annotation: ' + error.message, 'error');
         }
     }
 
     /**
-     * Transform PNG coordinates to PDF coordinates - v2.3.4 COMPLETE REWRITE
+     * Transform PNG coordinates to PDF coordinates
      * @param {Object} boxOnScreen - { x, y, width, height } in screen pixels (CSS)
      * @returns {Object} - { x, y, width, height } in PDF points
      */
     async transformCoordinates(boxOnScreen) {
-        console.log('=== v2.3.14 SIMPLE VIEWPORT-BASED ALGORITHM ===');
+        console.log('=== v2.3.14 ANNOTATION VIEWPORT-BASED ALGORITHM ===');
         console.log('📍 Screen box (CSS px, top-left origin):', boxOnScreen);
 
         // Step 1: Screen pixels → Canvas pixels
@@ -621,122 +612,50 @@ class PNGInsertionOverlay {
     }
 
     /**
-     * Insert image into PDF using pdf-lib
+     * Insert annotation into PDF using pdf-lib
      */
-    async insertImageIntoPDF(pageIndex, coords) {
-        console.log('🖼️ [PNG Overlay] Inserting image into PDF...');
+    async insertAnnotationIntoPDF(pageIndex, coords) {
+        console.log('📝 [Annotation Overlay] Inserting annotation on page', pageIndex + 1);
 
-        const modifiedPDF = await tools.insertImage(
-            currentPDFData,
-            this.imageData.buffer,
-            this.imageData.imageType,
-            pageIndex,
-            {
-                x: coords.x,
-                y: coords.y,
-                width: coords.width,
-                height: coords.height,
-                opacity: 1,
-                coordsAlreadyTransformed: true // v2.0.0 flag
-            }
-        );
+        // Load the PDF
+        const pdfDoc = await PDFLib.PDFDocument.load(currentPDFData);
+        const page = pdfDoc.getPage(pageIndex);
 
-        // Update current PDF data
-        currentPDFData = modifiedPDF.buffer.slice(0);
+        // Parse color
+        const [r, g, b] = this.annotationData.colorRGB;
 
-        // Update document in tabs
-        const activeDoc = getActiveDocument();
-        if (activeDoc) {
-            activeDoc.pdfData = currentPDFData.slice(0);
-        }
+        // Draw text
+        page.drawText(this.annotationData.text, {
+            x: coords.x,
+            y: coords.y,
+            size: this.annotationData.fontSize,
+            color: PDFLib.rgb(r, g, b),
+            maxWidth: coords.width
+        });
 
-        // Update cache
-        if (currentCacheId && currentPDFData) {
-            await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
-        }
+        // Save the PDF
+        const pdfBytes = await pdfDoc.save();
+        currentPDFData = pdfBytes.buffer;
 
-        // Reload viewer
+        // Reload the PDF in the viewer
         await viewer.loadPDF(currentPDFData.slice(0));
-        await viewer.goToPage(this.pageNumber);
-
-        // Refresh thumbnails if navigator panel is open
-        if (viewer.navPanelOpen) {
-            console.log('🔄 Refreshing thumbnails after image insertion...');
-            await viewer.generateThumbnails(true);
-        }
-
-        // Add to history
-        addEditToHistory(`Inserted image on page ${this.pageNumber}`);
+        updateMetadataDisplay();
     }
 
     /**
-     * Insert signature into PDF using pdf-lib
-     */
-    async insertSignatureIntoPDF(pageIndex, coords) {
-        console.log('✍️ [PNG Overlay] Inserting signature into PDF...');
-
-        const modifiedPDF = await tools.insertImage(
-            currentPDFData,
-            this.imageData.buffer,
-            this.imageData.imageType,
-            pageIndex,
-            {
-                x: coords.x,
-                y: coords.y,
-                width: coords.width,
-                height: coords.height,
-                opacity: 1,
-                coordsAlreadyTransformed: true // v2.0.0 flag
-            }
-        );
-
-        // Update current PDF data
-        currentPDFData = modifiedPDF.buffer.slice(0);
-
-        // Update document in tabs
-        const activeDoc = getActiveDocument();
-        if (activeDoc) {
-            activeDoc.pdfData = currentPDFData.slice(0);
-        }
-
-        // Update cache
-        if (currentCacheId && currentPDFData) {
-            await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
-        }
-
-        // Reload viewer
-        await viewer.loadPDF(currentPDFData.slice(0));
-        await viewer.goToPage(this.pageNumber);
-
-        // Refresh thumbnails if navigator panel is open
-        if (viewer.navPanelOpen) {
-            console.log('🔄 Refreshing thumbnails after signature insertion...');
-            await viewer.generateThumbnails(true);
-        }
-
-        // Add to history
-        addEditToHistory(`Inserted signature on page ${this.pageNumber}`);
-    }
-
-    /**
-     * Close and cleanup the overlay
+     * Close the overlay
      */
     close() {
-        console.log('🚪 [PNG Overlay] Closing overlay');
-
         if (this.overlayContainer) {
             this.overlayContainer.remove();
+            this.overlayContainer = null;
         }
-
         this.active = false;
-        this.overlayContainer = null;
-        this.pngCanvas = null;
         this.drawingBox = null;
-        this.pageNumber = null;
-        this.insertionType = null;
-        this.imageData = null;
+        this.selectedPages.clear();
+        console.log('📝 [Annotation Overlay] Closed');
     }
 }
 
 // Create global instance
-window.pngInsertionOverlay = new PNGInsertionOverlay();
+window.annotationInsertionOverlay = new AnnotationInsertionOverlay();
