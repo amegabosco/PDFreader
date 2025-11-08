@@ -596,21 +596,17 @@ class PDFViewer {
         pagesWrapper.style.minWidth = '100%'; // Minimum width
         pagesWrapper.style.minHeight = '100%';
 
+        // OPTIMIZATION: Render initial pages immediately, rest progressively in background
+        const INITIAL_PAGES = 3; // Render first 3 pages immediately for instant display
+
+        console.log(`⚡ [Performance] Rendering first ${INITIAL_PAGES} pages immediately, rest in background`);
+
         // Render each page with progress updates
         for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
-            // Update progress
-            const progress = Math.round((pageNum / this.totalPages) * 100);
-            if (progressFill) {
-                progressFill.style.width = progress + '%';
-            }
-            if (progressText) {
-                progressText.textContent = progress + '%';
-            }
-
             const pageWrapper = document.createElement('div');
             pageWrapper.className = 'scroll-page-wrapper';
-            pageWrapper.style.marginLeft = 'auto'; // Center horizontally when not zoomed
-            pageWrapper.style.marginRight = 'auto'; // Center horizontally when not zoomed
+            pageWrapper.style.marginLeft = 'auto';
+            pageWrapper.style.marginRight = 'auto';
             pageWrapper.style.boxShadow = '0 4px 12px var(--shadow)';
             pageWrapper.style.border = '1px solid var(--border)';
             pageWrapper.style.backgroundColor = 'white';
@@ -625,17 +621,69 @@ class PDFViewer {
             pageCanvas.width = viewport.width;
             pageCanvas.height = viewport.height;
 
-            const ctx = pageCanvas.getContext('2d');
-            const renderContext = {
-                canvasContext: ctx,
-                viewport: viewport
-            };
+            // OPTIMIZATION: Render first N pages immediately, defer the rest
+            if (pageNum <= INITIAL_PAGES) {
+                // Render immediately
+                const ctx = pageCanvas.getContext('2d');
+                const renderContext = {
+                    canvasContext: ctx,
+                    viewport: viewport
+                };
+                await page.render(renderContext).promise;
 
-            await page.render(renderContext).promise;
+                // Update progress for initial pages
+                const progress = Math.round((pageNum / INITIAL_PAGES) * 33); // 0-33% for initial load
+                if (progressFill) progressFill.style.width = progress + '%';
+                if (progressText) progressText.textContent = progress + '%';
+            } else {
+                // Add placeholder - will render in background
+                pageCanvas.dataset.needsRender = 'true';
+                const ctx = pageCanvas.getContext('2d');
+                ctx.fillStyle = '#f5f5f5';
+                ctx.fillRect(0, 0, viewport.width, viewport.height);
+                ctx.fillStyle = '#666';
+                ctx.font = '16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`Page ${pageNum} - Loading...`, viewport.width / 2, viewport.height / 2);
+            }
 
             pageWrapper.appendChild(pageCanvas);
             pagesWrapper.appendChild(pageWrapper);
             this.allPageCanvases.push(pageCanvas);
+        }
+
+        // Background rendering of remaining pages (non-blocking)
+        if (this.totalPages > INITIAL_PAGES) {
+            setTimeout(async () => {
+                console.log(`📚 [Background] Rendering remaining ${this.totalPages - INITIAL_PAGES} pages...`);
+                for (let pageNum = INITIAL_PAGES + 1; pageNum <= this.totalPages; pageNum++) {
+                    const pageCanvas = document.getElementById(`page-${pageNum}`);
+                    if (pageCanvas && pageCanvas.dataset.needsRender === 'true') {
+                        const page = await this.pdfDoc.getPage(pageNum);
+                        const viewport = page.getViewport({ scale: this.scale });
+                        const ctx = pageCanvas.getContext('2d');
+                        const renderContext = {
+                            canvasContext: ctx,
+                            viewport: viewport
+                        };
+                        await page.render(renderContext).promise;
+                        pageCanvas.dataset.needsRender = 'false';
+
+                        // Update progress (33-100%)
+                        const progress = 33 + Math.round(((pageNum - INITIAL_PAGES) / (this.totalPages - INITIAL_PAGES)) * 67);
+                        if (progressFill) progressFill.style.width = progress + '%';
+                        if (progressText) progressText.textContent = progress + '%';
+
+                        // Small delay to keep UI responsive
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                    }
+                }
+                console.log('✅ [Background] All pages rendered');
+                // Hide progress after completion
+                setTimeout(() => {
+                    if (loadingOverlay) loadingOverlay.style.display = 'none';
+                }, 500);
+            }, 100); // Start background rendering after 100ms
         }
 
         container.appendChild(pagesWrapper);
