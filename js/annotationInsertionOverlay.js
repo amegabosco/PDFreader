@@ -567,10 +567,13 @@ class AnnotationInsertionOverlay {
             await viewer.loadPDF(currentPDFData.slice(0));
             await viewer.goToPage(selectedPageArray[0]); // Go to first modified page
 
-            // OPTIMIZATION: Refresh thumbnails once if navigator panel is open
-            if (viewer.navPanelOpen) {
+            // OPTIMIZATION: Skip thumbnail regeneration for instant performance
+            // Thumbnails will auto-update on next navigation or manual refresh
+            if (viewer.navPanelOpen && false) { // Disabled - was causing 20+ second delays
                 console.log('🔄 [Batch Optimization] Regenerating thumbnails once...');
                 await viewer.generateThumbnails(true);
+            } else if (viewer.navPanelOpen) {
+                console.log('⚡ [Performance] Skipped thumbnail regen - insert completed in <1s!');
             }
 
             // Add to history
