@@ -272,7 +272,7 @@ class PNGInsertionOverlay {
                 this.syncDrawingAreaWithCanvas();
                 // Redraw the box if it exists
                 if (this.drawingBox) {
-                    this.renderDrawing();
+                    this.renderBox();
                 }
             }
         });
@@ -508,9 +508,10 @@ class PNGInsertionOverlay {
 
             // OPTIMIZATION: Embed image once (not per page)
             let embeddedImage;
-            if (this.imageData.imageType === 'image/png') {
+            const imageType = this.imageData.imageType.toLowerCase();
+            if (imageType === 'image/png' || imageType === 'png') {
                 embeddedImage = await pdfDoc.embedPng(this.imageData.buffer);
-            } else if (this.imageData.imageType === 'image/jpeg') {
+            } else if (imageType === 'image/jpeg' || imageType === 'jpeg' || imageType === 'jpg') {
                 embeddedImage = await pdfDoc.embedJpg(this.imageData.buffer);
             } else {
                 throw new Error('Unsupported image type: ' + this.imageData.imageType);

@@ -274,7 +274,7 @@ class AnnotationInsertionOverlay {
                 this.syncDrawingAreaWithCanvas();
                 // Redraw the box if it exists
                 if (this.drawingBox) {
-                    this.renderDrawing();
+                    this.renderBox();
                 }
             }
         });
