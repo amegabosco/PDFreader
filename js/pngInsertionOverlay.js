@@ -502,6 +502,20 @@ class PNGInsertionOverlay {
             let successCount = 0;
             let failCount = 0;
 
+            // OPTIMIZATION: Load PDF once with pdf-lib
+            console.log('📄 [Batch Optimization] Loading PDF once for all insertions...');
+            const pdfDoc = await PDFLib.PDFDocument.load(currentPDFData);
+
+            // OPTIMIZATION: Embed image once (not per page)
+            let embeddedImage;
+            if (this.imageData.imageType === 'image/png') {
+                embeddedImage = await pdfDoc.embedPng(this.imageData.buffer);
+            } else if (this.imageData.imageType === 'image/jpeg') {
+                embeddedImage = await pdfDoc.embedJpg(this.imageData.buffer);
+            } else {
+                throw new Error('Unsupported image type: ' + this.imageData.imageType);
+            }
+
             // Insert on each selected page
             for (const pageNum of selectedPageArray) {
                 try {
@@ -509,9 +523,9 @@ class PNGInsertionOverlay {
                     const originalPageNum = this.pageNumber;
                     this.pageNumber = pageNum;
 
-                    // Get page for rotation info
-                    const page = await viewer.pdfDoc.getPage(pageNum);
-                    this.pageRotation = page.rotate || 0;
+                    // Get page for rotation info (from PDF.js)
+                    const pdfJsPage = await viewer.pdfDoc.getPage(pageNum);
+                    this.pageRotation = pdfJsPage.rotate || 0;
 
                     // Calculate transformation from PNG coordinates to PDF coordinates
                     const pdfCoords = await this.transformCoordinates(this.drawingBox);
@@ -522,14 +536,17 @@ class PNGInsertionOverlay {
                         rotation: this.pageRotation
                     });
 
-                    // Perform the actual insertion using pdfTools
-                    const pageIndex = pageNum - 1; // Convert to 0-indexed
+                    // OPTIMIZATION: Insert directly on the pdf-lib page (no reload per page)
+                    const pageIndex = pageNum - 1;
+                    const page = pdfDoc.getPage(pageIndex);
 
-                    if (this.insertionType === 'image') {
-                        await this.insertImageIntoPDF(pageIndex, pdfCoords);
-                    } else if (this.insertionType === 'signature') {
-                        await this.insertSignatureIntoPDF(pageIndex, pdfCoords);
-                    }
+                    page.drawImage(embeddedImage, {
+                        x: pdfCoords.x,
+                        y: pdfCoords.y,
+                        width: pdfCoords.width,
+                        height: pdfCoords.height,
+                        opacity: 1
+                    });
 
                     successCount++;
 
@@ -540,6 +557,36 @@ class PNGInsertionOverlay {
                     failCount++;
                 }
             }
+
+            // OPTIMIZATION: Save PDF once after all insertions
+            console.log('💾 [Batch Optimization] Saving PDF once after all insertions...');
+            const pdfBytes = await pdfDoc.save();
+            currentPDFData = pdfBytes.buffer.slice(0);
+
+            // Update document in tabs
+            const activeDoc = getActiveDocument();
+            if (activeDoc) {
+                activeDoc.pdfData = currentPDFData.slice(0);
+            }
+
+            // Update cache
+            if (currentCacheId && currentPDFData) {
+                await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
+            }
+
+            // OPTIMIZATION: Reload viewer once after all insertions
+            console.log('🔄 [Batch Optimization] Reloading viewer once...');
+            await viewer.loadPDF(currentPDFData.slice(0));
+            await viewer.goToPage(selectedPageArray[0]); // Go to first modified page
+
+            // OPTIMIZATION: Refresh thumbnails once if navigator panel is open
+            if (viewer.navPanelOpen) {
+                console.log('🔄 [Batch Optimization] Regenerating thumbnails once...');
+                await viewer.generateThumbnails(true);
+            }
+
+            // Add to history
+            addEditToHistory(`Inserted ${this.insertionType} on ${successCount} page(s)`);
 
             // Close overlay
             this.close();
