@@ -138,11 +138,7 @@ class RecentFilesManager {
 
         const recentFiles = this.getRecentFiles();
 
-        if (recentFiles.length === 0) {
-            container.style.display = 'none';
-            return;
-        }
-
+        // Always show the panel
         container.style.display = 'block';
 
         const listContainer = container.querySelector('.recent-files-list');
@@ -150,6 +146,17 @@ class RecentFilesManager {
 
         // Clear existing items
         listContainer.innerHTML = '';
+
+        // If no files, show empty state
+        if (recentFiles.length === 0) {
+            listContainer.innerHTML = `
+                <div class="recent-files-empty">
+                    <i class="ti ti-file-off"></i>
+                    <span>No recent files</span>
+                </div>
+            `;
+            return;
+        }
 
         // Render each file
         recentFiles.forEach(file => {
