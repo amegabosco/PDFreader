@@ -600,13 +600,13 @@ class PNGInsertionOverlay {
             await viewer.loadPDF(currentPDFData.slice(0));
             await viewer.goToPage(selectedPageArray[0]); // Go to first modified page
 
-            // OPTIMIZATION: Skip thumbnail regeneration for instant performance
-            // Thumbnails will auto-update on next navigation or manual refresh
-            if (viewer.navPanelOpen && false) { // Disabled - was causing 20+ second delays
-                console.log('🔄 [Batch Optimization] Regenerating thumbnails once...');
-                await viewer.generateThumbnails(true);
-            } else if (viewer.navPanelOpen) {
-                console.log('⚡ [Performance] Skipped thumbnail regen - insert completed in <1s!');
+            // SMART THUMBNAIL UPDATE: Only regenerate thumbnails for modified pages
+            if (viewer.navPanelOpen) {
+                console.log(`🔄 [Thumbnail Update] Regenerating ${selectedPageArray.length} modified thumbnail(s)...`);
+                for (const pageNum of selectedPageArray) {
+                    await viewer.generateSingleThumbnail(pageNum);
+                }
+                console.log('✅ [Thumbnail Update] Modified thumbnails updated');
             }
 
             // Add to history

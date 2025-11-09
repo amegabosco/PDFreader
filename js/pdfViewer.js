@@ -1150,6 +1150,62 @@ class PDFViewer {
     }
 
     /**
+     * Regenerate a single thumbnail for a specific page
+     * @param {number} pageNum - Page number to regenerate
+     */
+    async generateSingleThumbnail(pageNum) {
+        if (!this.pdfDoc || pageNum < 1 || pageNum > this.totalPages) {
+            console.error(`Cannot regenerate thumbnail: invalid page ${pageNum}`);
+            return;
+        }
+
+        console.log(`🔄 Regenerating thumbnail for page ${pageNum}...`);
+
+        const navThumbnails = document.getElementById('navThumbnails');
+        if (!navThumbnails) {
+            console.error('Cannot regenerate thumbnail: navThumbnails element not found');
+            return;
+        }
+
+        // Find existing thumbnail
+        const existingThumb = navThumbnails.querySelector(`.nav-thumbnail[data-page-num="${pageNum}"]`);
+        if (!existingThumb) {
+            console.warn(`Thumbnail for page ${pageNum} not found, skipping regeneration`);
+            return;
+        }
+
+        const thumbnailScale = 0.3; // Same scale as generateThumbnails
+
+        try {
+            const page = await this.pdfDoc.getPage(pageNum);
+            const viewport = page.getViewport({ scale: thumbnailScale });
+
+            // Find the canvas inside the thumbnail
+            const canvas = existingThumb.querySelector('canvas');
+            if (!canvas) {
+                console.error(`Canvas not found for page ${pageNum}`);
+                return;
+            }
+
+            // Update canvas dimensions
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+
+            const ctx = canvas.getContext('2d');
+            const renderContext = {
+                canvasContext: ctx,
+                viewport: viewport
+            };
+
+            // Render the page
+            await page.render(renderContext).promise;
+            console.log(`✅ Thumbnail for page ${pageNum} regenerated`);
+        } catch (error) {
+            console.error(`Failed to regenerate thumbnail for page ${pageNum}:`, error);
+        }
+    }
+
+    /**
      * Setup drag and drop for thumbnail
      */
     setupThumbnailDrag(thumbDiv, pageNum) {
