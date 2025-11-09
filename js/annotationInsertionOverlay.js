@@ -554,15 +554,19 @@ class AnnotationInsertionOverlay {
                     const pageIndex = pageNum - 1;
                     const page = pdfDoc.getPage(pageIndex);
 
-                    // Insert text as image for perfect WYSIWYG (no rotation issues)
+                    // Insert text as image with rotation to keep it horizontal on rotated pages
+                    // We apply inverse rotation so text stays horizontal in the viewer
+                    const rotationDegrees = -this.pageRotation; // Inverse rotation
+
                     page.drawImage(embeddedTextImage, {
                         x: pdfCoords.x,
                         y: pdfCoords.y,
                         width: pdfCoords.width,
-                        height: pdfCoords.height
+                        height: pdfCoords.height,
+                        rotate: PDFLib.degrees(rotationDegrees)
                     });
 
-                    console.log(`📝 [Annotation] Page ${pageNum}: Text image inserted at (${pdfCoords.x.toFixed(1)}, ${pdfCoords.y.toFixed(1)})`);
+                    console.log(`📝 [Annotation] Page ${pageNum}: Text image inserted at (${pdfCoords.x.toFixed(1)}, ${pdfCoords.y.toFixed(1)}) with rotation ${rotationDegrees}°`);
 
                     successCount++;
 
@@ -741,22 +745,16 @@ class AnnotationInsertionOverlay {
         const textWidth = Math.ceil(metrics.width + padding * 2);
         const textHeight = Math.ceil(fontSize * 1.5 + padding * 2);
 
-        // Adjust canvas size based on rotation
-        // For 90° or 270°, swap width and height
-        let canvasWidth, canvasHeight;
-        if (pageRotation === 90 || pageRotation === 270) {
-            canvasWidth = textHeight;
-            canvasHeight = textWidth;
-        } else {
-            canvasWidth = textWidth;
-            canvasHeight = textHeight;
-        }
+        // IMPORTANT: Keep canvas at text dimensions (do NOT swap for rotation)
+        // We'll handle rotation in the PDF coordinate space, not in the canvas
+        const canvasWidth = textWidth;
+        const canvasHeight = textHeight;
 
         // HIGH-RES: Set canvas to 3x size for crisp rendering
         canvas.width = canvasWidth * SCALE;
         canvas.height = canvasHeight * SCALE;
 
-        console.log(`📐 [Text2Image] Canvas size: ${canvas.width}x${canvas.height}px (${SCALE}x scale, logical: ${canvasWidth}x${canvasHeight})`);
+        console.log(`📐 [Text2Image] Canvas size: ${canvas.width}x${canvas.height}px (${SCALE}x scale, logical: ${canvasWidth}x${canvasHeight}, rotation will be handled in PDF)`);
 
         // HIGH-RES: Scale the context
         ctx.scale(SCALE, SCALE);
@@ -764,23 +762,8 @@ class AnnotationInsertionOverlay {
         // Fill transparent background
         ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-        // Apply rotation transformation
-        ctx.save();
-
-        if (pageRotation === 90) {
-            // Rotate 90° clockwise: move to bottom-left, rotate
-            ctx.translate(0, canvasHeight);
-            ctx.rotate(-Math.PI / 2);
-        } else if (pageRotation === 180) {
-            // Rotate 180°: move to bottom-right, rotate
-            ctx.translate(canvasWidth, canvasHeight);
-            ctx.rotate(Math.PI);
-        } else if (pageRotation === 270) {
-            // Rotate 270° clockwise (90° counter-clockwise): move to top-right, rotate
-            ctx.translate(canvasWidth, 0);
-            ctx.rotate(Math.PI / 2);
-        }
-        // For 0°, no transformation needed
+        // NO rotation transformation in canvas - text always rendered horizontal
+        // Rotation will be handled when inserting into PDF
 
         // Set text rendering properties (with high-quality rendering)
         ctx.font = `${fontSize}px Arial`;
@@ -790,10 +773,8 @@ class AnnotationInsertionOverlay {
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
 
-        // Draw text at origin (transformations applied)
+        // Draw text horizontally (no rotation)
         ctx.fillText(text, padding, padding);
-
-        ctx.restore();
 
         // Convert canvas to PNG blob
         const blob = await new Promise((resolve) => {
