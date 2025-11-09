@@ -504,6 +504,18 @@ class AnnotationInsertionOverlay {
             // Parse annotation color once
             const [r, g, b] = this.annotationData.colorRGB;
 
+            // OPTIMIZATION: Convert text to PNG image once for perfect WYSIWYG (no rotation issues)
+            console.log('🖼️ [Annotation] Converting text to PNG for WYSIWYG rendering...');
+            const textImageData = await this.renderTextAsImage(
+                this.annotationData.text,
+                this.annotationData.fontSize,
+                this.annotationData.color
+            );
+
+            // Embed the text image once
+            const embeddedTextImage = await pdfDoc.embedPng(textImageData);
+            console.log(`✅ [Annotation] Text image embedded: ${textImageData.byteLength} bytes`);
+
             // Insert on each selected page
             for (const pageNum of selectedPageArray) {
                 try {
@@ -528,13 +540,15 @@ class AnnotationInsertionOverlay {
                     const pageIndex = pageNum - 1;
                     const page = pdfDoc.getPage(pageIndex);
 
-                    page.drawText(this.annotationData.text, {
+                    // Insert text as image for perfect WYSIWYG (no rotation issues)
+                    page.drawImage(embeddedTextImage, {
                         x: pdfCoords.x,
                         y: pdfCoords.y,
-                        size: this.annotationData.fontSize,
-                        color: PDFLib.rgb(r, g, b),
-                        maxWidth: pdfCoords.width
+                        width: pdfCoords.width,
+                        height: pdfCoords.height
                     });
+
+                    console.log(`📝 [Annotation] Page ${pageNum}: Text image inserted at (${pdfCoords.x.toFixed(1)}, ${pdfCoords.y.toFixed(1)})`);
 
                     successCount++;
 
@@ -690,6 +704,59 @@ class AnnotationInsertionOverlay {
         // Reload the PDF in the viewer
         await viewer.loadPDF(currentPDFData.slice(0));
         updateMetadataDisplay();
+    }
+
+    /**
+     * Render text as PNG image for perfect WYSIWYG (no rotation issues)
+     * @param {string} text - The text to render
+     * @param {number} fontSize - Font size in points
+     * @param {string} color - Text color (e.g., '#000000')
+     * @returns {Promise<ArrayBuffer>} PNG image data
+     */
+    async renderTextAsImage(text, fontSize, color) {
+        console.log(`🖼️ [Text2Image] Rendering text: "${text}", size: ${fontSize}px, color: ${color}`);
+
+        // Create offscreen canvas
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set font to measure text
+        ctx.font = `${fontSize}px Arial`;
+        const metrics = ctx.measureText(text);
+
+        // Calculate canvas dimensions with padding
+        const padding = Math.ceil(fontSize * 0.2);
+        const width = Math.ceil(metrics.width + padding * 2);
+        const height = Math.ceil(fontSize * 1.5 + padding * 2);
+
+        canvas.width = width;
+        canvas.height = height;
+
+        console.log(`📐 [Text2Image] Canvas size: ${width}x${height}px`);
+
+        // Fill transparent background
+        ctx.clearRect(0, 0, width, height);
+
+        // Set text rendering properties
+        ctx.font = `${fontSize}px Arial`;
+        ctx.fillStyle = color;
+        ctx.textBaseline = 'top';
+        ctx.textAlign = 'left';
+
+        // Draw text
+        ctx.fillText(text, padding, padding);
+
+        // Convert canvas to PNG blob
+        const blob = await new Promise((resolve) => {
+            canvas.toBlob(resolve, 'image/png');
+        });
+
+        // Convert blob to ArrayBuffer
+        const arrayBuffer = await blob.arrayBuffer();
+
+        console.log(`✅ [Text2Image] PNG created: ${arrayBuffer.byteLength} bytes`);
+
+        return arrayBuffer;
     }
 
     /**
