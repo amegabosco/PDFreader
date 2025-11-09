@@ -1231,6 +1231,11 @@ async function handleFiles(files) {
                 try {
                     cacheId = await pdfCache.savePDF(file.name, arrayBuffer, file.size);
                     console.log(`Cached: ${file.name} with ID ${cacheId}`);
+
+                    // Add to recent files
+                    if (cacheId && window.recentFilesManager) {
+                        recentFilesManager.addRecentFile(file.name, cacheId);
+                    }
                 } catch (error) {
                     console.error('Failed to cache PDF:', error);
                 }
