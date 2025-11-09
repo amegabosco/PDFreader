@@ -554,19 +554,31 @@ class AnnotationInsertionOverlay {
                     const pageIndex = pageNum - 1;
                     const page = pdfDoc.getPage(pageIndex);
 
-                    // Insert text as image with rotation to keep it horizontal on rotated pages
-                    // We apply inverse rotation so text stays horizontal in the viewer
-                    const rotationDegrees = -this.pageRotation; // Inverse rotation
+                    // Calculate dimensions based on page rotation
+                    // For 90° or 270° pages, swap width/height to maintain readable size
+                    let insertWidth, insertHeight;
+                    if (this.pageRotation === 90 || this.pageRotation === 270) {
+                        // Swap dimensions for rotated pages
+                        insertWidth = pdfCoords.height;
+                        insertHeight = pdfCoords.width;
+                    } else {
+                        // Keep original dimensions
+                        insertWidth = pdfCoords.width;
+                        insertHeight = pdfCoords.height;
+                    }
+
+                    // Apply inverse rotation so text stays horizontal in the viewer
+                    const rotationDegrees = -this.pageRotation;
 
                     page.drawImage(embeddedTextImage, {
                         x: pdfCoords.x,
                         y: pdfCoords.y,
-                        width: pdfCoords.width,
-                        height: pdfCoords.height,
+                        width: insertWidth,
+                        height: insertHeight,
                         rotate: PDFLib.degrees(rotationDegrees)
                     });
 
-                    console.log(`📝 [Annotation] Page ${pageNum}: Text image inserted at (${pdfCoords.x.toFixed(1)}, ${pdfCoords.y.toFixed(1)}) with rotation ${rotationDegrees}°`);
+                    console.log(`📝 [Annotation] Page ${pageNum}: Text image inserted at (${pdfCoords.x.toFixed(1)}, ${pdfCoords.y.toFixed(1)}) size ${insertWidth.toFixed(1)}x${insertHeight.toFixed(1)}, rotation ${rotationDegrees}°`);
 
                     successCount++;
 
