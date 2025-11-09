@@ -111,7 +111,33 @@ class RecentFilesManager {
             // Extract PDF data from cache record
             const pdfData = pdfRecord.data;
 
-            // Load the PDF
+            // Show viewer area, hide upload area
+            document.getElementById('uploadArea').style.display = 'none';
+            document.getElementById('viewerArea').style.display = 'flex';
+
+            // Clear and set up for single file
+            if (typeof allUploadedFiles !== 'undefined') {
+                allUploadedFiles = [{ data: pdfData, name: fileName }];
+            }
+
+            // Add to tools (for merge/split functionality)
+            if (typeof tools !== 'undefined' && tools.clearPDFs && tools.addPDF) {
+                tools.clearPDFs();
+                tools.addPDF(pdfData, fileName);
+            }
+
+            // Create a document
+            if (typeof createDocument === 'function') {
+                const doc = createDocument(pdfData, fileName);
+                doc.cacheId = cacheId;
+
+                // Switch to the document
+                if (typeof switchToDocument === 'function') {
+                    await switchToDocument(doc.id);
+                }
+            }
+
+            // Load the PDF in viewer
             await viewer.loadPDF(pdfData);
 
             // Update global variables
@@ -121,6 +147,14 @@ class RecentFilesManager {
             // Update metadata
             if (typeof updateMetadataDisplay === 'function') {
                 updateMetadataDisplay();
+            }
+
+            // Update recent documents display
+            if (typeof updateRecentDocuments === 'function') {
+                updateRecentDocuments();
+            }
+            if (typeof refreshRecentDocsPanel === 'function') {
+                refreshRecentDocsPanel();
             }
 
             showNotification(`Loaded: ${fileName}`, 'success');
