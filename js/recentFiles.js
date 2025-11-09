@@ -99,14 +99,17 @@ class RecentFilesManager {
             console.log(`📂 [Recent Files] Loading: ${fileName}`);
 
             // Load from cache
-            const pdfData = await pdfCache.getPDF(cacheId);
+            const pdfRecord = await pdfCache.getPDF(cacheId);
 
-            if (!pdfData) {
+            if (!pdfRecord || !pdfRecord.data) {
                 showNotification(`File "${fileName}" not found in cache`, 'error');
                 // Remove from recent files
                 this.removeRecentFile(fileName);
                 return;
             }
+
+            // Extract PDF data from cache record
+            const pdfData = pdfRecord.data;
 
             // Load the PDF
             await viewer.loadPDF(pdfData);
