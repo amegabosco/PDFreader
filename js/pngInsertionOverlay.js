@@ -597,17 +597,11 @@ class PNGInsertionOverlay {
 
             // OPTIMIZATION: Reload viewer once after all insertions
             console.log('🔄 [Batch Optimization] Reloading viewer once...');
-            const thumbnailsWereOpen = viewer.navPanelOpen;
             await viewer.loadPDF(currentPDFData.slice(0));
             await viewer.goToPage(selectedPageArray[0]); // Go to first modified page
 
-            // SMART THUMBNAIL UPDATE: Regenerate all thumbnails if panel was open
-            // (loadPDF clears thumbnails, so we need to regenerate them)
-            if (thumbnailsWereOpen) {
-                console.log('🔄 [Thumbnail Update] Regenerating thumbnails after reload...');
-                await viewer.generateThumbnails(false);
-                console.log('✅ [Thumbnail Update] Thumbnails regenerated');
-            }
+            // NOTE: Thumbnail regeneration is skipped for performance (would take 20-30s)
+            // User can manually refresh thumbnails by closing/opening the panel if needed
 
             // Add to history
             addEditToHistory(`Inserted ${this.insertionType} on ${successCount} page(s)`);
