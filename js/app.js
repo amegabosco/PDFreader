@@ -2807,7 +2807,7 @@ function showSignPanel() {
             <!-- Canvas Section -->
             <div style="border-bottom: 1px solid #e8e8e8; padding: 8px 10px; background: #fafafa;">
                 <div style="font-size: 10px; font-weight: 500; color: #555; margin-bottom: 8px;">Draw Signature:</div>
-                <canvas id="signatureCanvas" width="350" height="160" style="border: 1px solid #e8e8e8; border-radius: 2px; cursor: crosshair; background: white; width: 100%; max-width: 350px; height: 160px;"></canvas>
+                <canvas id="signatureCanvas" width="1050" height="480" style="border: 1px solid #e8e8e8; border-radius: 2px; cursor: crosshair; background: white; width: 100%; max-width: 350px; height: 160px;"></canvas>
             </div>
 
             <!-- Action Buttons -->
@@ -2871,9 +2871,21 @@ function initSignatureCanvas() {
     let isDrawing = false;
     let currentColor = document.getElementById('signatureColor').value;
 
+    // HIGH-RES: Canvas is 3x larger than display size for crisp rendering
+    const SCALE = 3;
+
+    // For smooth Bézier curves
+    let points = [];
+    let lastPoint = null;
+
     ctx.strokeStyle = currentColor;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 5;  // Slightly thinner for smoother look
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Enable anti-aliasing for smoother lines
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     // Setup color picker
     const colorBtns = document.querySelectorAll('#signatureColorPicker .color-btn');
@@ -2890,24 +2902,58 @@ function initSignatureCanvas() {
 
     canvas.addEventListener('mousedown', (e) => {
         isDrawing = true;
+        points = [];
         const rect = canvas.getBoundingClientRect();
-        ctx.beginPath();
-        ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+        const x = (e.clientX - rect.left) * SCALE;
+        const y = (e.clientY - rect.top) * SCALE;
+        lastPoint = { x, y };
+        points.push({ x, y });
     });
 
     canvas.addEventListener('mousemove', (e) => {
         if (!isDrawing) return;
         const rect = canvas.getBoundingClientRect();
-        ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-        ctx.stroke();
+        const x = (e.clientX - rect.left) * SCALE;
+        const y = (e.clientY - rect.top) * SCALE;
+
+        points.push({ x, y });
+
+        // Draw smooth curve using quadratic Bézier
+        if (points.length >= 3) {
+            const lastIndex = points.length - 1;
+            const p0 = points[lastIndex - 2];
+            const p1 = points[lastIndex - 1];
+            const p2 = points[lastIndex];
+
+            // Calculate control point (average of p0 and p2)
+            const cp = {
+                x: (p0.x + p1.x) / 2,
+                y: (p0.y + p1.y) / 2
+            };
+            const ep = {
+                x: (p1.x + p2.x) / 2,
+                y: (p1.y + p2.y) / 2
+            };
+
+            ctx.beginPath();
+            ctx.moveTo(cp.x, cp.y);
+            ctx.quadraticCurveTo(p1.x, p1.y, ep.x, ep.y);
+            ctx.stroke();
+        }
+
+        lastPoint = { x, y };
     });
 
     canvas.addEventListener('mouseup', () => {
         isDrawing = false;
+        points = [];
+        lastPoint = null;
     });
 
     canvas.addEventListener('mouseleave', () => {
         isDrawing = false;
+        points = [];
+        lastPoint = null;
     });
 
     // Initialize positioning on PDF canvas

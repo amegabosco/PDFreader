@@ -793,8 +793,8 @@ class PNGInsertionOverlay {
     async rotateAndUpscaleImage(imageBuffer, imageType, pageRotation) {
         console.log(`🔄 [Image Processing] Rotating and upscaling ${imageType} for ${pageRotation}° page`);
 
-        // HIGH-RES: 3x upscale for crisp rendering
-        const UPSCALE = 3;
+        // HIGH-RES: 5x upscale for ultra-crisp rendering (especially for signatures)
+        const UPSCALE = 5;
 
         return new Promise((resolve, reject) => {
             // Load image

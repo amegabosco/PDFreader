@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [v2.3.40] - 2025-11-09
+
+### Removed
+- **Recent Files Panel** - Removed the fixed bottom-left panel showing recent files
+  - Deleted `js/recentFiles.js`
+  - Removed HTML elements and CSS styles
+  - Cleaner interface with less visual clutter
+
+---
+
+## [v2.3.39] - 2025-11-09
+
+### Enhanced
+- **Signature Quality Improvements** - Dramatically improved signature rendering
+  - Canvas resolution increased **3x** (350x160 → 1050x480 pixels)
+  - PNG upscaling increased from **3x → 5x** for ultra-crisp output
+  - **Bézier curve smoothing** - Smooth quadratic curves instead of jagged lines
+  - Anti-aliasing enabled with high-quality settings
+  - Line width adjusted for high-res canvas (lineWidth = 5)
+  - Mouse coordinate scaling for accurate drawing
+  - Professional-quality signatures in final PDF
+
+---
+
+## [v2.3.38] - 2025-11-09
+
+### Fixed
+- **Multi-page annotation viewport bug** - Fixed critical issue with batch annotation insertion
+  - Viewport now updates for **each page** in the loop
+  - Previously used first page's viewport for all pages
+  - Now correctly handles pages with different rotations
+  - Each page gets proper coordinate transformation
+
+---
+
+## [v2.3.37] - 2025-11-09
+
+### Fixed
+- **Annotation rotation on rotated pages** - Complete rewrite to match PNG insertion logic
+  - Text pre-rotated in canvas (like PNG insertion)
+  - Removed pdf-lib `rotate` parameter approach
+  - Canvas dimensions swapped for 90°/270° rotations
+  - Simple insertion without rotation parameter
+  - Smooth Bézier curves for text rendering
+  - Exact same logic as working PNG insertion system
+
+---
+
 ## [Cacao 1.0.0] 🍫 - 2025-10-31
 
 ### 🎉 Major Changes

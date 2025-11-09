@@ -525,6 +525,14 @@ class AnnotationInsertionOverlay {
 
                     console.log(`📄 [Annotation] Page ${pageNum}: rotation = ${this.pageRotation}°`);
 
+                    // IMPORTANT: Update viewport for THIS page (not the first page!)
+                    // Each page may have different rotation/scale
+                    const HIGH_RES_SCALE = 2.0;
+                    const renderScale = viewer.scale * HIGH_RES_SCALE;
+                    this.viewport = pdfJsPage.getViewport({ scale: renderScale, rotation: this.pageRotation });
+
+                    console.log(`📐 [Annotation] Updated viewport for page ${pageNum}: ${this.viewport.width}x${this.viewport.height}, rotation ${this.pageRotation}°`);
+
                     // Create and embed text image for this rotation if not already done
                     if (!textImagesByRotation.has(this.pageRotation)) {
                         console.log(`🖼️ [Annotation] Creating text image for rotation ${this.pageRotation}°...`);
@@ -541,11 +549,12 @@ class AnnotationInsertionOverlay {
 
                     const embeddedTextImage = textImagesByRotation.get(this.pageRotation);
 
-                    // Calculate transformation from PNG coordinates to PDF coordinates
+                    // Calculate transformation from screen coordinates to PDF coordinates
+                    // Now uses the correct viewport for THIS page
                     const pdfCoords = await this.transformCoordinates(this.drawingBox);
 
                     console.log(`📐 [Annotation Overlay] Page ${pageNum} transformation:`, {
-                        png: this.drawingBox,
+                        screen: this.drawingBox,
                         pdf: pdfCoords,
                         rotation: this.pageRotation
                     });
@@ -554,31 +563,17 @@ class AnnotationInsertionOverlay {
                     const pageIndex = pageNum - 1;
                     const page = pdfDoc.getPage(pageIndex);
 
-                    // Calculate dimensions based on page rotation
-                    // For 90° or 270° pages, swap width/height to maintain readable size
-                    let insertWidth, insertHeight;
-                    if (this.pageRotation === 90 || this.pageRotation === 270) {
-                        // Swap dimensions for rotated pages
-                        insertWidth = pdfCoords.height;
-                        insertHeight = pdfCoords.width;
-                    } else {
-                        // Keep original dimensions
-                        insertWidth = pdfCoords.width;
-                        insertHeight = pdfCoords.height;
-                    }
-
-                    // Apply inverse rotation so text stays horizontal in the viewer
-                    const rotationDegrees = -this.pageRotation;
-
+                    // EXACTLY like PNG insertion (lines 564-570): no rotate parameter
+                    // The text image is already pre-rotated in the canvas
                     page.drawImage(embeddedTextImage, {
                         x: pdfCoords.x,
                         y: pdfCoords.y,
-                        width: insertWidth,
-                        height: insertHeight,
-                        rotate: PDFLib.degrees(rotationDegrees)
+                        width: pdfCoords.width,
+                        height: pdfCoords.height,
+                        opacity: 1
                     });
 
-                    console.log(`📝 [Annotation] Page ${pageNum}: Text image inserted at (${pdfCoords.x.toFixed(1)}, ${pdfCoords.y.toFixed(1)}) size ${insertWidth.toFixed(1)}x${insertHeight.toFixed(1)}, rotation ${rotationDegrees}°`);
+                    console.log(`📝 [Annotation] Page ${pageNum}: Inserted at (${pdfCoords.x.toFixed(1)}, ${pdfCoords.y.toFixed(1)}), size ${pdfCoords.width.toFixed(1)}x${pdfCoords.height.toFixed(1)}`);
 
                     successCount++;
 
@@ -752,21 +747,27 @@ class AnnotationInsertionOverlay {
         ctx.font = `${fontSize}px Arial`;
         const metrics = ctx.measureText(text);
 
-        // Calculate canvas dimensions with padding (at 1x scale)
+        // Calculate text dimensions with padding (at 1x scale)
         const padding = Math.ceil(fontSize * 0.2);
         const textWidth = Math.ceil(metrics.width + padding * 2);
         const textHeight = Math.ceil(fontSize * 1.5 + padding * 2);
 
-        // IMPORTANT: Keep canvas at text dimensions (do NOT swap for rotation)
-        // We'll handle rotation in the PDF coordinate space, not in the canvas
-        const canvasWidth = textWidth;
-        const canvasHeight = textHeight;
+        // Adjust canvas size based on page rotation (EXACTLY like PNG insertion)
+        let canvasWidth, canvasHeight;
+        if (pageRotation === 90 || pageRotation === 270) {
+            // Swap dimensions for 90°/270° rotations
+            canvasWidth = textHeight;
+            canvasHeight = textWidth;
+        } else {
+            canvasWidth = textWidth;
+            canvasHeight = textHeight;
+        }
 
         // HIGH-RES: Set canvas to 3x size for crisp rendering
         canvas.width = canvasWidth * SCALE;
         canvas.height = canvasHeight * SCALE;
 
-        console.log(`📐 [Text2Image] Canvas size: ${canvas.width}x${canvas.height}px (${SCALE}x scale, logical: ${canvasWidth}x${canvasHeight}, rotation will be handled in PDF)`);
+        console.log(`📐 [Text2Image] Canvas: ${canvas.width}x${canvas.height}px (${SCALE}x), rotation: ${pageRotation}°`);
 
         // HIGH-RES: Scale the context
         ctx.scale(SCALE, SCALE);
@@ -774,19 +775,34 @@ class AnnotationInsertionOverlay {
         // Fill transparent background
         ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-        // NO rotation transformation in canvas - text always rendered horizontal
-        // Rotation will be handled when inserting into PDF
+        // Enable high-quality rendering
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
 
-        // Set text rendering properties (with high-quality rendering)
+        // Apply rotation transformation (EXACTLY like PNG insertion at lines 837-846)
+        ctx.save();
+
+        if (pageRotation === 90) {
+            ctx.translate(0, canvasHeight);
+            ctx.rotate(-Math.PI / 2);
+        } else if (pageRotation === 180) {
+            ctx.translate(canvasWidth, canvasHeight);
+            ctx.rotate(Math.PI);
+        } else if (pageRotation === 270) {
+            ctx.translate(canvasWidth, 0);
+            ctx.rotate(Math.PI / 2);
+        }
+
+        // Set text rendering properties
         ctx.font = `${fontSize}px Arial`;
         ctx.fillStyle = color;
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
 
-        // Draw text horizontally (no rotation)
+        // Draw text (will be rotated by transformation)
         ctx.fillText(text, padding, padding);
+
+        ctx.restore();
 
         // Convert canvas to PNG blob
         const blob = await new Promise((resolve) => {
