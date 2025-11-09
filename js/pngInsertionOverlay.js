@@ -512,16 +512,10 @@ class PNGInsertionOverlay {
             console.log('📄 [Batch Optimization] Loading PDF once for all insertions...');
             const pdfDoc = await PDFLib.PDFDocument.load(currentPDFData);
 
-            // OPTIMIZATION: Embed image once (not per page)
-            let embeddedImage;
-            const imageType = this.imageData.imageType.toLowerCase();
-            if (imageType === 'image/png' || imageType === 'png') {
-                embeddedImage = await pdfDoc.embedPng(this.imageData.buffer);
-            } else if (imageType === 'image/jpeg' || imageType === 'jpeg' || imageType === 'jpg') {
-                embeddedImage = await pdfDoc.embedJpg(this.imageData.buffer);
-            } else {
-                throw new Error('Unsupported image type: ' + this.imageData.imageType);
-            }
+            // OPTIMIZATION: Pre-process and embed images for each unique rotation (0°, 90°, 180°, 270°)
+            // This creates rotated+upscaled versions to avoid pixelation and rotation issues
+            console.log('🖼️ [PNG Overlay] Pre-processing images for each rotation...');
+            const imagesByRotation = new Map(); // rotation -> embeddedImage
 
             // Insert on each selected page
             for (const pageNum of selectedPageArray) {
@@ -533,6 +527,26 @@ class PNGInsertionOverlay {
                     // Get page for rotation info (from PDF.js)
                     const pdfJsPage = await viewer.pdfDoc.getPage(pageNum);
                     this.pageRotation = pdfJsPage.rotate || 0;
+
+                    console.log(`📄 [PNG Overlay] Page ${pageNum}: rotation = ${this.pageRotation}°`);
+
+                    // Create and embed rotated+upscaled image for this rotation if not already done
+                    if (!imagesByRotation.has(this.pageRotation)) {
+                        console.log(`🔄 [PNG Overlay] Processing image for rotation ${this.pageRotation}°...`);
+
+                        const processedImageBuffer = await this.rotateAndUpscaleImage(
+                            this.imageData.buffer,
+                            this.imageData.imageType,
+                            this.pageRotation
+                        );
+
+                        // Always embed as PNG (since rotateAndUpscaleImage returns PNG)
+                        const embeddedImage = await pdfDoc.embedPng(processedImageBuffer);
+                        imagesByRotation.set(this.pageRotation, embeddedImage);
+                        console.log(`✅ [PNG Overlay] Image for ${this.pageRotation}° cached`);
+                    }
+
+                    const embeddedImage = imagesByRotation.get(this.pageRotation);
 
                     // Calculate transformation from PNG coordinates to PDF coordinates
                     const pdfCoords = await this.transformCoordinates(this.drawingBox);
@@ -773,6 +787,91 @@ class PNGInsertionOverlay {
 
         // Add to history
         addEditToHistory(`Inserted signature on page ${this.pageNumber}`);
+    }
+
+    /**
+     * Rotate and upscale image for crisp rendering with rotation compensation
+     * @param {ArrayBuffer} imageBuffer - Original image data
+     * @param {string} imageType - Image type (png/jpeg)
+     * @param {number} pageRotation - Page rotation in degrees (0, 90, 180, 270)
+     * @returns {Promise<ArrayBuffer>} Rotated and upscaled PNG data
+     */
+    async rotateAndUpscaleImage(imageBuffer, imageType, pageRotation) {
+        console.log(`🔄 [Image Processing] Rotating and upscaling ${imageType} for ${pageRotation}° page`);
+
+        // HIGH-RES: 3x upscale for crisp rendering
+        const UPSCALE = 3;
+
+        return new Promise((resolve, reject) => {
+            // Load image
+            const blob = new Blob([imageBuffer], { type: imageType });
+            const url = URL.createObjectURL(blob);
+            const img = new Image();
+
+            img.onload = () => {
+                // Original dimensions
+                const origW = img.width;
+                const origH = img.height;
+
+                // Upscaled dimensions
+                const upscaledW = origW * UPSCALE;
+                const upscaledH = origH * UPSCALE;
+
+                // Adjust canvas size based on rotation
+                let canvasW, canvasH;
+                if (pageRotation === 90 || pageRotation === 270) {
+                    canvasW = upscaledH;
+                    canvasH = upscaledW;
+                } else {
+                    canvasW = upscaledW;
+                    canvasH = upscaledH;
+                }
+
+                // Create canvas
+                const canvas = document.createElement('canvas');
+                canvas.width = canvasW;
+                canvas.height = canvasH;
+                const ctx = canvas.getContext('2d');
+
+                // Enable high-quality rendering
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                // Apply rotation transformation
+                ctx.save();
+
+                if (pageRotation === 90) {
+                    ctx.translate(0, canvasH);
+                    ctx.rotate(-Math.PI / 2);
+                } else if (pageRotation === 180) {
+                    ctx.translate(canvasW, canvasH);
+                    ctx.rotate(Math.PI);
+                } else if (pageRotation === 270) {
+                    ctx.translate(canvasW, 0);
+                    ctx.rotate(Math.PI / 2);
+                }
+
+                // Draw upscaled image
+                ctx.drawImage(img, 0, 0, upscaledW, upscaledH);
+                ctx.restore();
+
+                console.log(`✅ [Image Processing] Upscaled ${origW}x${origH} → ${upscaledW}x${upscaledH}, canvas: ${canvasW}x${canvasH}`);
+
+                // Convert to PNG blob
+                canvas.toBlob(async (blob) => {
+                    const arrayBuffer = await blob.arrayBuffer();
+                    URL.revokeObjectURL(url);
+                    resolve(arrayBuffer);
+                }, 'image/png');
+            };
+
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                reject(new Error('Failed to load image'));
+            };
+
+            img.src = url;
+        });
     }
 
     /**
