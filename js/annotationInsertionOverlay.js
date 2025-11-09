@@ -725,15 +725,18 @@ class AnnotationInsertionOverlay {
     async renderTextAsImage(text, fontSize, color, pageRotation = 0) {
         console.log(`🖼️ [Text2Image] Rendering text: "${text}", size: ${fontSize}px, color: ${color}, rotation: ${pageRotation}°`);
 
+        // HIGH-RES: Use 3x scale for crisp rendering in PDF
+        const SCALE = 3;
+
         // Create offscreen canvas
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
 
-        // Set font to measure text (before rotation)
+        // Set font to measure text (before rotation, at 1x scale)
         ctx.font = `${fontSize}px Arial`;
         const metrics = ctx.measureText(text);
 
-        // Calculate canvas dimensions with padding
+        // Calculate canvas dimensions with padding (at 1x scale)
         const padding = Math.ceil(fontSize * 0.2);
         const textWidth = Math.ceil(metrics.width + padding * 2);
         const textHeight = Math.ceil(fontSize * 1.5 + padding * 2);
@@ -749,10 +752,14 @@ class AnnotationInsertionOverlay {
             canvasHeight = textHeight;
         }
 
-        canvas.width = canvasWidth;
-        canvas.height = canvasHeight;
+        // HIGH-RES: Set canvas to 3x size for crisp rendering
+        canvas.width = canvasWidth * SCALE;
+        canvas.height = canvasHeight * SCALE;
 
-        console.log(`📐 [Text2Image] Canvas size: ${canvasWidth}x${canvasHeight}px (text: ${textWidth}x${textHeight}, rotation: ${pageRotation}°)`);
+        console.log(`📐 [Text2Image] Canvas size: ${canvas.width}x${canvas.height}px (${SCALE}x scale, logical: ${canvasWidth}x${canvasHeight})`);
+
+        // HIGH-RES: Scale the context
+        ctx.scale(SCALE, SCALE);
 
         // Fill transparent background
         ctx.clearRect(0, 0, canvasWidth, canvasHeight);
@@ -775,11 +782,13 @@ class AnnotationInsertionOverlay {
         }
         // For 0°, no transformation needed
 
-        // Set text rendering properties
+        // Set text rendering properties (with high-quality rendering)
         ctx.font = `${fontSize}px Arial`;
         ctx.fillStyle = color;
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
 
         // Draw text at origin (transformations applied)
         ctx.fillText(text, padding, padding);
