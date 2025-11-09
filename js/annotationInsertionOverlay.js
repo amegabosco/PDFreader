@@ -56,8 +56,12 @@ class AnnotationInsertionOverlay {
             const rotation = page.rotate || 0;
             console.log(`🔄 [Annotation Overlay] Page rotation: ${rotation}°`);
 
+            // HIGH-RES: Always render at 2x scale for crisp preview/insertion
+            const HIGH_RES_SCALE = 2.0;
+            const renderScale = viewer.scale * HIGH_RES_SCALE;
+
             // Calculate scale to match current zoom/viewport (with rotation)
-            const viewport = page.getViewport({ scale: viewer.scale, rotation: rotation });
+            const viewport = page.getViewport({ scale: renderScale, rotation: rotation });
 
             // Create a canvas to render the page
             const canvas = document.createElement('canvas');
@@ -65,7 +69,9 @@ class AnnotationInsertionOverlay {
             canvas.width = viewport.width;
             canvas.height = viewport.height;
 
-            // Render page to canvas
+            console.log(`📐 [Annotation Overlay] Rendering at ${HIGH_RES_SCALE}x scale (viewer: ${viewer.scale}, render: ${renderScale})`);
+
+            // Render page to canvas at high resolution
             await page.render({
                 canvasContext: context,
                 viewport: viewport
@@ -75,7 +81,7 @@ class AnnotationInsertionOverlay {
             this.pageRotation = rotation; // Store rotation for coordinate transformation
             this.viewport = viewport; // Store viewport for coordinate conversion
 
-            console.log(`✅ [Annotation Overlay] PNG generated: ${canvas.width}x${canvas.height} (rotation: ${rotation}°)`);
+            console.log(`✅ [Annotation Overlay] High-res PNG generated: ${canvas.width}x${canvas.height} (rotation: ${rotation}°)`);
         } catch (error) {
             console.error('❌ [Annotation Overlay] Failed to generate PNG:', error);
             throw error;

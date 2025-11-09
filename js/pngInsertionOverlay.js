@@ -59,11 +59,15 @@ class PNGInsertionOverlay {
             const rotation = page.rotate || 0;
             console.log(`🔄 [PNG Overlay] Page rotation: ${rotation}°`);
 
+            // HIGH-RES: Always render at 2x scale for crisp preview/insertion
+            const HIGH_RES_SCALE = 2.0;
+            const renderScale = viewer.scale * HIGH_RES_SCALE;
+
             // Calculate scale to match current zoom/viewport (with rotation)
-            const viewport = page.getViewport({ scale: viewer.scale, rotation: rotation });
+            const viewport = page.getViewport({ scale: renderScale, rotation: rotation });
 
             // Also get unrotated viewport for dimension comparison
-            const unrotatedViewport = page.getViewport({ scale: viewer.scale, rotation: 0 });
+            const unrotatedViewport = page.getViewport({ scale: renderScale, rotation: 0 });
 
             // Create a canvas to render the page
             const canvas = document.createElement('canvas');
@@ -71,7 +75,9 @@ class PNGInsertionOverlay {
             canvas.width = viewport.width;
             canvas.height = viewport.height;
 
-            // Render page to canvas
+            console.log(`📐 [PNG Overlay] Rendering at ${HIGH_RES_SCALE}x scale (viewer: ${viewer.scale}, render: ${renderScale})`);
+
+            // Render page to canvas at high resolution
             await page.render({
                 canvasContext: context,
                 viewport: viewport
@@ -83,7 +89,7 @@ class PNGInsertionOverlay {
             this.rotatedViewportDimensions = { width: viewport.width, height: viewport.height };
             this.unrotatedViewportDimensions = { width: unrotatedViewport.width, height: unrotatedViewport.height };
 
-            console.log(`✅ [PNG Overlay] PNG generated: ${canvas.width}x${canvas.height} (rotation: ${rotation}°)`);
+            console.log(`✅ [PNG Overlay] High-res PNG generated: ${canvas.width}x${canvas.height} (rotation: ${rotation}°)`);
         } catch (error) {
             console.error('❌ [PNG Overlay] Failed to generate PNG:', error);
             throw error;
