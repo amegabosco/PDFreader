@@ -501,20 +501,10 @@ class AnnotationInsertionOverlay {
             console.log('📄 [Batch Optimization] Loading PDF once for all annotation insertions...');
             const pdfDoc = await PDFLib.PDFDocument.load(currentPDFData);
 
-            // Parse annotation color once
-            const [r, g, b] = this.annotationData.colorRGB;
-
-            // OPTIMIZATION: Convert text to PNG image once for perfect WYSIWYG (no rotation issues)
-            console.log('🖼️ [Annotation] Converting text to PNG for WYSIWYG rendering...');
-            const textImageData = await this.renderTextAsImage(
-                this.annotationData.text,
-                this.annotationData.fontSize,
-                this.annotationData.color
-            );
-
-            // Embed the text image once
-            const embeddedTextImage = await pdfDoc.embedPng(textImageData);
-            console.log(`✅ [Annotation] Text image embedded: ${textImageData.byteLength} bytes`);
+            // OPTIMIZATION: Pre-render text images for each unique rotation (0°, 90°, 180°, 270°)
+            // This avoids re-rendering the same text image multiple times
+            console.log('🖼️ [Annotation] Pre-rendering text images for each rotation...');
+            const textImagesByRotation = new Map(); // rotation -> embeddedImage
 
             // Insert on each selected page
             for (const pageNum of selectedPageArray) {
@@ -526,6 +516,24 @@ class AnnotationInsertionOverlay {
                     // Get page for rotation info (from PDF.js)
                     const pdfJsPage = await viewer.pdfDoc.getPage(pageNum);
                     this.pageRotation = pdfJsPage.rotate || 0;
+
+                    console.log(`📄 [Annotation] Page ${pageNum}: rotation = ${this.pageRotation}°`);
+
+                    // Create and embed text image for this rotation if not already done
+                    if (!textImagesByRotation.has(this.pageRotation)) {
+                        console.log(`🖼️ [Annotation] Creating text image for rotation ${this.pageRotation}°...`);
+                        const textImageData = await this.renderTextAsImage(
+                            this.annotationData.text,
+                            this.annotationData.fontSize,
+                            this.annotationData.color,
+                            this.pageRotation
+                        );
+                        const embeddedImage = await pdfDoc.embedPng(textImageData);
+                        textImagesByRotation.set(this.pageRotation, embeddedImage);
+                        console.log(`✅ [Annotation] Text image for ${this.pageRotation}° cached: ${textImageData.byteLength} bytes`);
+                    }
+
+                    const embeddedTextImage = textImagesByRotation.get(this.pageRotation);
 
                     // Calculate transformation from PNG coordinates to PDF coordinates
                     const pdfCoords = await this.transformCoordinates(this.drawingBox);
@@ -711,31 +719,61 @@ class AnnotationInsertionOverlay {
      * @param {string} text - The text to render
      * @param {number} fontSize - Font size in points
      * @param {string} color - Text color (e.g., '#000000')
+     * @param {number} pageRotation - Page rotation in degrees (0, 90, 180, 270)
      * @returns {Promise<ArrayBuffer>} PNG image data
      */
-    async renderTextAsImage(text, fontSize, color) {
-        console.log(`🖼️ [Text2Image] Rendering text: "${text}", size: ${fontSize}px, color: ${color}`);
+    async renderTextAsImage(text, fontSize, color, pageRotation = 0) {
+        console.log(`🖼️ [Text2Image] Rendering text: "${text}", size: ${fontSize}px, color: ${color}, rotation: ${pageRotation}°`);
 
         // Create offscreen canvas
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
 
-        // Set font to measure text
+        // Set font to measure text (before rotation)
         ctx.font = `${fontSize}px Arial`;
         const metrics = ctx.measureText(text);
 
         // Calculate canvas dimensions with padding
         const padding = Math.ceil(fontSize * 0.2);
-        const width = Math.ceil(metrics.width + padding * 2);
-        const height = Math.ceil(fontSize * 1.5 + padding * 2);
+        const textWidth = Math.ceil(metrics.width + padding * 2);
+        const textHeight = Math.ceil(fontSize * 1.5 + padding * 2);
 
-        canvas.width = width;
-        canvas.height = height;
+        // Adjust canvas size based on rotation
+        // For 90° or 270°, swap width and height
+        let canvasWidth, canvasHeight;
+        if (pageRotation === 90 || pageRotation === 270) {
+            canvasWidth = textHeight;
+            canvasHeight = textWidth;
+        } else {
+            canvasWidth = textWidth;
+            canvasHeight = textHeight;
+        }
 
-        console.log(`📐 [Text2Image] Canvas size: ${width}x${height}px`);
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+
+        console.log(`📐 [Text2Image] Canvas size: ${canvasWidth}x${canvasHeight}px (text: ${textWidth}x${textHeight}, rotation: ${pageRotation}°)`);
 
         // Fill transparent background
-        ctx.clearRect(0, 0, width, height);
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+        // Apply rotation transformation
+        ctx.save();
+
+        if (pageRotation === 90) {
+            // Rotate 90° clockwise: move to bottom-left, rotate
+            ctx.translate(0, canvasHeight);
+            ctx.rotate(-Math.PI / 2);
+        } else if (pageRotation === 180) {
+            // Rotate 180°: move to bottom-right, rotate
+            ctx.translate(canvasWidth, canvasHeight);
+            ctx.rotate(Math.PI);
+        } else if (pageRotation === 270) {
+            // Rotate 270° clockwise (90° counter-clockwise): move to top-right, rotate
+            ctx.translate(canvasWidth, 0);
+            ctx.rotate(Math.PI / 2);
+        }
+        // For 0°, no transformation needed
 
         // Set text rendering properties
         ctx.font = `${fontSize}px Arial`;
@@ -743,8 +781,10 @@ class AnnotationInsertionOverlay {
         ctx.textBaseline = 'top';
         ctx.textAlign = 'left';
 
-        // Draw text
+        // Draw text at origin (transformations applied)
         ctx.fillText(text, padding, padding);
+
+        ctx.restore();
 
         // Convert canvas to PNG blob
         const blob = await new Promise((resolve) => {
