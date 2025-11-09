@@ -597,16 +597,16 @@ class PNGInsertionOverlay {
 
             // OPTIMIZATION: Reload viewer once after all insertions
             console.log('🔄 [Batch Optimization] Reloading viewer once...');
+            const thumbnailsWereOpen = viewer.navPanelOpen;
             await viewer.loadPDF(currentPDFData.slice(0));
             await viewer.goToPage(selectedPageArray[0]); // Go to first modified page
 
-            // SMART THUMBNAIL UPDATE: Only regenerate thumbnails for modified pages
-            if (viewer.navPanelOpen) {
-                console.log(`🔄 [Thumbnail Update] Regenerating ${selectedPageArray.length} modified thumbnail(s)...`);
-                for (const pageNum of selectedPageArray) {
-                    await viewer.generateSingleThumbnail(pageNum);
-                }
-                console.log('✅ [Thumbnail Update] Modified thumbnails updated');
+            // SMART THUMBNAIL UPDATE: Regenerate all thumbnails if panel was open
+            // (loadPDF clears thumbnails, so we need to regenerate them)
+            if (thumbnailsWereOpen) {
+                console.log('🔄 [Thumbnail Update] Regenerating thumbnails after reload...');
+                await viewer.generateThumbnails(false);
+                console.log('✅ [Thumbnail Update] Thumbnails regenerated');
             }
 
             // Add to history
