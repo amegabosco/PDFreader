@@ -29,7 +29,6 @@ class WorkerManager {
             });
 
             this.workerAvailable = true;
-            console.log('Worker Manager initialized');
         } catch (error) {
             console.warn('Workers not available (file:// protocol?), using fallback:', error.message);
             this.workerAvailable = false;
@@ -73,7 +72,6 @@ class WorkerManager {
 
         // Fallback to synchronous operations if worker not available
         if (!this.workerAvailable) {
-            console.log(`Using fallback for ${operation} (workers unavailable)`);
             return this.executeFallback(operation, data);
         }
 
@@ -85,8 +83,12 @@ class WorkerManager {
             // Show progress
             this.showProgress(id, operation);
 
-            // Send to worker
-            this.worker.postMessage({ id, operation, data });
+            // Send to worker with Transferable Objects for zero-copy performance
+            const transferables = [];
+            if (data && data.pdfData instanceof ArrayBuffer) {
+                transferables.push(data.pdfData);
+            }
+            this.worker.postMessage({ id, operation, data }, transferables);
 
             // Timeout after 2 minutes
             setTimeout(() => {
@@ -202,7 +204,8 @@ class WorkerManager {
             split: 'Splitting PDF',
             rotate: 'Rotating Pages',
             reorder: 'Reordering Pages',
-            compress: 'Compressing PDF'
+            compress: 'Compressing PDF',
+            insertObjects: 'Inserting Objects'
         };
         return titles[operation] || 'Processing';
     }

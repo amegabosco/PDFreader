@@ -33,6 +33,9 @@ self.addEventListener('message', async (e) => {
             case 'compress':
                 result = await compressPDF(data);
                 break;
+            case 'insertObjects':
+                result = await insertObjects(data);
+                break;
             default:
                 throw new Error(`Unknown operation: ${operation}`);
         }
@@ -200,8 +203,6 @@ async function reorderPDF(data) {
     const pdf = await PDFDocument.load(pdfData);
     const totalPages = pdf.getPageCount();
 
-    console.log(`Worker: Reordering page ${fromPage} to position ${toPage} (total: ${totalPages})`);
-
     // Validate
     if (fromPage < 1 || fromPage > totalPages || toPage < 1 || toPage > totalPages) {
         throw new Error('Invalid page numbers');
@@ -222,8 +223,6 @@ async function reorderPDF(data) {
 
     // Insert at new position
     pageIndices.splice(toPage - 1, 0, movedPageIndex);
-
-    console.log('Worker: New page order:', pageIndices.map(i => i + 1));
 
     // Copy pages in new order
     for (let i = 0; i < pageIndices.length; i++) {
@@ -270,4 +269,84 @@ async function compressPDF(data) {
     return compressedBytes;
 }
 
-console.log('PDF Worker initialized');
+/**
+ * Insert multiple objects (text, images, signatures) into PDF
+ */
+async function insertObjects(data) {
+    const { pdfData, objects } = data;
+
+    const pdf = await PDFDocument.load(pdfData);
+    const pages = pdf.getPages();
+    const totalObjects = objects.length;
+
+    for (let i = 0; i < totalObjects; i++) {
+        const obj = objects[i];
+        const pageIndex = obj.pageIndex;
+        
+        if (pageIndex < 0 || pageIndex >= pages.length) {
+            console.warn(`Invalid page index ${pageIndex}, skipping object`);
+            continue;
+        }
+
+        const page = pages[pageIndex];
+        // pageHeight is not strictly needed unless we were doing coord conversion here, 
+        // but we expect coords to be passed in PDF space.
+
+        // Report progress
+        if (i % 5 === 0 || i === totalObjects - 1) {
+            self.postMessage({
+                progress: ((i + 1) / totalObjects) * 100,
+                message: `Inserting object ${i + 1} of ${totalObjects}...`
+            });
+        }
+
+        try {
+            if (obj.type === 'image' || obj.type === 'signature') {
+                // Embed image
+                let image;
+                if (obj.imageType === 'png') {
+                    image = await pdf.embedPng(obj.imageData);
+                } else if (obj.imageType === 'jpg' || obj.imageType === 'jpeg') {
+                    image = await pdf.embedJpg(obj.imageData);
+                } else {
+                    console.warn('Unsupported image type:', obj.imageType);
+                    continue;
+                }
+
+                // Draw image
+                page.drawImage(image, {
+                    x: obj.x,
+                    y: obj.y,
+                    width: obj.width,
+                    height: obj.height,
+                    rotate: degrees(obj.rotation || 0),
+                    opacity: obj.opacity || 1
+                });
+
+            } else if (obj.type === 'text') {
+                // Draw text
+                const { text, fontSize, color } = obj;
+                
+                // Parse color
+                let r = 0, g = 0, b = 0;
+                if (color) {
+                    r = color.r || color[0] || 0;
+                    g = color.g || color[1] || 0;
+                    b = color.b || color[2] || 0;
+                }
+
+                page.drawText(text, {
+                    x: obj.x,
+                    y: obj.y,
+                    size: fontSize,
+                    color: rgb(r, g, b)
+                });
+            }
+        } catch (err) {
+            console.error(`Error inserting object ${i}:`, err);
+        }
+    }
+
+    const pdfBytes = await pdf.save();
+    return pdfBytes;
+}

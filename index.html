@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,7 +30,10 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/style.css?v=2.3.40">
 </head>
+
 <body>
+    <a href="#pdfCanvasContainer" class="sr-only" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">Skip to content</a>
+
     <!-- Notification Banner -->
     <div id="notificationBanner" class="notification-banner"></div>
 
@@ -43,11 +47,11 @@
     <div class="app-container">
 
         <!-- Main Content Area -->
-        <main class="main-content">
+        <main class="main-content" role="main">
             <!-- Upload Area (shown initially) -->
             <div id="uploadArea" class="upload-area">
                 <div class="upload-dropzone">
-                    <i class="ti ti-cloud-upload"></i>
+                    <i class="ti ti-cloud-upload" aria-hidden="true"></i>
                     <h2>Drop PDF files here</h2>
                     <p>or click to browse</p>
                     <input type="file" id="fileInput" accept=".pdf" multiple hidden>
@@ -64,124 +68,132 @@
                     <div id="tabsList" class="tabs-list">
                         <!-- Tabs will be dynamically inserted here -->
                     </div>
-                    <button id="newTabBtn" class="new-tab-btn" title="Open new PDF">
-                        <i class="ti ti-plus"></i>
+                    <button id="newTabBtn" class="new-tab-btn" title="Open new PDF" aria-label="Open new PDF">
+                        <i class="ti ti-plus" aria-hidden="true"></i>
                     </button>
                 </div>
 
-                <div class="viewer-controls">
+                <div class="viewer-controls" role="toolbar" aria-label="PDF viewer controls">
                     <!-- Navigation Controls -->
-                    <button id="prevPage" class="control-btn" title="Go to previous page (←)">
-                        <i class="ti ti-chevron-left"></i>
+                    <button id="prevPage" class="control-btn" title="Go to previous page (←)" aria-label="Previous page">
+                        <i class="ti ti-chevron-left" aria-hidden="true"></i>
                     </button>
                     <div class="page-input-group">
                         <input type="number" id="pageInput" min="1" value="1" title="Go to page">
                         <span class="page-separator">/</span>
                         <span id="totalPages">1</span>
                     </div>
-                    <button id="nextPage" class="control-btn" title="Go to next page (→)">
-                        <i class="ti ti-chevron-right"></i>
+                    <button id="nextPage" class="control-btn" title="Go to next page (→)" aria-label="Next page">
+                        <i class="ti ti-chevron-right" aria-hidden="true"></i>
                     </button>
 
                     <div class="toolbar-separator"></div>
 
                     <!-- Zoom Controls -->
                     <div class="zoom-controls">
-                        <button id="zoomOut" class="control-btn" title="Zoom out (-)">
-                            <i class="ti ti-zoom-out"></i>
+                        <button id="zoomOut" class="control-btn" title="Zoom out (-)" aria-label="Zoom out">
+                            <i class="ti ti-zoom-out" aria-hidden="true"></i>
                         </button>
                         <span id="zoomLevel">100%</span>
-                        <button id="zoomIn" class="control-btn" title="Zoom in (+)">
-                            <i class="ti ti-zoom-in"></i>
+                        <button id="zoomIn" class="control-btn" title="Zoom in (+)" aria-label="Zoom in">
+                            <i class="ti ti-zoom-in" aria-hidden="true"></i>
                         </button>
-                        <button id="zoomFit" class="control-btn" title="Fit page to window">
-                            <i class="ti ti-arrows-maximize"></i>
+                        <button id="zoomFit" class="control-btn" title="Fit page to window" aria-label="Fit page to window">
+                            <i class="ti ti-arrows-maximize" aria-hidden="true"></i>
                         </button>
                     </div>
 
                     <div class="toolbar-separator"></div>
 
                     <!-- Edit Tools -->
-                    <button class="control-btn tool-btn" data-tool="annotate" disabled title="Add text annotations to PDF pages">
-                        <i class="ti ti-pencil"></i>
+                    <button class="control-btn tool-btn" data-tool="annotate" disabled
+                        title="Add text annotations to PDF pages" aria-label="Annotate">
+                        <i class="ti ti-pencil" aria-hidden="true"></i>
                     </button>
-                    <button class="control-btn tool-btn" data-tool="sign" disabled title="Draw or insert your signature on the PDF">
-                        <i class="ti ti-signature"></i>
+                    <button class="control-btn tool-btn" data-tool="sign" disabled
+                        title="Draw or insert your signature on the PDF" aria-label="Sign">
+                        <i class="ti ti-signature" aria-hidden="true"></i>
                     </button>
-                    <button class="control-btn tool-btn" data-tool="image" disabled title="Insert an image (PNG/JPG) onto a PDF page">
-                        <i class="ti ti-photo-plus"></i>
+                    <button class="control-btn tool-btn" data-tool="image" disabled
+                        title="Insert an image (PNG/JPG) onto a PDF page" aria-label="Insert image">
+                        <i class="ti ti-photo-plus" aria-hidden="true"></i>
                     </button>
 
                     <div class="toolbar-separator"></div>
 
                     <!-- Document Tools -->
-                    <button class="control-btn tool-btn" data-tool="rotate" disabled title="Rotate selected pages 90° clockwise">
-                        <i class="ti ti-rotate-clockwise"></i>
+                    <button class="control-btn tool-btn" data-tool="rotate" disabled
+                        title="Rotate selected pages 90° clockwise" aria-label="Rotate pages">
+                        <i class="ti ti-rotate-clockwise" aria-hidden="true"></i>
                     </button>
-                    <button class="control-btn tool-btn" data-tool="split" disabled title="Split PDF into two parts at a specific page">
-                        <i class="ti ti-cut"></i>
+                    <button class="control-btn tool-btn" data-tool="split" disabled
+                        title="Split PDF into two parts at a specific page" aria-label="Split PDF">
+                        <i class="ti ti-cut" aria-hidden="true"></i>
                     </button>
-                    <button class="control-btn tool-btn" data-tool="merge" disabled title="Combine multiple PDF files into one document">
-                        <i class="ti ti-files"></i>
+                    <button class="control-btn tool-btn" data-tool="merge" disabled
+                        title="Combine multiple PDF files into one document" aria-label="Merge PDFs">
+                        <i class="ti ti-files" aria-hidden="true"></i>
                     </button>
 
                     <div class="toolbar-separator"></div>
 
                     <!-- History Controls -->
-                    <button id="undoBtn" class="control-btn" title="Undo (Ctrl+Z)" disabled onclick="undo()">
-                        <i class="ti ti-arrow-back-up"></i>
+                    <button id="undoBtn" class="control-btn" title="Undo (Ctrl+Z)" disabled onclick="undo()" aria-label="Undo">
+                        <i class="ti ti-arrow-back-up" aria-hidden="true"></i>
                     </button>
-                    <button id="redoBtn" class="control-btn" title="Redo (Ctrl+Y)" disabled onclick="redo()">
-                        <i class="ti ti-arrow-forward-up"></i>
+                    <button id="redoBtn" class="control-btn" title="Redo (Ctrl+Y)" disabled onclick="redo()" aria-label="Redo">
+                        <i class="ti ti-arrow-forward-up" aria-hidden="true"></i>
                     </button>
 
                     <div class="toolbar-separator"></div>
 
                     <!-- Utility Tools -->
-                    <button class="control-btn tool-btn" id="handToolBtn" data-tool="hand" disabled title="Pan and move around zoomed PDF pages">
-                        <i class="ti ti-hand-grab"></i>
+                    <button class="control-btn tool-btn" id="handToolBtn" data-tool="hand" disabled
+                        title="Pan and move around zoomed PDF pages" aria-label="Hand tool">
+                        <i class="ti ti-hand-grab" aria-hidden="true"></i>
                     </button>
-                    <button id="searchBtn" class="control-btn" title="Search Text (Ctrl+F)">
-                        <i class="ti ti-search"></i>
+                    <button id="searchBtn" class="control-btn" title="Search Text (Ctrl+F)" aria-label="Search text">
+                        <i class="ti ti-search" aria-hidden="true"></i>
                     </button>
-                    <button id="toggleNavPanel" class="control-btn" title="Toggle Page Navigator">
-                        <i class="ti ti-layout-sidebar-right"></i>
+                    <button id="toggleNavPanel" class="control-btn" title="Toggle Page Navigator" aria-label="Toggle page navigator">
+                        <i class="ti ti-layout-sidebar-right" aria-hidden="true"></i>
                     </button>
-                    <button id="toggleInfoBar" class="control-btn" title="Toggle Information Bar">
-                        <i class="ti ti-info-circle"></i>
+                    <button id="toggleInfoBar" class="control-btn" title="Toggle Information Bar" aria-label="Toggle information bar">
+                        <i class="ti ti-info-circle" aria-hidden="true"></i>
                     </button>
 
                     <div class="toolbar-separator"></div>
 
                     <!-- Language Toggle -->
-                    <button id="langToggleBtn" class="control-btn" title="Change Language">
-                        <i class="ti ti-language"></i>
+                    <button id="langToggleBtn" class="control-btn" title="Change Language" aria-label="Change language">
+                        <i class="ti ti-language" aria-hidden="true"></i>
                     </button>
 
                     <div class="toolbar-separator"></div>
 
                     <!-- Download -->
-                    <button class="control-btn tool-btn download-btn" data-tool="download" disabled title="Download the current PDF with all edits">
-                        <i class="ti ti-download"></i>
+                    <button class="control-btn tool-btn download-btn" data-tool="download" disabled
+                        title="Download the current PDF with all edits" aria-label="Download PDF">
+                        <i class="ti ti-download" aria-hidden="true"></i>
                     </button>
                 </div>
 
                 <!-- Search Bar (collapsible) -->
                 <div id="searchBar" class="search-bar" style="display: none;">
                     <div class="search-input-container">
-                        <i class="ti ti-search"></i>
+                        <i class="ti ti-search" aria-hidden="true"></i>
                         <input type="text" id="searchInput" placeholder="Search in document..." />
-                        <button id="clearSearchBtn" class="search-clear-btn" title="Clear search">
-                            <i class="ti ti-x"></i>
+                        <button id="clearSearchBtn" class="search-clear-btn" title="Clear search" aria-label="Clear search">
+                            <i class="ti ti-x" aria-hidden="true"></i>
                         </button>
                     </div>
                     <div class="search-controls">
-                        <button id="prevMatch" class="control-btn" title="Previous match">
-                            <i class="ti ti-chevron-up"></i>
+                        <button id="prevMatch" class="control-btn" title="Previous match" aria-label="Previous match">
+                            <i class="ti ti-chevron-up" aria-hidden="true"></i>
                         </button>
                         <span id="searchResults">0 / 0</span>
-                        <button id="nextMatch" class="control-btn" title="Next match">
-                            <i class="ti ti-chevron-down"></i>
+                        <button id="nextMatch" class="control-btn" title="Next match" aria-label="Next match">
+                            <i class="ti ti-chevron-down" aria-hidden="true"></i>
                         </button>
                         <label class="search-option">
                             <input type="checkbox" id="caseSensitive" />
@@ -218,7 +230,7 @@
                     </div>
                 </div>
 
-                <div class="pdf-canvas-container">
+                <div id="pdfCanvasContainer" class="pdf-canvas-container">
                     <canvas id="pdfCanvas"></canvas>
                     <!-- Insertion Overlay for pending objects -->
                     <div id="insertionOverlay" class="insertion-overlay"></div>
@@ -238,12 +250,14 @@
 
                 <!-- Validate All Button (shown when pending objects exist) -->
                 <div id="validateAllContainer" class="validate-all-container" style="display: none;">
-                    <button id="validateAllBtn" class="validate-all-btn" title="Insert all pending objects into the PDF">
-                        <i class="ti ti-check"></i>
+                    <button id="validateAllBtn" class="validate-all-btn"
+                        title="Insert all pending objects into the PDF" aria-label="Validate all pending objects">
+                        <i class="ti ti-check" aria-hidden="true"></i>
                         <span id="validateAllText">Validate All (0)</span>
                     </button>
-                    <button id="cancelAllBtn" class="cancel-all-btn" title="Remove all pending objects without inserting">
-                        <i class="ti ti-x"></i>
+                    <button id="cancelAllBtn" class="cancel-all-btn"
+                        title="Remove all pending objects without inserting" aria-label="Cancel all pending objects">
+                        <i class="ti ti-x" aria-hidden="true"></i>
                         Cancel All
                     </button>
                 </div>
@@ -258,9 +272,9 @@
         <!-- Document Navigator Panel (Right Side) -->
         <aside id="navPanel" class="nav-panel" style="display: none;">
             <div class="nav-header">
-                <h3><i class="ti ti-layout-grid"></i> Pages</h3>
-                <button id="closeNavPanel" class="nav-close-btn" title="Close Navigator">
-                    <i class="ti ti-x"></i>
+                <h3><i class="ti ti-layout-grid" aria-hidden="true"></i> Pages</h3>
+                <button id="closeNavPanel" class="nav-close-btn" title="Close Navigator" aria-label="Close navigator">
+                    <i class="ti ti-x" aria-hidden="true"></i>
                 </button>
             </div>
             <div id="navThumbnails" class="nav-thumbnails">
@@ -303,6 +317,11 @@
     <script src="js/pdfTools.js?v=2.3.33"></script>
     <script src="js/pngInsertionOverlay.js?v=2.3.33"></script>
     <script src="js/annotationInsertionOverlay.js?v=2.3.33"></script>
-    <script src="js/app.js?v=2.3.33"></script>
+    <script src="js/modules/EventManager.js?v=2.3.40"></script>
+    <script src="js/modules/UIManager.js?v=2.3.40"></script>
+    <script src="js/modules/StateManager.js?v=2.3.40"></script>
+    <script src="js/modules/PendingObjectsManager.js?v=2.3.40"></script>
+    <script src="js/app.js?v=2.3.40"></script>
 </body>
+
 </html>

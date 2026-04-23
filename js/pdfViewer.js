@@ -3,6 +3,35 @@
  * Handles PDF rendering using PDF.js
  */
 
+/**
+ * Canvas Pool - reuses canvas elements to avoid costly DOM creation/destruction
+ * during zoom and re-render operations.
+ */
+class CanvasPool {
+    constructor(maxSize = 10) {
+        this.pool = [];
+        this.maxSize = maxSize;
+    }
+    acquire() {
+        if (this.pool.length > 0) {
+            return this.pool.pop();
+        }
+        return document.createElement('canvas');
+    }
+    release(canvas) {
+        if (this.pool.length < this.maxSize) {
+            const ctx = canvas.getContext('2d');
+            if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+            canvas.width = 0;
+            canvas.height = 0;
+            this.pool.push(canvas);
+        }
+    }
+    clear() {
+        this.pool = [];
+    }
+}
+
 class PDFViewer {
     constructor() {
         this.pdfDoc = null;
@@ -27,6 +56,9 @@ class PDFViewer {
         this.viewMode = 'scroll'; // 'scroll' only (single page removed)
         this.allPageCanvases = [];
 
+        // Canvas pool for reusing canvas elements (avoids DOM churn on zoom)
+        this.canvasPool = new CanvasPool(10);
+
         // Navigator panel state
         this.navPanelOpen = false;
         this.thumbnails = [];
@@ -42,6 +74,7 @@ class PDFViewer {
 
         this.initializeControls();
         this.initializeNavigator();
+        this.setupResizeHandler();
     }
 
     /**
@@ -105,6 +138,40 @@ class PDFViewer {
             this.zoomToFit();
         });
 
+
+    }
+
+    /**
+     * Setup resize handler for responsive layout
+     */
+    setupResizeHandler() {
+        let resizeTimer = null;
+
+        window.addEventListener('resize', () => {
+            // Clear previous timer
+            if (resizeTimer) clearTimeout(resizeTimer);
+
+            // Set new timer
+            resizeTimer = setTimeout(async () => {
+
+                // Only re-render if we have a document
+                if (!this.pdfDoc) return;
+
+                // If we were in a "fit" mode, we might want to recalculate scale here
+                // For now, we just re-render to ensure layout is correct
+
+                if (this.viewMode === 'scroll') {
+                    await this.renderScrollView();
+                } else {
+                    await this.renderPage(this.currentPage);
+                }
+
+                // Sync overlay
+                if (window.pendingObjects) {
+                    window.pendingObjects.syncOverlayWithCanvas();
+                }
+            }, 200); // Debounce 200ms
+        });
     }
 
     /**
@@ -287,7 +354,6 @@ class PDFViewer {
         try {
             // Set initial load flag to prevent scroll tracking during render
             this.initialLoad = true;
-            console.log('Loading PDF - scroll tracking disabled');
 
             // Load the PDF document
             const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
@@ -327,7 +393,6 @@ class PDFViewer {
             // Enable tool buttons
             this.enableTools();
 
-            console.log('PDF loaded successfully:', this.totalPages, 'pages');
         } catch (error) {
             console.error('Error loading PDF:', error);
             showNotification('Failed to load PDF. Please try another file.', 'error');
@@ -387,7 +452,6 @@ class PDFViewer {
                 this.updateActiveThumbnail(pageNum);
             }
 
-            console.log('Rendered page:', pageNum);
         } catch (error) {
             console.error('Error rendering page:', error);
         }
@@ -481,6 +545,9 @@ class PDFViewer {
         this.scale = 1.5;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+        // Clear canvas pool
+        if (this.canvasPool) this.canvasPool.clear();
+
         // Disable hand tool
         this.disableHandTool();
 
@@ -540,27 +607,25 @@ class PDFViewer {
             });
         }
 
-        console.log(`View mode changed to: ${mode}`);
     }
 
     /**
      * Render all pages in continuous scroll view
      */
+    /**
+     * Render all pages in continuous scroll view (Lazy Loaded)
+     */
     async renderScrollView() {
         if (!this.pdfDoc) return;
 
         // Prevent concurrent renders
-        if (this.isRendering) {
-            console.log('Render already in progress, skipping...');
-            return;
-        }
+        if (this.isRendering) return;
 
         this.isRendering = true;
 
-        // CRITICAL: Force scroll to 0 IMMEDIATELY before anything else
+        // Force scroll to 0 before anything else
         const container = document.querySelector('.pdf-canvas-container');
         container.scrollTop = 0;
-        console.log('🔒 [ENTRY] Forced scroll to 0 at renderScrollView entry:', container.scrollTop);
 
         // Show loading overlay
         const loadingOverlay = document.getElementById('pdfLoadingOverlay');
@@ -574,34 +639,63 @@ class PDFViewer {
         const insertionOverlay = document.getElementById('insertionOverlay');
         const loadingOverlayEl = document.getElementById('pdfLoadingOverlay');
 
+        // Release existing canvases to the pool before clearing
+        const oldCanvases = container.querySelectorAll('canvas');
+        oldCanvases.forEach(c => this.canvasPool.release(c));
+
         // Clear existing content but keep overlays
         container.innerHTML = '';
         this.allPageCanvases = [];
 
         // Force scroll again after clearing
         container.scrollTop = 0;
-        console.log('🔒 [AFTER CLEAR] Scroll after clearing container:', container.scrollTop);
 
         // Create a wrapper for all pages FIRST (before overlays)
         const pagesWrapper = document.createElement('div');
         pagesWrapper.id = 'scrollViewWrapper';
         pagesWrapper.style.display = 'flex';
         pagesWrapper.style.flexDirection = 'column';
-        pagesWrapper.style.alignItems = 'flex-start'; // Changed from center to allow horizontal scroll
+        pagesWrapper.style.alignItems = 'flex-start';
         pagesWrapper.style.gap = '1rem';
         pagesWrapper.style.padding = '0';
-        pagesWrapper.style.paddingTop = '0.5rem'; // Minimal top padding
+        pagesWrapper.style.paddingTop = '0.5rem';
         pagesWrapper.style.paddingBottom = '1rem';
-        pagesWrapper.style.width = 'fit-content'; // Changed from 100% to allow overflow
-        pagesWrapper.style.minWidth = '100%'; // Minimum width
+        pagesWrapper.style.width = 'fit-content';
+        pagesWrapper.style.minWidth = '100%';
         pagesWrapper.style.minHeight = '100%';
 
-        // OPTIMIZATION: Render initial pages immediately, rest progressively in background
-        const INITIAL_PAGES = 3; // Render first 3 pages immediately for instant display
+        // Disconnect existing observers if any
+        if (this.pageObserver) {
+            this.pageObserver.disconnect();
+        }
+        if (this.pageTracker) {
+            this.pageTracker.disconnect();
+        }
 
-        console.log(`⚡ [Performance] Rendering first ${INITIAL_PAGES} pages immediately, rest in background`);
+        // Create IntersectionObserver for lazy loading pages
+        this.pageObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const pageCanvas = entry.target;
+                    const pageNum = parseInt(pageCanvas.dataset.pageNum);
 
-        // Render each page with progress updates
+                    // Only render if marked as needing render
+                    if (pageCanvas.dataset.needsRender === 'true') {
+                        this.renderPageCanvas(pageCanvas, pageNum);
+                    }
+                }
+            });
+        }, {
+            root: container,
+            rootMargin: '600px', // Load ahead by 600px (approx 1 page height)
+            threshold: 0.01
+        });
+
+        const INITIAL_PAGES = 3; // Render first 3 pages immediately
+
+        // Render first pages immediately, rest lazy loaded
+
+        // Create placeholders for all pages
         for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
             const pageWrapper = document.createElement('div');
             pageWrapper.className = 'scroll-page-wrapper';
@@ -611,17 +705,22 @@ class PDFViewer {
             pageWrapper.style.border = '1px solid var(--border)';
             pageWrapper.style.backgroundColor = 'white';
 
-            const pageCanvas = document.createElement('canvas');
+            const pageCanvas = this.canvasPool.acquire();
             pageCanvas.id = `page-${pageNum}`;
             pageCanvas.dataset.pageNum = pageNum;
 
+            // Get viewport dimensions (we need to load page to get dimensions, 
+            // but we can cache them or just load the page object which is fast)
             const page = await this.pdfDoc.getPage(pageNum);
             const viewport = page.getViewport({ scale: this.scale });
 
             pageCanvas.width = viewport.width;
             pageCanvas.height = viewport.height;
 
-            // OPTIMIZATION: Render first N pages immediately, defer the rest
+            // Set initial style to avoid layout shift
+            pageCanvas.style.width = viewport.width + 'px';
+            pageCanvas.style.height = viewport.height + 'px';
+
             if (pageNum <= INITIAL_PAGES) {
                 // Render immediately
                 const ctx = pageCanvas.getContext('2d');
@@ -630,13 +729,14 @@ class PDFViewer {
                     viewport: viewport
                 };
                 await page.render(renderContext).promise;
+                pageCanvas.dataset.needsRender = 'false';
 
-                // Update progress for initial pages
-                const progress = Math.round((pageNum / INITIAL_PAGES) * 33); // 0-33% for initial load
+                // Update progress
+                const progress = Math.round((pageNum / INITIAL_PAGES) * 100);
                 if (progressFill) progressFill.style.width = progress + '%';
                 if (progressText) progressText.textContent = progress + '%';
             } else {
-                // Add placeholder - will render in background
+                // Mark for lazy load
                 pageCanvas.dataset.needsRender = 'true';
                 const ctx = pageCanvas.getContext('2d');
                 ctx.fillStyle = '#f5f5f5';
@@ -645,6 +745,9 @@ class PDFViewer {
                 ctx.font = '16px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText(`Page ${pageNum} - Loading...`, viewport.width / 2, viewport.height / 2);
+
+                // Observe this canvas
+                this.pageObserver.observe(pageCanvas);
             }
 
             pageWrapper.appendChild(pageCanvas);
@@ -652,289 +755,128 @@ class PDFViewer {
             this.allPageCanvases.push(pageCanvas);
         }
 
-        // Background rendering of remaining pages (non-blocking)
-        if (this.totalPages > INITIAL_PAGES) {
-            setTimeout(async () => {
-                console.log(`📚 [Background] Rendering remaining ${this.totalPages - INITIAL_PAGES} pages...`);
-                for (let pageNum = INITIAL_PAGES + 1; pageNum <= this.totalPages; pageNum++) {
-                    const pageCanvas = document.getElementById(`page-${pageNum}`);
-                    if (pageCanvas && pageCanvas.dataset.needsRender === 'true') {
-                        const page = await this.pdfDoc.getPage(pageNum);
-                        const viewport = page.getViewport({ scale: this.scale });
-                        const ctx = pageCanvas.getContext('2d');
-                        const renderContext = {
-                            canvasContext: ctx,
-                            viewport: viewport
-                        };
-                        await page.render(renderContext).promise;
-                        pageCanvas.dataset.needsRender = 'false';
-
-                        // Update progress (33-100%)
-                        const progress = 33 + Math.round(((pageNum - INITIAL_PAGES) / (this.totalPages - INITIAL_PAGES)) * 67);
-                        if (progressFill) progressFill.style.width = progress + '%';
-                        if (progressText) progressText.textContent = progress + '%';
-
-                        // Small delay to keep UI responsive
-                        await new Promise(resolve => setTimeout(resolve, 50));
-                    }
-                }
-                console.log('✅ [Background] All pages rendered');
-                // Hide progress after completion
-                setTimeout(() => {
-                    if (loadingOverlay) loadingOverlay.style.display = 'none';
-                }, 500);
-            }, 100); // Start background rendering after 100ms
-        }
-
         container.appendChild(pagesWrapper);
 
-        // Now add overlays AFTER pagesWrapper (so they're on top but don't affect layout)
-        if (insertionOverlay) {
-            container.appendChild(insertionOverlay);
-        }
-        if (loadingOverlayEl) {
-            container.appendChild(loadingOverlayEl);
-        }
+        // Add overlays back
+        if (insertionOverlay) container.appendChild(insertionOverlay);
+        if (loadingOverlayEl) container.appendChild(loadingOverlayEl);
 
-        // Check scroll immediately after appendChild
-        console.log('🔒 [AFTER APPEND] Scroll after appending pagesWrapper:', container.scrollTop);
-        if (container.scrollTop !== 0) {
-            console.warn('⚠️ WARNING: Scroll changed to', container.scrollTop, 'after appendChild! Forcing back to 0');
-            container.scrollTop = 0;
-        }
+        // Hide loading overlay after initial pages are done
+        setTimeout(() => {
+            if (loadingOverlay) loadingOverlay.style.display = 'none';
+        }, 500);
 
-        // CRITICAL FIX: Completely disable scroll events, then force position multiple times
-        // Force page 1 immediately
+        // Reset scroll logic (same as before)
+        container.scrollTop = 0;
         this.currentPage = 1;
         const pageInput = document.getElementById('pageInput');
-        if (pageInput) {
-            pageInput.value = 1;
-        }
+        if (pageInput) pageInput.value = 1;
 
-        // Disable scroll tracking during initialization
         this.initialLoad = true;
-        console.log('🔒 Scroll tracking DISABLED during initialization');
 
-        // Remove any existing scroll listener first
-        const oldHandler = this.handleScrollTracking;
-        if (oldHandler) {
-            container.removeEventListener('scroll', oldHandler);
-        }
-
-        // NUCLEAR OPTION: Block ALL scroll changes for 2 seconds
-        const scrollBlocker = (e) => {
-            container.scrollTop = 0;
-            console.log('🚫 [BLOCKER] Blocked scroll attempt, forced back to 0');
-        };
+        // Reset scroll blocker logic
+        const scrollBlocker = (e) => { container.scrollTop = 0; };
         container.addEventListener('scroll', scrollBlocker);
-        console.log('🚫 Scroll blocker ACTIVE - will force to 0 for 2 seconds');
-
-        // Immediate reset
-        container.scrollTop = 0;
-        console.log('✓ [0ms] Scroll position set to:', container.scrollTop);
-
-        // Multiple resets with increasing delays to fight browser layout
-        setTimeout(() => {
-            container.scrollTop = 0;
-            console.log('✓ [50ms] Scroll reset to:', container.scrollTop);
-        }, 50);
 
         setTimeout(() => {
-            container.scrollTop = 0;
-            console.log('✓ [100ms] Scroll reset to:', container.scrollTop);
-        }, 100);
-
-        setTimeout(() => {
-            container.scrollTop = 0;
-            console.log('✓ [200ms] Scroll reset to:', container.scrollTop);
-        }, 200);
-
-        setTimeout(() => {
-            container.scrollTop = 0;
-            console.log('✓ [400ms] Scroll reset to:', container.scrollTop);
-        }, 400);
-
-        // Setup tracking listener but keep it disabled
-        setTimeout(() => {
+            container.removeEventListener('scroll', scrollBlocker);
+            this.initialLoad = false;
             this.setupScrollPageTracking();
-            console.log('✓ [600ms] Scroll listener attached (but still disabled)');
-        }, 600);
+        }, 1000);
 
-        // Final reset and activation
-        setTimeout(() => {
-            container.scrollTop = 0;
-            const finalScroll = container.scrollTop;
-            console.log('✓ [800ms] FINAL scroll reset to:', finalScroll);
-            console.log('✓ Current page before activation:', this.currentPage);
-
-            // Force currentPage to 1 one more time
-            this.currentPage = 1;
-            if (pageInput) {
-                pageInput.value = 1;
-            }
-
-            // Wait for any pending scroll events to clear
-            setTimeout(() => {
-                // One more scroll check
-                const scrollCheck = container.scrollTop;
-                console.log('✓ [1000ms] Scroll position check:', scrollCheck);
-                if (scrollCheck !== 0) {
-                    console.warn('⚠️ Scroll was not 0! Forcing again:', scrollCheck, '→ 0');
-                    container.scrollTop = 0;
-                }
-
-                // Keep blocker active for another second
-                setTimeout(() => {
-                    // Remove the scroll blocker
-                    container.removeEventListener('scroll', scrollBlocker);
-                    console.log('🚫 Scroll blocker REMOVED');
-
-                    // Final forced reset
-                    container.scrollTop = 0;
-                    console.log('✓ [2000ms] Final scroll position:', container.scrollTop);
-
-                    // NOW enable tracking
-                    this.initialLoad = false;
-                    console.log('✅ Scroll tracking ENABLED - Page locked to 1');
-
-                    // Force a manual check of current page
-                    setTimeout(() => {
-                        console.log('✅ Page detection now FULLY active');
-                        console.log('🔍 Manual page check - Current scroll:', container.scrollTop);
-
-                        // Manually trigger the tracking to see what page is detected
-                        if (this.handleScrollTracking) {
-                            this.handleScrollTracking();
-                        }
-                    }, 500);
-                }, 1000);
-            }, 200);
-        }, 800);
-
-        // Hide loading overlay
-        if (loadingOverlay) {
-            setTimeout(() => {
-                loadingOverlay.style.display = 'none';
-                // Reset progress for next time
-                if (progressFill) progressFill.style.width = '0%';
-                if (progressText) progressText.textContent = '0%';
-            }, 300);
-        }
-
-        // Mark rendering as complete
         this.isRendering = false;
+    }
 
-        console.log(`Rendered ${this.totalPages} pages in scroll view - Starting at page 1`);
+    /**
+     * Render a specific page canvas (Lazy Load helper)
+     */
+    async renderPageCanvas(canvas, pageNum) {
+        try {
+            const page = await this.pdfDoc.getPage(pageNum);
+            const viewport = page.getViewport({ scale: this.scale });
+            const ctx = canvas.getContext('2d');
+
+            const renderContext = {
+                canvasContext: ctx,
+                viewport: viewport
+            };
+
+            await page.render(renderContext).promise;
+            canvas.dataset.needsRender = 'false';
+        } catch (error) {
+            console.error(`Error lazy rendering page ${pageNum}:`, error);
+        }
     }
 
     /**
      * Track which page is currently visible during scrolling
+     * Uses IntersectionObserver for O(1) page detection instead of O(n) scroll loop
      */
     setupScrollPageTracking() {
         const container = document.querySelector('.pdf-canvas-container');
 
-        // Remove existing listener
-        container.removeEventListener('scroll', this.handleScrollTracking);
+        // Remove existing scroll listener if any
+        if (this.handleScrollTracking) {
+            container.removeEventListener('scroll', this.handleScrollTracking);
+            this.handleScrollTracking = null;
+        }
 
-        // Add new listener
-        this.handleScrollTracking = () => {
-            console.log('🔔 handleScrollTracking called, viewMode:', this.viewMode, 'initialLoad:', this.initialLoad);
+        // Disconnect existing page tracker if any
+        if (this.pageTracker) {
+            this.pageTracker.disconnect();
+            this.pageTracker = null;
+        }
 
-            if (this.viewMode !== 'scroll') {
-                console.log('  ❌ Exiting: viewMode is not scroll');
-                return;
-            }
+        // Create IntersectionObserver for page tracking
+        // threshold: 0.5 means the callback fires when 50%+ of a page is visible
+        this.pageTracker = new IntersectionObserver((entries) => {
+            if (this.viewMode !== 'scroll' || this.initialLoad) return;
 
-            // IMPORTANT: Ignore scroll events during initial load to prevent wrong page detection
-            if (this.initialLoad) {
-                console.log('  ❌ Exiting: Ignoring scroll during initial load');
-                return;
-            }
-
-            console.log('  ✅ Passed checks, scrollTop:', container.scrollTop);
-
-            // DEBUG: Check if pagesWrapper itself has scroll
-            const pagesWrapper = document.getElementById('scrollViewWrapper');
-            if (pagesWrapper) {
-                console.log('  📦 pagesWrapper scrollTop:', pagesWrapper.scrollTop);
-                console.log('  📦 pagesWrapper scrollHeight:', pagesWrapper.scrollHeight);
-            }
-
-            // DEBUG: Check actual visual positions of first 3 pages
-            const containerRect = container.getBoundingClientRect();
-            console.log('  📍 Container viewport: top=', Math.round(containerRect.top), 'bottom=', Math.round(containerRect.bottom));
-
-            // Check pagesWrapper position itself
-            if (pagesWrapper) {
-                const wrapperRect = pagesWrapper.getBoundingClientRect();
-                console.log('  📦 pagesWrapper visual position: top=', Math.round(wrapperRect.top), 'height=', Math.round(wrapperRect.height));
-            }
-
-            console.log('  📍 Checking visual positions of first 3 pages:');
-            for (let i = 0; i < Math.min(3, this.allPageCanvases.length); i++) {
-                const canvas = this.allPageCanvases[i];
-                const rect = canvas.getBoundingClientRect();
-                const isVisible = rect.top < containerRect.bottom && rect.bottom > containerRect.top;
-                console.log(`    Page ${i+1}: top=${Math.round(rect.top)}, bottom=${Math.round(rect.bottom)}, visible=${isVisible}`);
-            }
-
-            // CRITICAL FIX: If scroll is very near top (0-20px), force page 1
-            if (container.scrollTop <= 20) {
-                if (this.currentPage !== 1) {
-                    this.currentPage = 1;
-                    console.log('🔒 Scroll at top (scrollTop:', container.scrollTop, ') - Forcing page to 1');
-
-                    const pageInput = document.getElementById('pageInput');
-                    if (pageInput) {
-                        pageInput.value = 1;
-                    }
-
-                    if (this.navPanelOpen) {
-                        this.updateActiveThumbnail(1);
-                    }
-                }
-                return; // Don't do center detection if at top
-            }
-
-            // containerRect already declared above for debugging
-            const containerCenter = containerRect.top + containerRect.height / 2;
-
-            // DEBUG: Log scroll position and viewport center
-            console.log(`📊 Scroll: ${container.scrollTop}px, Container center: ${containerCenter}px`);
-
-            // Find which page is currently in the center of viewport
-            for (let i = 0; i < this.allPageCanvases.length; i++) {
-                const canvas = this.allPageCanvases[i];
-                const rect = canvas.getBoundingClientRect();
-
-                // DEBUG: Log first 3 pages positions
-                if (i < 3) {
-                    console.log(`  Page ${i+1}: top=${Math.round(rect.top)}, bottom=${Math.round(rect.bottom)}`);
-                }
-
-                if (rect.top <= containerCenter && rect.bottom >= containerCenter) {
-                    const pageNum = i + 1;
-                    if (this.currentPage !== pageNum) {
+            for (const entry of entries) {
+                if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+                    const pageNum = parseInt(entry.target.dataset.pageNum);
+                    if (pageNum && this.currentPage !== pageNum) {
                         this.currentPage = pageNum;
-                        console.log(`✅ Page changed to: ${pageNum} (rect.top=${Math.round(rect.top)}, rect.bottom=${Math.round(rect.bottom)})`);
-
-                        // Update page input field
-                        const pageInput = document.getElementById('pageInput');
-                        if (pageInput) {
-                            pageInput.value = pageNum;
-                        }
-
-                        // Update active thumbnail if navigator is open
-                        if (this.navPanelOpen) {
-                            this.updateActiveThumbnail(pageNum);
-                        }
+                        this.updatePageTrackingUI(pageNum);
                     }
-                    break;
                 }
+            }
+        }, {
+            root: container,
+            threshold: 0.5
+        });
+
+        // Observe all page canvases
+        for (const canvas of this.allPageCanvases) {
+            this.pageTracker.observe(canvas);
+        }
+
+        // Lightweight scroll handler only for the edge case: scroll near top forces page 1
+        this.handleScrollTracking = () => {
+            if (this.viewMode !== 'scroll' || this.initialLoad) return;
+
+            if (container.scrollTop <= 20 && this.currentPage !== 1) {
+                this.currentPage = 1;
+                this.updatePageTrackingUI(1);
             }
         };
 
-        container.addEventListener('scroll', this.handleScrollTracking);
+        container.addEventListener('scroll', this.handleScrollTracking, { passive: true });
+    }
+
+    /**
+     * Update UI elements when current page changes (called by pageTracker)
+     * @param {number} pageNum - New current page number
+     */
+    updatePageTrackingUI(pageNum) {
+        const pageInput = document.getElementById('pageInput');
+        if (pageInput) {
+            pageInput.value = pageNum;
+        }
+
+        if (this.navPanelOpen) {
+            this.updateActiveThumbnail(pageNum);
+        }
     }
 
     /**
@@ -1004,7 +946,6 @@ class PDFViewer {
      * Open navigator panel
      */
     async openNavigator() {
-        console.log('Opening navigator...');
         if (!this.pdfDoc) {
             console.error('No PDF document loaded');
             return;
@@ -1014,7 +955,6 @@ class PDFViewer {
         const container = document.querySelector('.app-container');
         const toggleBtn = document.getElementById('toggleNavPanel');
 
-        console.log('Navigator elements:', { navPanel, container, toggleBtn });
 
         navPanel.style.display = 'flex';
         this.navPanelOpen = true;
@@ -1025,7 +965,6 @@ class PDFViewer {
             toggleBtn.classList.add('active');
         }
 
-        console.log('Navigator panel opened, generating thumbnails...');
         // Generate thumbnails if not already generated
         await this.generateThumbnails();
     }
@@ -1051,8 +990,10 @@ class PDFViewer {
     /**
      * Generate thumbnails for all pages
      */
+    /**
+     * Generate thumbnails for all pages (Lazy Loaded)
+     */
     async generateThumbnails(force = false) {
-        console.log('generateThumbnails called, force:', force);
 
         if (!this.pdfDoc) {
             console.error('Cannot generate thumbnails: no PDF document loaded');
@@ -1067,55 +1008,46 @@ class PDFViewer {
 
         // Only generate if empty (unless force is true)
         if (this.thumbnails.length > 0 && !force) {
-            console.log('Thumbnails already generated, skipping');
             return;
         }
 
-        console.log(`Starting to generate ${this.totalPages} thumbnails...`);
         navThumbnails.innerHTML = ''; // Clear existing thumbnails
         this.thumbnails = [];
 
-        const thumbnailScale = 0.3; // Reduced scale for better performance
+        // Disconnect existing observer if any
+        if (this.thumbnailObserver) {
+            this.thumbnailObserver.disconnect();
+        }
+
+        // Create IntersectionObserver for lazy loading
+        this.thumbnailObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const thumbDiv = entry.target;
+                    const pageNum = parseInt(thumbDiv.dataset.pageNum);
+                    this.renderThumbnail(thumbDiv, pageNum);
+                    observer.unobserve(thumbDiv); // Only render once
+                }
+            });
+        }, {
+            root: navThumbnails,
+            rootMargin: '200px', // Load ahead by 200px
+            threshold: 0.1
+        });
 
         for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
-            console.log(`Rendering thumbnail for page ${pageNum}`);
-            const page = await this.pdfDoc.getPage(pageNum);
-            const viewport = page.getViewport({ scale: thumbnailScale });
-            console.log(`Page ${pageNum} viewport:`, viewport.width, 'x', viewport.height);
-
             // Create thumbnail container
             const thumbDiv = document.createElement('div');
             thumbDiv.className = 'nav-thumbnail';
             thumbDiv.dataset.pageNum = pageNum;
-            // Selection is handled by updateThumbnailSelection(), not here
 
             // Create thumbnail wrapper (for positioning)
             const thumbWrapper = document.createElement('div');
             thumbWrapper.className = 'nav-thumbnail-wrapper';
-
-            // Create canvas for thumbnail
-            const canvas = document.createElement('canvas');
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
-            console.log(`Canvas created: ${canvas.width}x${canvas.height}`);
-
-            const ctx = canvas.getContext('2d');
-            const renderContext = {
-                canvasContext: ctx,
-                viewport: viewport
-            };
-
-            console.log(`Starting render for page ${pageNum}...`);
-            await page.render(renderContext).promise;
-            console.log(`Page ${pageNum} rendered successfully`);
-
-            // Create page number overlay badge
-            const badge = document.createElement('div');
-            badge.className = 'nav-thumbnail-badge';
-            badge.textContent = pageNum;
-
-            thumbWrapper.appendChild(canvas);
-            thumbWrapper.appendChild(badge);
+            // Set aspect ratio placeholder if possible, otherwise fixed height
+            // We don't know exact dimensions yet without loading page, so use standard A4 ratio approx
+            thumbWrapper.style.minHeight = '150px';
+            thumbWrapper.style.backgroundColor = '#f0f0f0'; // Placeholder color
 
             // Create label
             const label = document.createElement('div');
@@ -1144,9 +1076,59 @@ class PDFViewer {
 
             navThumbnails.appendChild(thumbDiv);
             this.thumbnails.push(thumbDiv);
+
+            // Observe for lazy loading
+            this.thumbnailObserver.observe(thumbDiv);
         }
 
-        console.log(`Generated ${this.thumbnails.length} thumbnails successfully`);
+    }
+
+    /**
+     * Render a specific thumbnail (called by IntersectionObserver)
+     */
+    async renderThumbnail(thumbDiv, pageNum) {
+        try {
+            const page = await this.pdfDoc.getPage(pageNum);
+            const thumbnailScale = 0.3;
+            const viewport = page.getViewport({ scale: thumbnailScale });
+
+            const thumbWrapper = thumbDiv.querySelector('.nav-thumbnail-wrapper');
+            if (!thumbWrapper) return;
+
+            // Remove placeholder style
+            thumbWrapper.style.minHeight = '';
+            thumbWrapper.style.backgroundColor = '';
+
+            // Create canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+
+            const ctx = canvas.getContext('2d');
+            const renderContext = {
+                canvasContext: ctx,
+                viewport: viewport
+            };
+
+            await page.render(renderContext).promise;
+
+            // Create page number overlay badge
+            const badge = document.createElement('div');
+            badge.className = 'nav-thumbnail-badge';
+            badge.textContent = pageNum;
+
+            thumbWrapper.innerHTML = ''; // Clear any placeholder content
+            thumbWrapper.appendChild(canvas);
+            thumbWrapper.appendChild(badge);
+
+            // Restore selection state if needed
+            if (this.selectedPages.has(pageNum)) {
+                thumbDiv.classList.add('selected');
+            }
+
+        } catch (error) {
+            console.error(`Error rendering thumbnail for page ${pageNum}:`, error);
+        }
     }
 
     /**
@@ -1159,7 +1141,6 @@ class PDFViewer {
             return;
         }
 
-        console.log(`🔄 Regenerating thumbnail for page ${pageNum}...`);
 
         const navThumbnails = document.getElementById('navThumbnails');
         if (!navThumbnails) {
@@ -1199,7 +1180,6 @@ class PDFViewer {
 
             // Render the page
             await page.render(renderContext).promise;
-            console.log(`✅ Thumbnail for page ${pageNum} regenerated`);
         } catch (error) {
             console.error(`Failed to regenerate thumbnail for page ${pageNum}:`, error);
         }
@@ -1252,7 +1232,6 @@ class PDFViewer {
             const toPage = pageNum;
 
             if (fromPage !== toPage) {
-                console.log(`Moving page ${fromPage} to position ${toPage}`);
                 await this.reorderPages(fromPage, toPage);
             }
         });
@@ -1283,12 +1262,9 @@ class PDFViewer {
     async goToPage(pageNum) {
         if (pageNum < 1 || pageNum > this.totalPages) return;
 
-        console.log(`🎯 goToPage called for page ${pageNum}`);
-
-        // CRITICAL: Temporarily disable scroll tracking during navigation
+        // Temporarily disable scroll tracking during navigation
         const wasInitialLoad = this.initialLoad;
-        this.initialLoad = true; // Block scroll tracking
-        console.log('🚫 Scroll tracking temporarily DISABLED for navigation');
+        this.initialLoad = true;
 
         this.currentPage = pageNum;
 
@@ -1309,8 +1285,6 @@ class PDFViewer {
             const targetRect = targetWrapper.getBoundingClientRect();
             const scrollOffset = targetRect.top - containerRect.top + container.scrollTop;
 
-            console.log(`📍 Scrolling to page ${pageNum}, offset: ${scrollOffset}`);
-
             // Use smooth scroll
             container.scrollTo({
                 top: scrollOffset,
@@ -1320,7 +1294,6 @@ class PDFViewer {
             // Re-enable scroll tracking after smooth scroll completes (1 second)
             setTimeout(() => {
                 this.initialLoad = wasInitialLoad;
-                console.log('✅ Scroll tracking RE-ENABLED after navigation');
             }, 1000);
         } else {
             // If no scroll needed, re-enable immediately
@@ -1610,8 +1583,6 @@ class PDFViewer {
             const pageNum = parseInt(checkbox.value);
             checkbox.checked = selectedPages.includes(pageNum);
         });
-
-        console.log('🔄 [Thumbnails → Rotation Panel] Synced selection:', selectedPages);
 
         this.syncInProgress = false; // Reset flag
     }

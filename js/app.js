@@ -7,576 +7,13 @@
  * Pending Objects Manager
  * Manages objects waiting to be inserted into PDF
  */
-class PendingObjectsManager {
-    constructor() {
-        this.objects = [];
-        this.nextId = 1;
-        this.overlay = null;
-        this.drawingState = null;
-    }
-
-    initialize() {
-        this.overlay = document.getElementById('insertionOverlay');
-        this.setupValidateButtons();
-        this.syncOverlayWithCanvas();
-
-        // Sync overlay when window resizes or canvas changes
-        window.addEventListener('resize', () => this.syncOverlayWithCanvas());
-    }
-
-    syncOverlayWithCanvas() {
-        const container = document.querySelector('.pdf-canvas-container');
-        if (!container) return;
-
-        // In scroll mode, overlay covers the entire container to allow drawing on all pages
-        if (viewer.viewMode === 'scroll') {
-            this.overlay.style.left = '0';
-            this.overlay.style.top = '0';
-            this.overlay.style.width = '100%';
-            this.overlay.style.height = '100%';
-            this.overlay.style.position = 'absolute';
-        } else {
-            // Single page mode (legacy)
-            const canvas = document.getElementById('pdfCanvas');
-            if (!canvas) return;
-
-            const canvasRect = canvas.getBoundingClientRect();
-            const containerRect = container.getBoundingClientRect();
-
-            this.overlay.style.left = (canvasRect.left - containerRect.left) + 'px';
-            this.overlay.style.top = (canvasRect.top - containerRect.top) + 'px';
-            this.overlay.style.width = canvas.offsetWidth + 'px';
-            this.overlay.style.height = canvas.offsetHeight + 'px';
-            this.overlay.style.position = 'absolute';
-        }
-    }
-
-    setupValidateButtons() {
-        document.getElementById('validateAllBtn').addEventListener('click', () => this.validateAll());
-        document.getElementById('cancelAllBtn').addEventListener('click', () => this.cancelAll());
-    }
-
-    addObject(type, page, bounds, data) {
-        const id = `obj-${this.nextId++}`;
-        const obj = {
-            id,
-            type, // 'image', 'text', 'signature'
-            page,
-            bounds, // { x, y, width, height }
-            data, // type-specific data
-            element: null
-        };
-
-        this.objects.push(obj);
-        this.renderObject(obj);
-        this.updateUI();
-        return obj;
-    }
-
-    renderObject(obj) {
-        const element = document.createElement('div');
-        element.className = `pending-object pending-${obj.type}`;
-        element.dataset.id = obj.id;
-        element.style.left = obj.bounds.x + 'px';
-        element.style.top = obj.bounds.y + 'px';
-        element.style.width = obj.bounds.width + 'px';
-        element.style.height = obj.bounds.height + 'px';
-
-        // Add content based on type
-        if (obj.type === 'image') {
-            const img = document.createElement('img');
-            img.src = obj.data.imageUrl;
-            element.appendChild(img);
-        } else if (obj.type === 'text') {
-            const textarea = document.createElement('textarea');
-            textarea.className = 'text-content';
-            textarea.value = obj.data.text || '';
-            textarea.style.fontSize = obj.data.fontSize + 'px';
-            textarea.style.color = obj.data.color;
-            textarea.addEventListener('input', (e) => {
-                obj.data.text = e.target.value;
-            });
-            element.appendChild(textarea);
-        } else if (obj.type === 'signature') {
-            const img = document.createElement('img');
-            img.src = obj.data.signatureUrl;
-            element.appendChild(img);
-        }
-
-        // Add resize handles
-        ['nw', 'ne', 'sw', 'se'].forEach(corner => {
-            const handle = document.createElement('div');
-            handle.className = `resize-handle ${corner}`;
-            handle.dataset.corner = corner;
-            element.appendChild(handle);
-        });
-
-        // Add delete button
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'delete-btn';
-        deleteBtn.innerHTML = '<i class="ti ti-x"></i>';
-        deleteBtn.onclick = () => this.removeObject(obj.id);
-        element.appendChild(deleteBtn);
-
-        // Add interaction handlers
-        this.setupObjectInteraction(element, obj);
-
-        obj.element = element;
-        this.overlay.appendChild(element);
-    }
-
-    setupObjectInteraction(element, obj) {
-        let isDragging = false;
-        let isResizing = false;
-        let startPos = { x: 0, y: 0 };
-        let startBounds = null;
-        let resizeCorner = null;
-
-        element.addEventListener('mousedown', (e) => {
-            // Always save initial bounds and position
-            startBounds = { ...obj.bounds };
-            startPos = { x: e.clientX, y: e.clientY };
-
-            if (e.target.classList.contains('resize-handle')) {
-                isResizing = true;
-                resizeCorner = e.target.dataset.corner;
-            } else if (!e.target.classList.contains('text-content') && !e.target.classList.contains('delete-btn')) {
-                isDragging = true;
-                element.style.cursor = 'move';
-            }
-
-            e.stopPropagation();
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (!isDragging && !isResizing) return;
-
-            const deltaX = e.clientX - startPos.x;
-            const deltaY = e.clientY - startPos.y;
-
-            if (isDragging) {
-                // Calculate new position from start bounds
-                obj.bounds.x = Math.max(0, startBounds.x + deltaX);
-                obj.bounds.y = Math.max(0, startBounds.y + deltaY);
-
-                element.style.left = obj.bounds.x + 'px';
-                element.style.top = obj.bounds.y + 'px';
-            } else if (isResizing) {
-                this.resizeObject(obj, element, resizeCorner, deltaX, deltaY, startBounds);
-            }
-        });
-
-        document.addEventListener('mouseup', () => {
-            if (isDragging) {
-                element.style.cursor = '';
-            }
-            isDragging = false;
-            isResizing = false;
-            startBounds = null;
-        });
-    }
-
-    resizeObject(obj, element, corner, deltaX, deltaY, startBounds) {
-        const minSize = 20;
-
-        switch (corner) {
-            case 'se': // Bottom-right
-                obj.bounds.width = Math.max(minSize, startBounds.width + deltaX);
-                obj.bounds.height = Math.max(minSize, startBounds.height + deltaY);
-                break;
-            case 'sw': // Bottom-left
-                obj.bounds.x = Math.max(0, startBounds.x + deltaX);
-                obj.bounds.width = Math.max(minSize, startBounds.width - deltaX);
-                obj.bounds.height = Math.max(minSize, startBounds.height + deltaY);
-                break;
-            case 'ne': // Top-right
-                obj.bounds.y = Math.max(0, startBounds.y + deltaY);
-                obj.bounds.width = Math.max(minSize, startBounds.width + deltaX);
-                obj.bounds.height = Math.max(minSize, startBounds.height - deltaY);
-                break;
-            case 'nw': // Top-left
-                obj.bounds.x = Math.max(0, startBounds.x + deltaX);
-                obj.bounds.y = Math.max(0, startBounds.y + deltaY);
-                obj.bounds.width = Math.max(minSize, startBounds.width - deltaX);
-                obj.bounds.height = Math.max(minSize, startBounds.height - deltaY);
-                break;
-        }
-
-        element.style.left = obj.bounds.x + 'px';
-        element.style.top = obj.bounds.y + 'px';
-        element.style.width = obj.bounds.width + 'px';
-        element.style.height = obj.bounds.height + 'px';
-    }
-
-    removeObject(id) {
-        const index = this.objects.findIndex(obj => obj.id === id);
-        if (index === -1) return;
-
-        const obj = this.objects[index];
-        if (obj.element) {
-            obj.element.remove();
-        }
-
-        this.objects.splice(index, 1);
-        this.updateUI();
-    }
-
-    clear() {
-        this.objects.forEach(obj => {
-            if (obj.element) obj.element.remove();
-        });
-        this.objects = [];
-        this.updateUI();
-    }
-
-    updateUI() {
-        const container = document.getElementById('validateAllContainer');
-        const countText = document.getElementById('validateAllText');
-
-        if (this.objects.length > 0) {
-            container.style.display = 'flex';
-            countText.textContent = `Validate All (${this.objects.length})`;
-            this.overlay.classList.add('active');
-        } else {
-            container.style.display = 'none';
-            this.overlay.classList.remove('active');
-        }
-    }
-
-    async validateAll() {
-        if (this.objects.length === 0) return;
-
-        try {
-            const currentPage = viewer.currentPage;
-            const objectCount = this.objects.length;
-
-            // Save state BEFORE making any changes (for undo/redo)
-            saveStateForUndo();
-
-            // Insert all objects into PDF sequentially
-            for (const obj of this.objects) {
-                await this.insertObject(obj);
-            }
-
-            // Clear pending objects
-            this.clear();
-
-            // Refresh the view
-            await viewer.loadPDF(currentPDFData.slice(0));
-
-            // Restore page position in scroll view
-            await viewer.goToPage(currentPage);
-
-            // Regenerate thumbnails after insertion
-            if (viewer.navPanelOpen) {
-                await viewer.generateThumbnails(true);
-            }
-
-            // Update cache if document is cached
-            if (currentCacheId && currentPDFData) {
-                await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
-            }
-
-            // Update document in tabs
-            const activeDoc = getActiveDocument();
-            if (activeDoc) {
-                activeDoc.pdfData = currentPDFData.slice(0);
-            }
-
-            // Add to history WITHOUT calling saveStateForUndo again
-            const timestamp = new Date().toLocaleTimeString();
-            editHistory.push(`Inserted ${objectCount} object(s) (${timestamp})`);
-            updateMetadataDisplay();
-            updateUndoRedoButtons();
-
-            // Close the tool panel after successful insertion
-            closeToolPanel();
-
-            showNotification(`Successfully inserted ${objectCount} object(s)!`, 'success');
-        } catch (error) {
-            console.error('Failed to validate objects:', error);
-            showNotification('Failed to insert objects: ' + error.message, 'error');
-        }
-    }
-
-    async insertObject(obj) {
-        const pageIndex = obj.page - 1;
-        const pdfCopy = currentPDFData.slice(0);
-
-        // Convert overlay coordinates to PDF coordinates
-        const pdfBounds = await this.convertOverlayToPDFCoordinates(obj.bounds, pageIndex);
-
-        console.log(`Inserting ${obj.type} on page ${obj.page}`);
-        console.log('Overlay bounds:', obj.bounds);
-        console.log('PDF bounds:', pdfBounds);
-
-        if (obj.type === 'image') {
-            const modifiedPDF = await tools.insertImage(
-                pdfCopy,
-                obj.data.imageData,
-                obj.data.imageType,
-                pageIndex,
-                pdfBounds
-            );
-            const newArray = new Uint8Array(modifiedPDF);
-            currentPDFData = newArray.buffer;
-            console.log(`Image inserted, new PDF size: ${currentPDFData.byteLength} bytes`);
-        } else if (obj.type === 'text') {
-            const modifiedPDF = await tools.addTextAnnotation(
-                pdfCopy,
-                pageIndex,
-                obj.data.text,
-                {
-                    x: pdfBounds.x,
-                    y: pdfBounds.y,
-                    size: obj.data.fontSize,
-                    color: obj.data.colorRGB
-                }
-            );
-            const newArray = new Uint8Array(modifiedPDF);
-            currentPDFData = newArray.buffer;
-            console.log(`Text inserted, new PDF size: ${currentPDFData.byteLength} bytes`);
-        } else if (obj.type === 'signature') {
-            const modifiedPDF = await tools.insertImage(
-                pdfCopy,
-                obj.data.signatureData,
-                'png',
-                pageIndex,
-                pdfBounds
-            );
-            const newArray = new Uint8Array(modifiedPDF);
-            currentPDFData = newArray.buffer;
-            console.log(`Signature inserted, new PDF size: ${currentPDFData.byteLength} bytes`);
-        }
-    }
-
-    async convertOverlayToPDFCoordinates(overlayBounds, pageIndex) {
-        // Get the appropriate canvas based on view mode
-        let canvas;
-        if (viewer.viewMode === 'scroll' && viewer.allPageCanvases[pageIndex]) {
-            canvas = viewer.allPageCanvases[pageIndex];
-        } else {
-            canvas = document.getElementById('pdfCanvas');
-        }
-
-        if (!canvas) {
-            console.error('Canvas not found for page', pageIndex);
-            return overlayBounds;
-        }
-
-        // Get PDF page dimensions using PDF-lib
-        const pdfDoc = await PDFLib.PDFDocument.load(currentPDFData);
-        const page = pdfDoc.getPage(pageIndex);
-        const pageWidth = page.getWidth();
-        const pageHeight = page.getHeight();
-
-        // Calculate scale factors from display pixels to PDF points
-        const scaleX = pageWidth / canvas.offsetWidth;
-        const scaleY = pageHeight / canvas.offsetHeight;
-
-        console.log('Conversion debug:');
-        console.log('  Page index:', pageIndex);
-        console.log('  Overlay bounds:', overlayBounds);
-        console.log('  Canvas display size:', canvas.offsetWidth, 'x', canvas.offsetHeight);
-        console.log('  PDF page size:', pageWidth, 'x', pageHeight);
-        console.log('  Scale factors:', scaleX, scaleY);
-
-        // Convert coordinates from display pixels to PDF points
-        return {
-            x: overlayBounds.x * scaleX,
-            y: overlayBounds.y * scaleY,
-            width: overlayBounds.width * scaleX,
-            height: overlayBounds.height * scaleY
-        };
-    }
-
-    cancelAll() {
-        if (this.objects.length === 0) return;
-        if (confirm(`Cancel all ${this.objects.length} pending object(s)?`)) {
-            this.clear();
-        }
-    }
-
-    // Draw box interaction
-    startDrawing(type, data) {
-        console.log('📦 startDrawing called, type:', type, 'data:', data);
-        console.log('📦 Overlay element:', this.overlay);
-
-        // In scroll mode, we work with the scroll view directly
-        // No need to switch view modes anymore
-
-        // Sync overlay with canvas before starting
-        this.syncOverlayWithCanvas();
-
-        this.drawingState = {
-            type,
-            data,
-            startX: 0,
-            startY: 0,
-            element: null
-        };
-
-        this.overlay.style.cursor = 'crosshair';
-        this.overlay.classList.add('active');
-
-        console.log('📦 Drawing state set:', this.drawingState);
-        console.log('📦 Overlay cursor:', this.overlay.style.cursor);
-        console.log('📦 Overlay classes:', this.overlay.className);
-
-        // Show a message to guide the user
-        console.log('Drawing mode active. Draw a box on the PDF to place your', type);
-    }
-
-    handleDrawMouseDown(e) {
-        console.log('🖱️ Mouse down on overlay, drawingState:', this.drawingState);
-        if (!this.drawingState) {
-            console.warn('⚠️ No drawing state, ignoring mousedown');
-            return;
-        }
-
-        const rect = this.overlay.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-
-        console.log('🖱️ Drawing start position:', x, y);
-
-        this.drawingState.startX = x;
-        this.drawingState.startY = y;
-
-        // Create drawing element
-        const element = document.createElement('div');
-        element.className = 'pending-object drawing';
-        element.style.left = x + 'px';
-        element.style.top = y + 'px';
-        element.style.width = '0px';
-        element.style.height = '0px';
-
-        this.drawingState.element = element;
-        this.overlay.appendChild(element);
-        console.log('✅ Drawing element created and appended');
-    }
-
-    handleDrawMouseMove(e) {
-        if (!this.drawingState || !this.drawingState.element) return;
-
-        const rect = this.overlay.getBoundingClientRect();
-        const currentX = e.clientX - rect.left;
-        const currentY = e.clientY - rect.top;
-
-        const width = Math.abs(currentX - this.drawingState.startX);
-        const height = Math.abs(currentY - this.drawingState.startY);
-        const left = Math.min(currentX, this.drawingState.startX);
-        const top = Math.min(currentY, this.drawingState.startY);
-
-        this.drawingState.element.style.left = left + 'px';
-        this.drawingState.element.style.top = top + 'px';
-        this.drawingState.element.style.width = width + 'px';
-        this.drawingState.element.style.height = height + 'px';
-    }
-
-    handleDrawMouseUp(e) {
-        if (!this.drawingState || !this.drawingState.element) return;
-
-        const rect = this.overlay.getBoundingClientRect();
-        const currentX = e.clientX - rect.left;
-        const currentY = e.clientY - rect.top;
-
-        const width = Math.abs(currentX - this.drawingState.startX);
-        const height = Math.abs(currentY - this.drawingState.startY);
-
-        // Minimum size check
-        if (width < 20 || height < 20) {
-            this.drawingState.element.remove();
-            this.drawingState = null;
-            this.overlay.style.cursor = '';
-            return;
-        }
-
-        const left = Math.min(currentX, this.drawingState.startX);
-        const top = Math.min(currentY, this.drawingState.startY);
-
-        const bounds = { x: left, y: top, width, height };
-
-        // Determine which page was clicked (in scroll mode)
-        let targetPage = viewer.currentPage;
-        if (viewer.viewMode === 'scroll' && viewer.allPageCanvases.length > 0) {
-            // Find which page canvas contains these coordinates
-            const container = document.querySelector('.pdf-canvas-container');
-            const containerRect = container.getBoundingClientRect();
-            const absoluteX = e.clientX;
-            const absoluteY = e.clientY;
-
-            for (let i = 0; i < viewer.allPageCanvases.length; i++) {
-                const canvas = viewer.allPageCanvases[i];
-                const canvasRect = canvas.getBoundingClientRect();
-
-                if (absoluteY >= canvasRect.top && absoluteY <= canvasRect.bottom) {
-                    targetPage = i + 1;
-
-                    // Adjust bounds to be relative to this specific canvas
-                    // Convert from overlay coordinates to canvas-relative coordinates
-                    const overlayRect = this.overlay.getBoundingClientRect();
-                    bounds.x = left - (canvasRect.left - overlayRect.left);
-                    bounds.y = top - (canvasRect.top - overlayRect.top);
-
-                    console.log('📍 Page detection:', {
-                        targetPage,
-                        originalBounds: { x: left, y: top, width, height },
-                        adjustedBounds: bounds,
-                        canvasTop: canvasRect.top,
-                        overlayTop: overlayRect.top
-                    });
-                    break;
-                }
-            }
-        }
-
-        // Remove drawing element
-        this.drawingState.element.remove();
-
-        // Add actual object
-        this.addObject(
-            this.drawingState.type,
-            targetPage,
-            bounds,
-            this.drawingState.data
-        );
-
-        this.drawingState = null;
-        this.overlay.style.cursor = '';
-        // DON'T remove active class - keep overlay active for potential additional objects
-        // The active class will be removed when validateAll() or cancelAll() is called
-        // this.overlay.classList.remove('active');
-    }
-}
 
 // Initialize modules
 const viewer = new PDFViewer();
 const tools = new PDFTools();
 const pendingObjects = new PendingObjectsManager();
 
-// Multi-document state
-let documents = []; // Array of open documents
-let activeDocumentId = null; // Currently active document ID
-let nextDocumentId = 1; // Auto-increment ID
 
-// Legacy state (for backward compatibility)
-let currentPDFData = null;
-let currentFileName = '';
-let currentCacheId = null; // ID of the current PDF in cache (for auto-save)
-let allUploadedFiles = []; // Store all uploaded files for merge
-let editHistory = []; // Track all edits made
-let originalFileSize = 0; // Store original file size
-
-// Undo/Redo system
-let undoStack = []; // Stack of previous states
-let redoStack = []; // Stack of undone states
-const MAX_UNDO_STACK = 20; // Maximum number of undo states
-
-// Search system
-let searchMatches = []; // All search results
-let currentMatchIndex = -1; // Index of current match
-let searchQuery = ''; // Current search query
 
 /**
  * Show notification banner
@@ -584,196 +21,19 @@ let searchQuery = ''; // Current search query
  * @param {string} type - Type: 'success', 'error', 'warning', 'info'
  * @param {number} duration - Duration in milliseconds (default: 3000)
  */
-function showNotification(message, type = 'info', duration = 3000) {
-    const banner = document.getElementById('notificationBanner');
-
-    // Set icon based on type
-    const icons = {
-        success: 'ti-check',
-        error: 'ti-alert-circle',
-        warning: 'ti-alert-triangle',
-        info: 'ti-info-circle'
-    };
-
-    banner.innerHTML = `
-        <i class="ti ${icons[type]}"></i>
-        <span>${message}</span>
-    `;
-
-    // Set type class
-    banner.className = `notification-banner ${type}`;
-
-    // Show banner
-    setTimeout(() => {
-        banner.classList.add('show');
-    }, 10);
-
-    // Hide banner after duration
-    setTimeout(() => {
-        banner.classList.remove('show');
-    }, duration);
-}
 
 /**
  * Setup info bar toggle functionality
  */
-function setupInfoBarToggle() {
-    const toggleBtn = document.getElementById('toggleInfoBar');
-    const infoBar = document.getElementById('infoBar');
-
-    if (toggleBtn && infoBar) {
-        toggleBtn.addEventListener('click', () => {
-            if (infoBar.style.display === 'none') {
-                infoBar.style.display = 'flex';
-                toggleBtn.classList.add('active');
-            } else {
-                infoBar.style.display = 'none';
-                toggleBtn.classList.remove('active');
-            }
-        });
-    }
-}
 
 /**
  * Setup keyboard shortcuts
  */
-function setupKeyboardShortcuts() {
-    document.addEventListener('keydown', (e) => {
-        // Ignore if typing in input/textarea
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-            return;
-        }
-
-        // Ctrl/Cmd + O: Open file
-        if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
-            e.preventDefault();
-            document.getElementById('fileInput').click();
-            showNotification('Opening file picker...', 'info');
-        }
-
-        // Ctrl/Cmd + F: Search
-        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-            e.preventDefault();
-            const searchBar = document.getElementById('searchBar');
-            const searchInput = document.getElementById('searchInput');
-            searchBar.style.display = 'flex';
-            searchInput.focus();
-        }
-
-        // Ctrl/Cmd + S: Download/Save
-        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-            e.preventDefault();
-            if (currentPDFData) {
-                tools.downloadPDF(new Uint8Array(currentPDFData), currentFileName);
-                showNotification('Downloading PDF...', 'success');
-            }
-        }
-
-        // Ctrl/Cmd + Z: Undo
-        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-            e.preventDefault();
-            undo();
-        }
-
-        // Ctrl/Cmd + Y or Ctrl/Cmd + Shift + Z: Redo
-        if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
-            e.preventDefault();
-            redo();
-        }
-
-        // Escape: Cancel/Close panels
-        if (e.key === 'Escape') {
-            const toolPanel = document.getElementById('toolPanel');
-            if (toolPanel.style.display !== 'none') {
-                closeToolPanel();
-            }
-            if (pendingObjects.objects.length > 0) {
-                pendingObjects.cancelAll();
-            }
-        }
-
-        // Only if PDF is loaded
-        if (!currentPDFData) return;
-
-        // Arrow keys: Navigate pages
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-            e.preventDefault();
-            document.getElementById('prevPage').click();
-        }
-        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-            e.preventDefault();
-            document.getElementById('nextPage').click();
-        }
-
-        // +/= : Zoom in
-        if (e.key === '+' || e.key === '=') {
-            e.preventDefault();
-            document.getElementById('zoomIn').click();
-        }
-
-        // - : Zoom out
-        if (e.key === '-') {
-            e.preventDefault();
-            document.getElementById('zoomOut').click();
-        }
-
-        // Space: Scroll down (Shift+Space: scroll up)
-        if (e.key === ' ') {
-            e.preventDefault();
-            const container = document.querySelector('.pdf-canvas-container');
-            if (e.shiftKey) {
-                container.scrollTop -= container.clientHeight * 0.8;
-            } else {
-                container.scrollTop += container.clientHeight * 0.8;
-            }
-        }
-
-        // Home: First page
-        if (e.key === 'Home') {
-            e.preventDefault();
-            viewer.currentPage = 1;
-            viewer.renderPage(1);
-        }
-
-        // End: Last page
-        if (e.key === 'End') {
-            e.preventDefault();
-            viewer.currentPage = viewer.totalPages;
-            viewer.renderPage(viewer.totalPages);
-        }
-
-        // 1: Single page view
-        if (e.key === '1') {
-            e.preventDefault();
-            document.getElementById('singlePageView').click();
-        }
-
-        // 2: Scroll view
-        if (e.key === '2') {
-            e.preventDefault();
-            document.getElementById('scrollView').click();
-        }
-
-        // Ctrl/Cmd + I: Toggle info bar
-        if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
-            e.preventDefault();
-            document.getElementById('toggleInfoBar').click();
-        }
-
-        // Ctrl/Cmd + N: Toggle navigator
-        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-            e.preventDefault();
-            document.getElementById('toggleNavPanel').click();
-        }
-    });
-
-    console.log('Keyboard shortcuts initialized');
-}
 
 /**
  * Handle page reordering from drag and drop
  */
-window.handlePageReorder = async function(fromPage, toPage) {
+window.handlePageReorder = async function (fromPage, toPage) {
     if (!currentPDFData) {
         showNotification('No PDF loaded', 'error');
         return;
@@ -849,175 +109,27 @@ function init() {
     // Update memory usage periodically
     setInterval(updateMemoryUsage, 2000);
 
-    console.log('PDF Power-Tool initialized');
 }
 
 /**
  * Setup language toggle button
  */
-function setupLanguageToggle() {
-    const langBtn = document.getElementById('langToggleBtn');
-    if (!langBtn) return;
-
-    // Toggle language on click
-    langBtn.addEventListener('click', () => {
-        const currentLang = i18n.getLanguage();
-        const newLang = currentLang === 'fr' ? 'en' : 'fr';
-
-        i18n.setLanguage(newLang);
-
-        showNotification(
-            newLang === 'fr' ? 'Langue changée en Français' : 'Language changed to English',
-            'success'
-        );
-    });
-
-    console.log('🌍 Language toggle initialized');
-}
 
 /**
  * Show recent documents floating panel (displayed by default on startup)
  */
-async function showRecentDocsPanel() {
-    const recentDocs = await pdfCache.getAllCached();
-
-    const content = `
-        <div id="recentDocsFloatingList" style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 500px; overflow-y: auto; overflow-x: hidden;">
-            ${recentDocs.length === 0 ?
-                `<div style="text-align: center; color: #999; font-size: 0.875rem; padding: 3rem 1rem;">${i18n.t('no.recent')}</div>` :
-                recentDocs.map(doc => `
-                    <div class="recent-doc-item" style="display: flex; align-items: center; gap: 0.875rem; padding: 12px 14px; background: var(--white); border: 2px solid #e8e8e8; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;"
-                         onclick="loadFromCache('${doc.id}')"
-                         onmouseenter="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 4px 12px rgba(37, 99, 235, 0.15)'; this.style.transform='translateY(-2px)';"
-                         onmouseleave="this.style.borderColor='#e8e8e8'; this.style.boxShadow='none'; this.style.transform='translateY(0)';">
-                        <i class="ti ti-file-type-pdf" style="font-size: 2rem; color: var(--primary); flex-shrink: 0;"></i>
-                        <div style="flex: 1; min-width: 0; overflow: hidden;">
-                            <div style="font-size: 0.875rem; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;" title="${doc.fileName}">${doc.fileName}</div>
-                            <div style="font-size: 0.75rem; color: #666; white-space: nowrap;">${new Date(doc.timestamp).toLocaleString(i18n.getLanguage())}</div>
-                        </div>
-                    </div>
-                `).join('')
-            }
-        </div>
-
-        ${recentDocs.length > 0 ? `
-            <div style="border-top: 2px solid #e8e8e8; padding: 12px 14px; margin-top: 1rem;">
-                <button class="action-btn" onclick="clearAllCache()" style="width: 100%; background-color: #EF4444; font-size: 0.875rem; padding: 10px;">
-                    <i class="ti ti-trash"></i> ${i18n.t('clear.cache')}
-                </button>
-            </div>
-        ` : ''}
-    `;
-
-    // Use FloatingPanelManager directly with unique ID
-    const panel = window.FloatingPanelManager.create(
-        'recent-docs',
-        i18n.t('recent.documents'),
-        'ti-clock-history',
-        content
-    );
-
-    // Position on left side (10px from left)
-    if (panel) {
-        panel.style.left = '10px';
-        panel.style.top = '80px';
-        panel.style.minWidth = '320px';
-    }
-}
 
 /**
  * Refresh the recent documents panel content
  */
-async function refreshRecentDocsPanel() {
-    // Check if the panel exists
-    const panel = window.FloatingPanelManager?.getPanel('recent-docs');
-    if (!panel) {
-        return; // Panel not visible, no need to update
-    }
-
-    // Find the content container
-    const contentContainer = panel.querySelector('#recentDocsFloatingList');
-    if (!contentContainer) {
-        return;
-    }
-
-    // Get fresh data from cache
-    const recentDocs = await pdfCache.getAllCached();
-
-    // Update the content
-    const newContent = `
-        ${recentDocs.length === 0 ?
-            `<div style="text-align: center; color: #999; font-size: 0.875rem; padding: 3rem 1rem;">${i18n.t('no.recent')}</div>` :
-            recentDocs.map(doc => `
-                <div class="recent-doc-item" style="display: flex; align-items: center; gap: 0.875rem; padding: 12px 14px; background: var(--white); border: 2px solid #e8e8e8; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;"
-                     onclick="loadFromCache('${doc.id}')"
-                     onmouseenter="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 4px 12px rgba(37, 99, 235, 0.15)'; this.style.transform='translateY(-2px)';"
-                     onmouseleave="this.style.borderColor='#e8e8e8'; this.style.boxShadow='none'; this.style.transform='translateY(0)';">
-                    <i class="ti ti-file-type-pdf" style="font-size: 2rem; color: var(--primary); flex-shrink: 0;"></i>
-                    <div style="flex: 1; min-width: 0; overflow: hidden;">
-                        <div style="font-size: 0.875rem; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;" title="${doc.fileName}">${doc.fileName}</div>
-                        <div style="font-size: 0.75rem; color: #666; white-space: nowrap;">${new Date(doc.timestamp).toLocaleString(i18n.getLanguage())}</div>
-                    </div>
-                </div>
-            `).join('')
-        }
-    `;
-
-    contentContainer.innerHTML = newContent;
-
-    // Update the clear cache button (it's outside the main container)
-    const panelContent = panel.querySelector('.floating-panel-content');
-    if (panelContent) {
-        // Remove old button if exists
-        const oldButton = panelContent.querySelector('.action-btn');
-        if (oldButton) {
-            oldButton.parentElement.remove();
-        }
-
-        // Add new button if there are docs
-        if (recentDocs.length > 0) {
-            const buttonHTML = `
-                <div style="border-top: 2px solid #e8e8e8; padding: 12px 14px; margin-top: 1rem;">
-                    <button class="action-btn" onclick="clearAllCache()" style="width: 100%; background-color: #EF4444; font-size: 0.875rem; padding: 10px;">
-                        <i class="ti ti-trash"></i> ${i18n.t('clear.cache')}
-                    </button>
-                </div>
-            `;
-            panelContent.insertAdjacentHTML('beforeend', buttonHTML);
-        }
-    }
-}
 
 /**
  * Setup drawing handlers for the overlay
  */
-function setupDrawingHandlers() {
-    const overlay = document.getElementById('insertionOverlay');
-
-    overlay.addEventListener('mousedown', (e) => {
-        pendingObjects.handleDrawMouseDown(e);
-    });
-
-    overlay.addEventListener('mousemove', (e) => {
-        pendingObjects.handleDrawMouseMove(e);
-    });
-
-    overlay.addEventListener('mouseup', (e) => {
-        pendingObjects.handleDrawMouseUp(e);
-    });
-}
 
 /**
  * Setup tabs system
  */
-function setupTabsSystem() {
-    const newTabBtn = document.getElementById('newTabBtn');
-    if (newTabBtn) {
-        newTabBtn.addEventListener('click', () => {
-            document.getElementById('fileInput').click();
-        });
-    }
-}
 
 /**
  * Document Manager - Create a new document
@@ -1132,33 +244,6 @@ function closeDocument(docId) {
 /**
  * Update tabs UI
  */
-function updateTabsUI() {
-    const tabsList = document.getElementById('tabsList');
-    if (!tabsList) return;
-
-    tabsList.innerHTML = '';
-
-    documents.forEach(doc => {
-        const tab = document.createElement('div');
-        tab.className = 'tab' + (doc.id === activeDocumentId ? ' active' : '');
-        tab.dataset.docId = doc.id;
-
-        const shortName = doc.fileName.length > 20
-            ? doc.fileName.substring(0, 17) + '...'
-            : doc.fileName;
-
-        tab.innerHTML = `
-            <i class="tab-icon ti ti-file-type-pdf"></i>
-            <span class="tab-name" title="${doc.fileName}">${shortName}</span>
-            <button class="tab-close" onclick="event.stopPropagation(); closeDocument(${doc.id})">
-                <i class="ti ti-x"></i>
-            </button>
-        `;
-
-        tab.addEventListener('click', () => switchToDocument(doc.id));
-        tabsList.appendChild(tab);
-    });
-}
 
 /**
  * Setup file upload functionality
@@ -1230,7 +315,6 @@ async function handleFiles(files) {
                 let cacheId = null;
                 try {
                     cacheId = await pdfCache.savePDF(file.name, arrayBuffer, file.size);
-                    console.log(`Cached: ${file.name} with ID ${cacheId}`);
 
                     // Add to recent files
                     if (cacheId && window.recentFilesManager) {
@@ -1265,7 +349,6 @@ async function handleFiles(files) {
         updateRecentDocuments();
         refreshRecentDocsPanel();
 
-        console.log(`Loaded ${allUploadedFiles.length} PDF file(s) as tabs`);
     } catch (error) {
         console.error('Error handling files:', error);
         showNotification('Failed to load file. Please try again.', 'error');
@@ -1300,25 +383,17 @@ function setupToolButtons() {
         }
     });
 
-    console.log('✅ Tool buttons initialized:', toolButtons.length);
 }
 
 /**
  * Enable tool buttons when a PDF is loaded
  */
-function enableToolButtons() {
-    const toolButtons = document.querySelectorAll('.tool-btn');
-    toolButtons.forEach(button => {
-        button.removeAttribute('disabled');
-    });
-}
 
 /**
  * Handle tool button clicks
  * @param {string} toolName - Name of the tool
  */
 async function handleToolClick(toolName) {
-    console.log('Tool clicked:', toolName);
 
     switch (toolName) {
         case 'upload':
@@ -1360,7 +435,6 @@ async function handleToolClick(toolName) {
  * Handle new upload - Just trigger file picker to add new tabs
  */
 function handleUploadNew() {
-    console.log('Upload button clicked - opening file picker');
     document.getElementById('fileInput').click();
 }
 
@@ -1619,7 +693,6 @@ function showRotatePanel() {
     const hasSelection = selectedPages.length > 0;
 
     if (hasSelection) {
-        console.log('📋 [Rotation Panel] Pre-selecting pages from thumbnails:', selectedPages);
     }
 
     // Generate page checkboxes
@@ -1710,7 +783,6 @@ function syncRotationPanelToThumbnails() {
     // Update visual state (this won't trigger sync back because of flag)
     viewer.updateThumbnailSelection();
 
-    console.log('🔄 [Rotation Panel → Thumbnails] Synced selection:', checkedPages);
 
     viewer.syncInProgress = false; // Reset flag
 }
@@ -1743,7 +815,6 @@ async function executeRotate(degrees) {
         // Convert to 0-based index for pdf-lib
         const selectedPages = selectedPagesUI.map(p => p - 1);
 
-        console.log('🔄 [Execute Rotate]', {
             pagesFromUI: selectedPagesUI,
             pagesFor0Based: selectedPages,
             degrees: degrees
@@ -1817,18 +888,14 @@ async function handleCompress() {
     }
 
     try {
-        console.log('Starting compression...');
         const originalSize = currentPDFData.byteLength;
-        console.log('Original size:', originalSize, 'bytes');
 
         // Use Web Worker for compression
         const compressedPDF = await workerManager.execute('compress', {
             pdfData: currentPDFData.slice(0)
         });
 
-        console.log('Compression completed');
         const newSize = compressedPDF.byteLength;
-        console.log('Compressed size:', newSize, 'bytes');
 
         // Create a fresh copy to avoid detachment issues
         const newArray = new Uint8Array(compressedPDF);
@@ -2116,7 +1183,7 @@ function handleImageCanvasMouseDown(e) {
     }
     // Check if clicking inside the image frame (not on border)
     else if (mouseX > x + borderWidth && mouseX < x + width - borderWidth &&
-             mouseY > y + borderWidth && mouseY < y + height - borderWidth) {
+        mouseY > y + borderWidth && mouseY < y + height - borderWidth) {
         // Clicking inside - enable dragging
         imagePreviewState.isDragging = true;
         imagePreviewState.dragStart = { x: mouseX - x, y: mouseY - y };
@@ -2201,7 +1268,7 @@ function handleImageCanvasMouseMove(e) {
         } else if (isTopRight || isBottomLeft) {
             canvas.style.cursor = 'nesw-resize';
         } else if (mouseX > x + borderWidth && mouseX < x + width - borderWidth &&
-                   mouseY > y + borderWidth && mouseY < y + height - borderWidth) {
+            mouseY > y + borderWidth && mouseY < y + height - borderWidth) {
             canvas.style.cursor = 'move';
         } else {
             canvas.style.cursor = 'default';
@@ -2569,9 +1636,7 @@ function showAnnotatePanel() {
  * Add text annotation to page using draw-box system
  */
 async function addTextAnnotationToPage() {
-    console.log('📝 addTextAnnotationToPage called');
     const text = document.getElementById('annotationText').value;
-    console.log('📝 Text:', text);
 
     if (!text) {
         showNotification('Please enter annotation text', 'warning');
@@ -2581,7 +1646,6 @@ async function addTextAnnotationToPage() {
     const fontSize = parseInt(document.getElementById('annotationSize').value);
     const colorRGB = document.getElementById('annotationColor').value;
 
-    console.log('📝 Font size:', fontSize, 'Color RGB:', colorRGB);
 
     // Parse RGB color
     const [r, g, b] = colorRGB.split(',').map(parseFloat);
@@ -2590,7 +1654,6 @@ async function addTextAnnotationToPage() {
         return hex.length === 1 ? '0' + hex : hex;
     }).join('');
 
-    console.log('📝 Hex color:', hexColor, 'RGB array:', [r, g, b]);
 
     // Close the tool panel
     closeToolPanel();
@@ -2980,7 +2043,6 @@ function initializeSignaturePositioning() {
     pdfCanvas.addEventListener('mousedown', handleSignatureCanvasMouseDown);
     pdfCanvas.addEventListener('mousemove', handleSignatureCanvasMouseMove);
     pdfCanvas.addEventListener('mouseup', handleSignatureCanvasMouseUp);
-    console.log('✅ Signature positioning initialized');
 }
 
 /**
@@ -3116,7 +2178,7 @@ function handleSignatureCanvasMouseDown(e) {
     }
     // Check if clicking inside the signature frame (not on border)
     else if (mouseX > x + borderWidth && mouseX < x + width - borderWidth &&
-             mouseY > y + borderWidth && mouseY < y + height - borderWidth) {
+        mouseY > y + borderWidth && mouseY < y + height - borderWidth) {
         signaturePreviewState.isDragging = true;
         signaturePreviewState.dragStart = { x: mouseX - x, y: mouseY - y };
         canvas.style.cursor = 'move';
@@ -3198,7 +2260,7 @@ function handleSignatureCanvasMouseMove(e) {
         } else if (isTopRight || isBottomLeft) {
             canvas.style.cursor = 'nesw-resize';
         } else if (mouseX > x + borderWidth && mouseX < x + width - borderWidth &&
-                   mouseY > y + borderWidth && mouseY < y + height - borderWidth) {
+            mouseY > y + borderWidth && mouseY < y + height - borderWidth) {
             canvas.style.cursor = 'move';
         } else {
             canvas.style.cursor = 'default';
@@ -3273,10 +2335,8 @@ async function addSignatureToPage() {
  * Load saved signatures from library
  */
 async function loadSavedSignatures() {
-    console.log('🔵 loadSavedSignatures called');
     try {
         const container = document.getElementById('savedSignaturesList');
-        console.log('🔵 Container found:', container);
 
         if (!container) {
             console.error('❌ savedSignaturesList container not found!');
@@ -3285,20 +2345,16 @@ async function loadSavedSignatures() {
 
         // Ensure DB is initialized
         if (!signatureLibrary.db) {
-            console.log('🔵 Initializing signature library...');
             await signatureLibrary.init();
         }
 
         const signatures = await signatureLibrary.getAllSignatures();
-        console.log('🔵 Signatures loaded from DB:', signatures.length, signatures);
 
         if (signatures.length === 0) {
-            console.log('🔵 No signatures, showing empty state');
             container.innerHTML = '<div style="text-align: center; color: #999; font-size: 10px; padding: 1rem;">No saved signatures</div>';
             return;
         }
 
-        console.log('🔵 Rendering', signatures.length, 'signatures');
         container.innerHTML = signatures.map(sig => `
             <div class="saved-signature-item" style="display: flex; align-items: center; gap: 6px; padding: 8px; background: white; border: 1px solid #e8e8e8; border-radius: 2px; margin-bottom: 4px;">
                 <img src="${sig.dataUrl}" style="height: 40px; width: 60px; object-fit: contain; border: 1px solid #e8e8e8; border-radius: 2px; background: white; flex-shrink: 0;" alt="${sig.name}">
@@ -3317,7 +2373,6 @@ async function loadSavedSignatures() {
                 </button>
             </div>
         `).join('');
-        console.log('✅ Signatures rendered successfully');
     } catch (error) {
         console.error('❌ Error loading signatures:', error);
         const container = document.getElementById('savedSignaturesList');
@@ -3331,17 +2386,14 @@ async function loadSavedSignatures() {
  * Save current signature to library
  */
 async function saveCurrentSignature() {
-    console.log('💾 saveCurrentSignature called');
     const canvas = document.getElementById('signatureCanvas');
     const ctx = canvas.getContext('2d');
 
-    console.log('💾 Canvas found:', canvas);
 
     // Check if signature is drawn
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const isBlank = !imageData.data.some(channel => channel !== 0);
 
-    console.log('💾 Is canvas blank?', isBlank);
 
     if (isBlank) {
         showNotification('Please draw a signature first', 'warning');
@@ -3350,23 +2402,17 @@ async function saveCurrentSignature() {
 
     // Prompt for name
     const name = prompt('Enter a name for this signature:', `Signature ${Date.now().toString().slice(-4)}`);
-    console.log('💾 User entered name:', name);
 
     if (!name) return;
 
     try {
         const dataUrl = canvas.toDataURL('image/png');
-        console.log('💾 DataURL created, length:', dataUrl.length);
 
-        console.log('💾 Calling signatureLibrary.saveSignature...');
         const id = await signatureLibrary.saveSignature(name, dataUrl);
-        console.log('💾 Signature saved with ID:', id);
 
-        console.log('💾 Reloading signatures list...');
         await loadSavedSignatures();
 
         showNotification('Signature saved to library', 'success');
-        console.log('✅ Save complete');
     } catch (error) {
         console.error('❌ Error saving signature:', error);
         showNotification('Failed to save signature: ' + error.message, 'error');
@@ -4079,7 +3125,6 @@ async function addEditToHistory(editType) {
             await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
             await updateRecentDocuments(); // Refresh the recent documents list
             await refreshRecentDocsPanel();
-            console.log('PDF auto-saved to cache');
         } catch (error) {
             console.error('Failed to auto-save PDF to cache:', error);
         }
@@ -4251,7 +3296,7 @@ if (document.readyState === 'loading') {
 }
 
 // Initialize cache and load recent documents on startup
-(async function() {
+(async function () {
     try {
         await pdfCache.init();
         await signatureLibrary.init();
