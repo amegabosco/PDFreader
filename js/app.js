@@ -815,11 +815,6 @@ async function executeRotate(degrees) {
         // Convert to 0-based index for pdf-lib
         const selectedPages = selectedPagesUI.map(p => p - 1);
 
-            pagesFromUI: selectedPagesUI,
-            pagesFor0Based: selectedPages,
-            degrees: degrees
-        });
-
         if (selectedPages.length === 0) {
             showNotification('Please select at least one page to rotate', 'warning');
             return;
