@@ -39,6 +39,7 @@ class PDFViewer {
         this.totalPages = 0;
         this.scale = 1.5;
         this.selectedPages = new Set(); // Track selected pages for multi-select
+        this.lastClickedPage = null; // Track last clicked page for shift-select
         this.syncInProgress = false; // Flag to prevent sync loops
         this.canvas = document.getElementById('pdfCanvas');
         this.ctx = this.canvas.getContext('2d');
@@ -62,11 +63,15 @@ class PDFViewer {
         // Navigator panel state
         this.navPanelOpen = false;
         this.thumbnails = [];
+        this.thumbnailsStale = false;
 
         // Rendering state for performance
         this.isRendering = false;
         this.pendingRender = null;
         this.initialLoad = true; // Flag to prevent page tracking during initial load
+
+        // Active render tasks map for cancellation on rapid scroll
+        this.activeRenderTasks = new Map();
 
         // Configure PDF.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -361,14 +366,10 @@ class PDFViewer {
             this.totalPages = this.pdfDoc.numPages;
             this.currentPage = 1;
 
-            // Clear thumbnails array so they regenerate for new document
-            this.thumbnails = [];
-
-            // Clear thumbnails container
-            const navThumbnails = document.getElementById('navThumbnails');
-            if (navThumbnails) {
-                navThumbnails.innerHTML = '';
-            }
+            // Mark thumbnails as stale so they regenerate when needed
+            // Don't clear the DOM here — let generateThumbnails(true) handle it
+            // to avoid blank thumbnails between loadPDF and regeneration
+            this.thumbnailsStale = true;
 
             // Update UI
             document.getElementById('totalPages').textContent = this.totalPages;
@@ -673,15 +674,76 @@ class PDFViewer {
         }
 
         // Create IntersectionObserver for lazy loading pages
+        // Handles both DIV placeholders (virtual scroll) and canvas elements
         this.pageObserver = new IntersectionObserver((entries, observer) => {
             entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const pageCanvas = entry.target;
-                    const pageNum = parseInt(pageCanvas.dataset.pageNum);
+                let pageEl = entry.target;
+                const pageNum = parseInt(pageEl.dataset.pageNum);
 
+                if (entry.isIntersecting) {
                     // Only render if marked as needing render
-                    if (pageCanvas.dataset.needsRender === 'true') {
-                        this.renderPageCanvas(pageCanvas, pageNum);
+                    if (pageEl.dataset.needsRender === 'true') {
+                        // If this is a DIV placeholder, swap it for a real canvas first
+                        if (pageEl.dataset.isPlaceholder === 'true') {
+                            const pageCanvas = this.canvasPool.acquire();
+                            pageCanvas.id = pageEl.id;
+                            pageCanvas.dataset.pageNum = pageNum;
+                            pageCanvas.dataset.needsRender = 'true';
+                            // Copy dimensions from placeholder
+                            pageCanvas.style.width = pageEl.style.width;
+                            pageCanvas.style.height = pageEl.style.height;
+                            pageCanvas.width = parseInt(pageEl.style.width);
+                            pageCanvas.height = parseInt(pageEl.style.height);
+
+                            const wrapper = pageEl.parentElement;
+                            // Stop observing old placeholder
+                            observer.unobserve(pageEl);
+                            wrapper.replaceChild(pageCanvas, pageEl);
+
+                            // Update allPageCanvases reference
+                            const idx = this.allPageCanvases.indexOf(pageEl);
+                            if (idx !== -1) {
+                                this.allPageCanvases[idx] = pageCanvas;
+                            }
+
+                            // Observe the new canvas and update pageTracker if it exists
+                            observer.observe(pageCanvas);
+                            if (this.pageTracker) {
+                                this.pageTracker.observe(pageCanvas);
+                            }
+
+                            pageEl = pageCanvas;
+                        }
+                        this.renderPageCanvas(pageEl, pageNum);
+                    }
+                } else {
+                    // Page left the viewport — only process canvas elements (skip DIV placeholders)
+                    if (pageEl.dataset.isPlaceholder === 'true') return;
+
+                    // Cancel active render if any
+                    if (this.activeRenderTasks.has(pageNum)) {
+                        const task = this.activeRenderTasks.get(pageNum);
+                        task.cancel();
+                        this.activeRenderTasks.delete(pageNum);
+                    }
+
+                    // If page was already rendered, clean up resources and show placeholder
+                    if (pageEl.dataset.needsRender === 'false') {
+                        // Release PDF.js internal resources for this page
+                        this.pdfDoc.getPage(pageNum).then(function(page) { page.cleanup(); }).catch(function() {});
+
+                        // Mark as needing re-render when it comes back
+                        pageEl.dataset.needsRender = 'true';
+
+                        // Draw a lightweight placeholder (keep canvas dimensions)
+                        const ctx = pageEl.getContext('2d');
+                        ctx.clearRect(0, 0, pageEl.width, pageEl.height);
+                        ctx.fillStyle = '#f8fafc';
+                        ctx.fillRect(0, 0, pageEl.width, pageEl.height);
+                        ctx.fillStyle = '#94a3b8';
+                        ctx.font = '14px -apple-system, sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('Page ' + pageNum, pageEl.width / 2, pageEl.height / 2);
                     }
                 }
             });
@@ -693,10 +755,15 @@ class PDFViewer {
 
         const INITIAL_PAGES = 3; // Render first 3 pages immediately
 
-        // Render first pages immediately, rest lazy loaded
+        // Get page 1 dimensions as reference for placeholder sizing
+        // This avoids calling getPage() for every page upfront
+        const firstPage = await this.pdfDoc.getPage(1);
+        const refViewport = firstPage.getViewport({ scale: this.scale });
+        const refWidth = refViewport.width;
+        const refHeight = refViewport.height;
 
-        // Create placeholders for all pages
-        for (let pageNum = 1; pageNum <= this.totalPages; pageNum++) {
+        // Render first pages immediately (need exact dimensions)
+        for (let pageNum = 1; pageNum <= Math.min(INITIAL_PAGES, this.totalPages); pageNum++) {
             const pageWrapper = document.createElement('div');
             pageWrapper.className = 'scroll-page-wrapper';
             pageWrapper.style.marginLeft = 'auto';
@@ -709,50 +776,70 @@ class PDFViewer {
             pageCanvas.id = `page-${pageNum}`;
             pageCanvas.dataset.pageNum = pageNum;
 
-            // Get viewport dimensions (we need to load page to get dimensions, 
-            // but we can cache them or just load the page object which is fast)
-            const page = await this.pdfDoc.getPage(pageNum);
+            const page = pageNum === 1 ? firstPage : await this.pdfDoc.getPage(pageNum);
             const viewport = page.getViewport({ scale: this.scale });
 
             pageCanvas.width = viewport.width;
             pageCanvas.height = viewport.height;
-
-            // Set initial style to avoid layout shift
             pageCanvas.style.width = viewport.width + 'px';
             pageCanvas.style.height = viewport.height + 'px';
 
-            if (pageNum <= INITIAL_PAGES) {
-                // Render immediately
-                const ctx = pageCanvas.getContext('2d');
-                const renderContext = {
-                    canvasContext: ctx,
-                    viewport: viewport
-                };
-                await page.render(renderContext).promise;
-                pageCanvas.dataset.needsRender = 'false';
+            const ctx = pageCanvas.getContext('2d');
+            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+            pageCanvas.dataset.needsRender = 'false';
 
-                // Update progress
-                const progress = Math.round((pageNum / INITIAL_PAGES) * 100);
-                if (progressFill) progressFill.style.width = progress + '%';
-                if (progressText) progressText.textContent = progress + '%';
-            } else {
-                // Mark for lazy load
-                pageCanvas.dataset.needsRender = 'true';
-                const ctx = pageCanvas.getContext('2d');
-                ctx.fillStyle = '#f5f5f5';
-                ctx.fillRect(0, 0, viewport.width, viewport.height);
-                ctx.fillStyle = '#666';
-                ctx.font = '16px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText(`Page ${pageNum} - Loading...`, viewport.width / 2, viewport.height / 2);
+            const progress = Math.round((pageNum / Math.min(INITIAL_PAGES, this.totalPages)) * 100);
+            if (progressFill) progressFill.style.width = progress + '%';
+            if (progressText) progressText.textContent = progress + '%';
 
-                // Observe this canvas
-                this.pageObserver.observe(pageCanvas);
-            }
+            // Observe initial pages too (for cleanup when they leave viewport)
+            this.pageObserver.observe(pageCanvas);
+
+            // Click-to-select and context menu on page wrapper
+            this.setupPageWrapperInteractions(pageWrapper, pageNum);
 
             pageWrapper.appendChild(pageCanvas);
             pagesWrapper.appendChild(pageWrapper);
             this.allPageCanvases.push(pageCanvas);
+        }
+
+        // Create lightweight DIV placeholders for remaining pages (virtual scroll — no canvas until visible)
+        for (let pageNum = INITIAL_PAGES + 1; pageNum <= this.totalPages; pageNum++) {
+            const pageWrapper = document.createElement('div');
+            pageWrapper.className = 'scroll-page-wrapper';
+            pageWrapper.style.marginLeft = 'auto';
+            pageWrapper.style.marginRight = 'auto';
+            pageWrapper.style.boxShadow = '0 4px 12px var(--shadow)';
+            pageWrapper.style.border = '1px solid var(--border)';
+            pageWrapper.style.backgroundColor = 'white';
+
+            // DIV placeholder instead of canvas — much lighter on the DOM
+            const placeholder = document.createElement('div');
+            placeholder.id = 'page-' + pageNum;
+            placeholder.dataset.pageNum = pageNum;
+            placeholder.dataset.needsRender = 'true';
+            placeholder.dataset.isPlaceholder = 'true';
+            placeholder.style.width = refWidth + 'px';
+            placeholder.style.height = refHeight + 'px';
+            placeholder.style.backgroundColor = '#f8fafc';
+            placeholder.style.display = 'flex';
+            placeholder.style.alignItems = 'center';
+            placeholder.style.justifyContent = 'center';
+            placeholder.style.color = '#94a3b8';
+            placeholder.style.fontFamily = '-apple-system, sans-serif';
+            placeholder.style.fontSize = '14px';
+            placeholder.style.userSelect = 'none';
+            placeholder.textContent = 'Page ' + pageNum;
+
+            this.pageObserver.observe(placeholder);
+
+            // Click-to-select and context menu on page wrapper
+            this.setupPageWrapperInteractions(pageWrapper, pageNum);
+
+            pageWrapper.appendChild(placeholder);
+            pagesWrapper.appendChild(pageWrapper);
+            // Store placeholder in allPageCanvases (swapped for canvas when visible)
+            this.allPageCanvases.push(placeholder);
         }
 
         container.appendChild(pagesWrapper);
@@ -788,22 +875,242 @@ class PDFViewer {
     }
 
     /**
+     * Setup click-to-select and context menu on a page wrapper in the main viewer
+     */
+    setupPageWrapperInteractions(wrapper, pageNum) {
+        wrapper.dataset.pageNum = pageNum;
+        wrapper.style.cursor = 'default';
+        wrapper.style.position = 'relative';
+
+        // Click to select page
+        wrapper.addEventListener('click', (e) => {
+            // Don't interfere with hand tool panning or pending object interactions
+            if (this.handToolActive || e.target.closest('.pending-object')) return;
+
+            if (e.ctrlKey || e.metaKey) {
+                this.togglePageSelection(pageNum);
+            } else if (e.shiftKey && this.lastClickedPage) {
+                const from = Math.min(this.lastClickedPage, pageNum);
+                const to = Math.max(this.lastClickedPage, pageNum);
+                for (let p = from; p <= to; p++) this.selectedPages.add(p);
+                this.updateThumbnailSelection();
+                this.updateMainPageSelection();
+            } else {
+                this.clearPageSelection();
+                this.selectedPages.add(pageNum);
+                this.updateThumbnailSelection();
+                this.updateMainPageSelection();
+            }
+            this.lastClickedPage = pageNum;
+        });
+
+        // Right-click context menu
+        wrapper.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            // Auto-select page if not already selected
+            if (!this.selectedPages.has(pageNum)) {
+                this.clearPageSelection();
+                this.selectedPages.add(pageNum);
+                this.updateThumbnailSelection();
+                this.updateMainPageSelection();
+            }
+            this.showContextMenu(e.clientX, e.clientY, pageNum, 'page');
+        });
+    }
+
+    /**
+     * Update visual selection state on main viewer pages
+     */
+    updateMainPageSelection() {
+        const wrappers = document.querySelectorAll('.scroll-page-wrapper');
+        wrappers.forEach(w => {
+            const pNum = parseInt(w.dataset.pageNum);
+            if (this.selectedPages.has(pNum)) {
+                w.classList.add('page-selected');
+            } else {
+                w.classList.remove('page-selected');
+            }
+        });
+    }
+
+    /**
+     * Show context menu at position
+     */
+    showContextMenu(x, y, pageNum, source) {
+        // Remove existing menu
+        this.hideContextMenu();
+
+        const selectedCount = this.selectedPages.size;
+        const pageLabel = selectedCount > 1
+            ? selectedCount + ' pages'
+            : 'Page ' + pageNum;
+
+        const menu = document.createElement('div');
+        menu.id = 'pdfContextMenu';
+        menu.className = 'pdf-context-menu';
+
+        const items = [
+            { icon: 'ti-file-info', label: pageLabel, action: null, isHeader: true },
+            { icon: null, label: '', action: null, isSeparator: true },
+            { icon: 'ti-click', label: 'Go to this page', action: 'goto', single: true },
+            { icon: 'ti-select-all', label: 'Select all pages', action: 'select-all' },
+            { icon: 'ti-deselect', label: 'Clear selection', action: 'clear-selection' },
+            { icon: null, label: '', action: null, isSeparator: true },
+            { icon: 'ti-rotate', label: 'Rotate 90° Left', action: 'rotate-left' },
+            { icon: 'ti-rotate-clockwise', label: 'Rotate 90° Right', action: 'rotate-right' },
+            { icon: 'ti-rotate-2', label: 'Rotate 180°', action: 'rotate-180' },
+            { icon: null, label: '', action: null, isSeparator: true },
+            { icon: 'ti-cut', label: 'Extract ' + pageLabel, action: 'extract' },
+            { icon: 'ti-copy', label: 'Duplicate ' + pageLabel, action: 'duplicate' },
+            { icon: null, label: '', action: null, isSeparator: true },
+            { icon: 'ti-trash', label: 'Delete ' + pageLabel, action: 'delete', danger: true },
+        ];
+
+        items.forEach(item => {
+            if (item.isSeparator) {
+                const sep = document.createElement('div');
+                sep.className = 'ctx-separator';
+                menu.appendChild(sep);
+                return;
+            }
+            if (item.single && selectedCount > 1) return;
+
+            const el = document.createElement('div');
+            el.className = 'ctx-item' + (item.isHeader ? ' ctx-header' : '') + (item.danger ? ' ctx-danger' : '');
+
+            if (item.icon) {
+                const icon = document.createElement('i');
+                icon.className = 'ti ' + item.icon;
+                icon.setAttribute('aria-hidden', 'true');
+                el.appendChild(icon);
+            }
+
+            const span = document.createElement('span');
+            span.textContent = item.label;
+            el.appendChild(span);
+
+            if (item.action) {
+                el.addEventListener('click', () => {
+                    this.handleContextAction(item.action, pageNum);
+                    this.hideContextMenu();
+                });
+            }
+
+            menu.appendChild(el);
+        });
+
+        document.body.appendChild(menu);
+
+        // Position — ensure menu stays in viewport
+        const menuRect = menu.getBoundingClientRect();
+        const maxX = window.innerWidth - menuRect.width - 8;
+        const maxY = window.innerHeight - menuRect.height - 8;
+        menu.style.left = Math.min(x, maxX) + 'px';
+        menu.style.top = Math.min(y, maxY) + 'px';
+
+        // Close on click outside
+        const closeHandler = (e) => {
+            if (!menu.contains(e.target)) {
+                this.hideContextMenu();
+                document.removeEventListener('click', closeHandler, true);
+                document.removeEventListener('contextmenu', closeHandler, true);
+            }
+        };
+        setTimeout(() => {
+            document.addEventListener('click', closeHandler, true);
+            document.addEventListener('contextmenu', closeHandler, true);
+        }, 0);
+    }
+
+    /**
+     * Hide context menu
+     */
+    hideContextMenu() {
+        const existing = document.getElementById('pdfContextMenu');
+        if (existing) existing.remove();
+    }
+
+    /**
+     * Handle context menu action
+     */
+    handleContextAction(action, pageNum) {
+        const selectedPages = this.getSelectedPages();
+        const pages = selectedPages.length > 0 ? selectedPages : [pageNum];
+
+        switch (action) {
+            case 'goto':
+                this.goToPage(pageNum);
+                break;
+            case 'select-all':
+                for (let p = 1; p <= this.totalPages; p++) this.selectedPages.add(p);
+                this.updateThumbnailSelection();
+                this.updateMainPageSelection();
+                break;
+            case 'clear-selection':
+                this.clearPageSelection();
+                this.updateMainPageSelection();
+                break;
+            case 'rotate-left':
+                if (typeof executeRotateSelected === 'function') executeRotateSelected(270, pages);
+                break;
+            case 'rotate-right':
+                if (typeof executeRotateSelected === 'function') executeRotateSelected(90, pages);
+                break;
+            case 'rotate-180':
+                if (typeof executeRotateSelected === 'function') executeRotateSelected(180, pages);
+                break;
+            case 'extract':
+                if (typeof executeSplitSelected === 'function') executeSplitSelected(pages);
+                break;
+            case 'duplicate':
+                if (typeof executeDuplicatePages === 'function') executeDuplicatePages(pages);
+                break;
+            case 'delete':
+                if (typeof executeDeleteSelected === 'function') executeDeleteSelected(pages);
+                break;
+        }
+    }
+
+    /**
      * Render a specific page canvas (Lazy Load helper)
      */
     async renderPageCanvas(canvas, pageNum) {
         try {
+            // Cancel any in-progress render for this page
+            if (this.activeRenderTasks.has(pageNum)) {
+                const existingTask = this.activeRenderTasks.get(pageNum);
+                existingTask.cancel();
+                this.activeRenderTasks.delete(pageNum);
+            }
+
             const page = await this.pdfDoc.getPage(pageNum);
             const viewport = page.getViewport({ scale: this.scale });
+
+            // Correct dimensions if they differ from placeholder estimate
+            if (canvas.width !== viewport.width || canvas.height !== viewport.height) {
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                canvas.style.width = viewport.width + 'px';
+                canvas.style.height = viewport.height + 'px';
+            }
+
             const ctx = canvas.getContext('2d');
+            const renderTask = page.render({ canvasContext: ctx, viewport: viewport });
 
-            const renderContext = {
-                canvasContext: ctx,
-                viewport: viewport
-            };
+            // Store the render task so it can be cancelled on rapid scroll
+            this.activeRenderTasks.set(pageNum, renderTask);
 
-            await page.render(renderContext).promise;
+            await renderTask.promise;
+
+            // Render complete — remove from active tasks
+            this.activeRenderTasks.delete(pageNum);
             canvas.dataset.needsRender = 'false';
         } catch (error) {
+            // RenderingCancelledException is expected when we cancel tasks
+            if (error && error.name === 'RenderingCancelledException') {
+                // Silently ignore — this is intentional
+                return;
+            }
             console.error(`Error lazy rendering page ${pageNum}:`, error);
         }
     }
@@ -965,8 +1272,8 @@ class PDFViewer {
             toggleBtn.classList.add('active');
         }
 
-        // Generate thumbnails if not already generated
-        await this.generateThumbnails();
+        // Generate thumbnails if not already generated or if stale
+        await this.generateThumbnails(this.thumbnailsStale);
     }
 
     /**
@@ -1006,10 +1313,11 @@ class PDFViewer {
             return;
         }
 
-        // Only generate if empty (unless force is true)
-        if (this.thumbnails.length > 0 && !force) {
+        // Only generate if empty, stale, or forced
+        if (this.thumbnails.length > 0 && !force && !this.thumbnailsStale) {
             return;
         }
+        this.thumbnailsStale = false;
 
         navThumbnails.innerHTML = ''; // Clear existing thumbnails
         this.thumbnails = [];
@@ -1054,14 +1362,37 @@ class PDFViewer {
             label.className = 'nav-thumbnail-label';
             label.textContent = `Page ${pageNum}`;
 
+            // Selection checkbox overlay
+            const selectCheck = document.createElement('div');
+            selectCheck.className = 'nav-thumbnail-check';
+            const checkIcon = document.createElement('i');
+            checkIcon.className = 'ti ti-check';
+            checkIcon.setAttribute('aria-hidden', 'true');
+            selectCheck.appendChild(checkIcon);
+            selectCheck.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.togglePageSelection(pageNum);
+            });
+
             thumbDiv.appendChild(thumbWrapper);
             thumbDiv.appendChild(label);
+            thumbDiv.appendChild(selectCheck);
 
             // Click handler with multi-select support
             thumbDiv.addEventListener('click', (e) => {
-                if (e.ctrlKey || e.metaKey) {
-                    // Multi-select mode (Ctrl/Cmd + Click)
-                    this.togglePageSelection(pageNum);
+                if (e.ctrlKey || e.metaKey || e.shiftKey) {
+                    if (e.shiftKey && this.lastClickedPage) {
+                        // Range select (Shift+Click)
+                        const from = Math.min(this.lastClickedPage, pageNum);
+                        const to = Math.max(this.lastClickedPage, pageNum);
+                        for (let p = from; p <= to; p++) {
+                            this.selectedPages.add(p);
+                        }
+                        this.updateThumbnailSelection();
+                    } else {
+                        // Toggle select (Ctrl/Cmd+Click)
+                        this.togglePageSelection(pageNum);
+                    }
                 } else {
                     // Normal mode: select this page only and navigate
                     this.clearPageSelection();
@@ -1069,6 +1400,20 @@ class PDFViewer {
                     this.updateThumbnailSelection();
                     this.goToPage(pageNum);
                 }
+                this.lastClickedPage = pageNum;
+            });
+
+            // Right-click context menu on thumbnail
+            thumbDiv.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!this.selectedPages.has(pageNum)) {
+                    this.clearPageSelection();
+                    this.selectedPages.add(pageNum);
+                    this.updateThumbnailSelection();
+                    this.updateMainPageSelection();
+                }
+                this.showContextMenu(e.clientX, e.clientY, pageNum, 'thumbnail');
             });
 
             // Drag and drop handlers
@@ -1562,9 +1907,167 @@ class PDFViewer {
             }
         });
 
+        // Update selection counter in nav header
+        this.updateSelectionCounter();
+
+        // Update action bar visibility
+        this.updateSelectionActionBar();
+
+        // Sync main viewer page selection
+        this.updateMainPageSelection();
+
         // Sync with rotation panel if it's open (avoid loops)
         if (!this.syncInProgress) {
             this.syncThumbnailsToRotationPanel();
+        }
+    }
+
+    /**
+     * Update the selection counter badge in the nav header
+     */
+    updateSelectionCounter() {
+        const count = this.selectedPages.size;
+        let counter = document.getElementById('navSelectionCounter');
+
+        if (count > 1) {
+            if (!counter) {
+                counter = document.createElement('span');
+                counter.id = 'navSelectionCounter';
+                counter.className = 'nav-selection-counter';
+                const navHeader = document.querySelector('.nav-header h3');
+                if (navHeader) navHeader.appendChild(counter);
+            }
+            counter.textContent = count + ' selected';
+            counter.classList.add('show');
+        } else if (counter) {
+            counter.classList.remove('show');
+        }
+    }
+
+    /**
+     * Update the selection action bar at the bottom of the nav panel
+     */
+    updateSelectionActionBar() {
+        const count = this.selectedPages.size;
+        let actionBar = document.getElementById('navSelectionActions');
+
+        if (count > 1) {
+            if (!actionBar) {
+                actionBar = document.createElement('div');
+                actionBar.id = 'navSelectionActions';
+                actionBar.className = 'nav-selection-actions';
+
+                const actions = [
+                    { icon: 'ti-rotate', label: '90° L', title: 'Rotate Left', action: 'rotate-left' },
+                    { icon: 'ti-rotate-clockwise', label: '90° R', title: 'Rotate Right', action: 'rotate-right' },
+                    { icon: 'ti-rotate-2', label: '180°', title: 'Rotate 180°', action: 'rotate-180' },
+                    { icon: 'ti-separator', label: '', title: '', action: 'separator' },
+                    { icon: 'ti-cut', label: 'Split', title: 'Split selected pages', action: 'split' },
+                    { icon: 'ti-trash', label: 'Delete', title: 'Delete selected pages', action: 'delete' },
+                    { icon: 'ti-separator', label: '', title: '', action: 'separator2' },
+                    { icon: 'ti-x', label: '', title: 'Clear selection', action: 'clear' },
+                ];
+
+                // Selection info
+                const info = document.createElement('div');
+                info.className = 'nav-selection-info';
+                info.id = 'navSelectionInfo';
+                actionBar.appendChild(info);
+
+                // Buttons row
+                const btnRow = document.createElement('div');
+                btnRow.className = 'nav-selection-btn-row';
+
+                actions.forEach(a => {
+                    if (a.action.startsWith('separator')) {
+                        const sep = document.createElement('div');
+                        sep.className = 'nav-action-separator';
+                        btnRow.appendChild(sep);
+                        return;
+                    }
+                    const btn = document.createElement('button');
+                    btn.className = 'nav-action-btn';
+                    btn.title = a.title;
+                    btn.setAttribute('aria-label', a.title);
+                    btn.dataset.action = a.action;
+
+                    const icon = document.createElement('i');
+                    icon.className = 'ti ' + a.icon;
+                    icon.setAttribute('aria-hidden', 'true');
+                    btn.appendChild(icon);
+
+                    if (a.label) {
+                        const span = document.createElement('span');
+                        span.textContent = a.label;
+                        btn.appendChild(span);
+                    }
+
+                    if (a.action === 'delete') {
+                        btn.classList.add('danger');
+                    }
+                    if (a.action === 'clear') {
+                        btn.classList.add('clear-btn');
+                    }
+
+                    btn.addEventListener('click', () => this.handleSelectionAction(a.action));
+                    btnRow.appendChild(btn);
+                });
+
+                actionBar.appendChild(btnRow);
+
+                const navPanel = document.getElementById('navPanel');
+                if (navPanel) navPanel.appendChild(actionBar);
+            }
+
+            // Update info text
+            const info = document.getElementById('navSelectionInfo');
+            if (info) {
+                const pages = this.getSelectedPages();
+                info.textContent = count + ' page' + (count > 1 ? 's' : '') + ' selected';
+            }
+
+            actionBar.classList.add('show');
+        } else if (actionBar) {
+            actionBar.classList.remove('show');
+        }
+    }
+
+    /**
+     * Handle action from the selection action bar
+     */
+    handleSelectionAction(action) {
+        const selectedPages = this.getSelectedPages();
+        if (selectedPages.length === 0) return;
+
+        switch (action) {
+            case 'rotate-left':
+                if (typeof executeRotateSelected === 'function') {
+                    executeRotateSelected(270, selectedPages);
+                }
+                break;
+            case 'rotate-right':
+                if (typeof executeRotateSelected === 'function') {
+                    executeRotateSelected(90, selectedPages);
+                }
+                break;
+            case 'rotate-180':
+                if (typeof executeRotateSelected === 'function') {
+                    executeRotateSelected(180, selectedPages);
+                }
+                break;
+            case 'split':
+                if (typeof executeSplitSelected === 'function') {
+                    executeSplitSelected(selectedPages);
+                }
+                break;
+            case 'delete':
+                if (typeof executeDeleteSelected === 'function') {
+                    executeDeleteSelected(selectedPages);
+                }
+                break;
+            case 'clear':
+                this.clearPageSelection();
+                break;
         }
     }
 

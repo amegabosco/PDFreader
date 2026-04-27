@@ -61,9 +61,15 @@ PDFreader/
 ├── css/
 │   └── style.css       # Minimalist styles
 ├── js/
-│   ├── app.js          # Main application logic
+│   ├── app.js          # Main application orchestrator
+│   ├── modules/        # Modular components
+│   │   ├── EventManager.js         # Event listeners
+│   │   ├── PendingObjectsManager.js # Object insertion logic
+│   │   ├── StateManager.js         # Global state
+│   │   └── UIManager.js            # UI updates
 │   ├── pdfViewer.js    # PDF.js viewer wrapper
-│   └── pdfTools.js     # PDF-lib manipulation tools
+│   ├── pdfTools.js     # PDF-lib manipulation tools
+│   └── pdfCache.js     # IndexedDB caching
 └── README.md
 ```
 

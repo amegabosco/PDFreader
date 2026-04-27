@@ -40,12 +40,17 @@ self.addEventListener('message', async (e) => {
                 throw new Error(`Unknown operation: ${operation}`);
         }
 
-        // Send success response
-        self.postMessage({
-            id,
-            success: true,
-            result
-        });
+        // Send success response with zero-copy transfer
+        if (Array.isArray(result)) {
+            // split returns an array of Uint8Array
+            const transferables = result.map(r => r.buffer);
+            self.postMessage({ id, success: true, result }, transferables);
+        } else if (result && result.buffer instanceof ArrayBuffer) {
+            // Single Uint8Array (merge, rotate, reorder, compress, insertObjects)
+            self.postMessage({ id, success: true, result }, [result.buffer]);
+        } else {
+            self.postMessage({ id, success: true, result });
+        }
 
     } catch (error) {
         // Send error response

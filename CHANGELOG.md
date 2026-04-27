@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [v2.3.40] - 2025-11-09
+## [Dragonfruit 2.3.40] 🐉 - 2025-11-09
 
 ### Removed
 - **Recent Files Panel** - Removed the fixed bottom-left panel showing recent files
@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [v2.3.39] - 2025-11-09
+## [Coconut 2.3.39] 🥥 - 2025-11-09
 
 ### Enhanced
 - **Signature Quality Improvements** - Dramatically improved signature rendering
@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [v2.3.38] - 2025-11-09
+## [Blueberry 2.3.38] 🫐 - 2025-11-09
 
 ### Fixed
 - **Multi-page annotation viewport bug** - Fixed critical issue with batch annotation insertion
@@ -42,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [v2.3.37] - 2025-11-09
+## [Apricot 2.3.37] 🍑 - 2025-11-09
 
 ### Fixed
 - **Annotation rotation on rotated pages** - Complete rewrite to match PNG insertion logic
@@ -52,6 +52,151 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Simple insertion without rotation parameter
   - Smooth Bézier curves for text rendering
   - Exact same logic as working PNG insertion system
+
+---
+
+## [v2.3.32-36] - 2025-11-09
+
+### v2.3.36
+- Fix: Center-point rotation attempts (experimental)
+
+### v2.3.35
+- Fix: PNG-style pre-rotation for annotations
+
+### v2.3.34
+- Fix: Initial annotation rotation fix attempts
+
+### v2.3.33
+- Chore: Version updates and minor fixes
+
+### v2.3.32
+- Fix: Swap annotation dimensions on rotated pages
+
+---
+
+## [v2.3.31] - 2025-11-09
+- Fix: Apply inverse rotation to annotations on rotated pages
+
+## [v2.3.30] - 2025-11-09
+- Fix: Properly initialize app state when loading from Recent Files
+
+## [v2.3.29] - 2025-11-09
+- Fix: Extract PDF data from cache record for Recent Files
+
+## [v2.3.28] - 2025-11-09
+- Fix: Always show Recent Files panel with empty state
+
+## [v2.3.27] - 2025-11-09
+- Feat: Recent Files panel on home page
+
+## [v2.3.26] - 2025-11-09
+- Perf: Skip thumbnail regeneration for instant insertion
+
+## [v2.3.25] - 2025-11-09
+- Fix: Restore thumbnail regeneration after loadPDF
+
+## [v2.3.24] - 2025-11-09
+- Feat: Smart thumbnail updates after insertions
+
+## [v2.3.23] - 2025-11-09
+- Feat: Rotation-aware upscaled signatures for crisp rendering
+
+## [v2.3.22] - 2025-11-09
+- Fix: High-resolution page rendering for crisp insertions
+
+## [v2.3.21] - 2025-11-09
+- Fix: High-resolution text rendering for crisp annotations
+
+## [v2.3.20] - 2025-11-09
+- Feat: Rotation-aware text rendering for annotations
+
+## [v2.3.19] - 2025-11-09
+- Feat: Text-to-image annotation rendering for perfect WYSIWYG
+
+## [v2.3.18] - 2025-11-09
+- Perf: Implement lazy loading for massive PDF load/zoom speedup
+
+## [v2.3.17] - 2025-11-09
+- Perf: Disable thumbnail regeneration for massive speed boost
+
+## [v2.3.16] - 2025-11-09
+- Fix: Correct window resize handler and image type detection
+
+## [v2.3.15] - 2025-11-09
+- Perf: Optimize batch insertion for massive speed improvement
+
+## [v2.3.14] - 2025-11-09
+- Feat: Fix coordinate transformation with viewport-based algorithm
+
+## [v2.3.4] - 2025-11-08
+- Feat: Complete coordinate system rewrite
+
+## [v2.3.3] - 2025-11-08
+- Fix: Correct rotation transforms and add loading indicator
+
+## [v2.3.2] - 2025-11-08
+- Feat: Support rotated pages in coordinate transformation
+
+## [v2.3.1] - 2025-11-08
+- Fix: Undefined variable in coordinate logging
+
+## [v2.3.0] - 2025-11-08
+- Feat: Enhanced scrollbar and fixed signature coordinates
+
+## [v2.2.9] - 2025-11-07
+- Fix: Force scrollbar visibility in rotation panel
+
+## [v2.2.8] - 2025-11-07
+- Fix: Display all pages in rotation panel
+
+## [v2.2.7] - 2025-11-07
+- Feat: Improve page selection scrollbar visibility
+
+## [v2.2.6] - 2025-11-07
+- Feat: Unify active and selected states
+
+## [v2.2.5] - 2025-11-07
+- Fix: Single-click thumbnail now selects page
+
+## [v2.2.4] - 2025-11-07
+- Fix: Prevent sync loops with syncInProgress flag
+
+## [v2.2.3] - 2025-11-07
+- Feat: Auto-select first page on document open
+
+## [v2.2.2] - 2025-11-07
+- Fix: Active page no longer auto-selected
+
+## [v2.2.1] - 2025-11-07
+- Feat: Auto-open navigator and improve recent docs panel
+
+## [v2.0.0] - 2025-11-06
+- Feat: Implement PNG-based precision insertion system
+- Fix: Prevent double Y-coordinate transformation
+
+## [v1.8.7] - 2025-11-05
+- Fix: Ensure insertion overlay is above info bar for drawing
+
+## [v1.8.6] - 2025-11-05
+- Feat: Add author credit and make info bar always visible
+
+## [v1.8.5] - 2025-11-05
+- Feat: Move app title badge to bottom-left corner
+
+## [v1.8.4] - 2025-11-05
+- Fix: App title badge now stays above toolbar
+
+## [v1.8.3] - 2025-11-05
+- Fix: Info panel now displays correctly with file info
+
+## [v1.8.2] - 2025-11-05
+- Feat: Show file info in home screen sidebar
+
+## [v1.8.1] - 2025-11-05
+- Fix: Display app version in sidebar footer
+
+## [v1.8.0] - 2025-11-05
+- Feat: Add version display badge
 
 ---
 
@@ -148,74 +293,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Advanced Features**
   - Undo/Redo functionality
   - Text search in PDF
-  - Info bar with document stats
-  - Pending objects system (validate all)
+  - Metadata editor
+  - Accessibility features
+  - Internationalization support (i18n)
+  - Progressive Web App (PWA) capabilities
+
+- **Performance**
+  - Client-side only (no server uploads)
+  - IndexedDB for local storage
   - Web Workers for heavy operations
+  - Optimized canvas rendering
+  - Lazy loading for large documents
 
 - **UI/UX**
-  - Minimalist flat design
-  - 3-color palette (Blue, Gray, Black)
+  - Clean, minimalist design
+  - Three-color flat palette
   - Tabler Icons throughout
-  - Smooth animations
-  - Responsive notifications
-  - Keyboard shortcuts
+  - Responsive layout
+  - Touch-friendly controls
+  - Dark/Light mode support
 
-- **Technical**
-  - 100% client-side (no server)
+#### Technical
+- **Libraries**
   - PDF.js for rendering
-  - PDF-lib for manipulation
-  - IndexedDB for caching
-  - Web Workers for performance
+  - pdf-lib for manipulation
+  - Sortable.js for drag & drop
+- **Architecture**
+  - Modular JavaScript
+  - Event-driven design
+  - Clean separation of concerns
+- **Browser Support**
+  - Modern browsers (Chrome, Firefox, Edge, Safari)
   - File System Access API
+  - IndexedDB for persistence
 
 ---
 
-## Version History Summary
-
-| Version | Date | Codename | Major Features |
-|---------|------|----------|----------------|
-| 1.0.0 | 2025-10-31 | Cacao 🍫 | Mouse wheel nav, Floating panels, UI refactor |
-| 1.0.0 | 2025-10-30 | Banane 🍌 | Initial release, All core features |
-
----
-
-## Upcoming Versions
-
-### [Cacao 1.1.0] - Planned
-- Migrate all tool panels to FloatingPanel system
-- Comprehensive button testing
-- Additional performance optimizations
-- Bug fixes from user feedback
-
-### [Datte 1.0.0] - Future
-- Password-protected PDF support
-- Bookmarks/outline navigation
-- Virtual scrolling for large documents
-- Export pages as images
-- Watermark functionality
-
----
-
-## Development Stats
-
-### Cacao 1.0.0
-- **Commits**: 15 new commits
-- **Files changed**: 12
-- **Lines added**: 847
-- **Lines removed**: 3,821 (cleanup!)
-- **New features**: 6
-- **Bug fixes**: 5
-- **Performance improvements**: 3
-
-### Banane 1.0.0
-- **Commits**: 40 initial commits
-- **Total features**: 15
-- **Files created**: 10 JavaScript modules
-- **CSS lines**: ~1,500
-- **Total functionality**: Complete PDF toolkit
-
----
-
-**Note**: This project follows a fun versioning scheme where each major version gets a fruit or emoji codename. We don't take ourselves too seriously, but we take our code seriously! 🚀
-
-**Developed with 🚀 by Yao 🇹🇬**
+**Legend:**
+- 🍫 Cacao - Major UI/UX overhaul
+- 🍌 Banane - Initial release
+- 🐉 Dragonfruit - Cleanup
+- 🥥 Coconut - Quality boost
+- 🫐 Blueberry - Bug fix
+- 🍑 Apricot - Fix

@@ -289,7 +289,15 @@ function setupFileUpload() {
 function handleFileSelect(event) {
     const files = event.target.files;
     if (files.length > 0) {
-        handleFiles(files);
+        // Filter to PDF files only (accept attribute removed for faster dialog opening)
+        const pdfFiles = Array.from(files).filter(f =>
+            f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
+        );
+        if (pdfFiles.length === 0) {
+            showNotification('Please select PDF files only', 'warning');
+            return;
+        }
+        handleFiles(pdfFiles);
     }
 }
 
@@ -304,36 +312,48 @@ async function handleFiles(files) {
         tools.clearPDFs();
 
         let firstNewDoc = null;
+        const pdfFiles = Array.from(files).filter(f =>
+            f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
+        );
 
-        for (let file of files) {
-            if (file.type === 'application/pdf') {
-                const arrayBuffer = await readFileAsArrayBuffer(file);
-                allUploadedFiles.push({ data: arrayBuffer, name: file.name });
-                tools.addPDF(arrayBuffer, file.name);
+        if (pdfFiles.length === 0) {
+            showNotification('Please upload at least one PDF file', 'warning');
+            return;
+        }
 
-                // Save to cache and store cache ID
-                let cacheId = null;
-                try {
-                    cacheId = await pdfCache.savePDF(file.name, arrayBuffer, file.size);
+        // Show immediate feedback for large files
+        const totalSize = pdfFiles.reduce((sum, f) => sum + f.size, 0);
+        const totalMB = (totalSize / (1024 * 1024)).toFixed(1);
+        if (totalSize > 5 * 1024 * 1024) {
+            showNotification(`Loading ${totalMB} MB...`, 'info', 60000);
+        }
 
-                    // Add to recent files
+        for (let i = 0; i < pdfFiles.length; i++) {
+            const file = pdfFiles[i];
+            const arrayBuffer = await readFileAsArrayBuffer(file);
+            allUploadedFiles.push({ data: arrayBuffer, name: file.name });
+            tools.addPDF(arrayBuffer, file.name);
+
+            // Cache in background (don't await for speed)
+            const cachePromise = pdfCache.savePDF(file.name, arrayBuffer, file.size)
+                .then(cacheId => {
                     if (cacheId && window.recentFilesManager) {
                         recentFilesManager.addRecentFile(file.name, cacheId);
                     }
-                } catch (error) {
-                    console.error('Failed to cache PDF:', error);
-                }
+                    return cacheId;
+                })
+                .catch(err => {
+                    console.error('Failed to cache PDF:', err);
+                    return null;
+                });
 
-                // Create a new document for each PDF
-                const doc = createDocument(arrayBuffer, file.name);
-                doc.cacheId = cacheId; // Store cache ID in document
-                if (!firstNewDoc) firstNewDoc = doc;
-            }
-        }
+            // Create document immediately (don't wait for cache)
+            const doc = createDocument(arrayBuffer, file.name);
 
-        if (allUploadedFiles.length === 0) {
-            showNotification('Please upload at least one PDF file', 'warning');
-            return;
+            // Attach cache ID when ready (async)
+            cachePromise.then(cacheId => { doc.cacheId = cacheId; });
+
+            if (!firstNewDoc) firstNewDoc = doc;
         }
 
         // Show viewer area
@@ -870,6 +890,182 @@ async function executeRotate(degrees) {
     } catch (error) {
         console.error('Rotation failed:', error);
         showNotification('Failed to rotate PDF: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Execute rotate on selected pages from the nav panel action bar
+ * @param {number} degrees - Rotation degrees
+ * @param {number[]} pages - 1-based page numbers
+ */
+async function executeRotateSelected(degrees, pages) {
+    if (!currentPDFData || !pages || pages.length === 0) return;
+
+    try {
+        // Convert to 0-based for pdf-lib
+        const pageIndices = pages.map(p => p - 1);
+        const pageText = pages.length === 1 ? 'page' : 'pages';
+        showNotification(`Rotating ${pages.length} ${pageText}...`, 'info', 60000);
+
+        const currentPage = viewer.currentPage;
+
+        const rotatedPDF = await workerManager.execute('rotate', {
+            pdfData: currentPDFData.slice(0),
+            pageIndices: pageIndices,
+            rotation: degrees
+        });
+
+        const newArray = new Uint8Array(rotatedPDF);
+        currentPDFData = newArray.buffer;
+
+        const activeDoc = getActiveDocument();
+        if (activeDoc) activeDoc.pdfData = currentPDFData.slice(0);
+
+        if (currentCacheId && currentPDFData) {
+            await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
+        }
+
+        await viewer.loadPDF(currentPDFData.slice(0));
+        await viewer.goToPage(currentPage);
+
+        // Re-select the same pages and regenerate their thumbnails
+        pages.forEach(p => viewer.selectedPages.add(p));
+        if (viewer.navPanelOpen) {
+            await viewer.generateThumbnails(true);
+        }
+        viewer.updateThumbnailSelection();
+
+        addEditToHistory(`Rotated ${pages.length} ${pageText} by ${degrees}°`);
+        showNotification(`${pages.length} ${pageText} rotated ${degrees}°!`, 'success');
+    } catch (error) {
+        console.error('Rotation failed:', error);
+        showNotification('Failed to rotate: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Split and extract selected pages from nav panel action bar
+ * @param {number[]} pages - 1-based page numbers to extract
+ */
+async function executeSplitSelected(pages) {
+    if (!currentPDFData || !pages || pages.length === 0) return;
+
+    try {
+        showNotification(`Extracting ${pages.length} pages...`, 'info', 60000);
+
+        // Use pdf-lib to extract selected pages into a new PDF
+        const srcDoc = await PDFLib.PDFDocument.load(currentPDFData.slice(0));
+        const newDoc = await PDFLib.PDFDocument.create();
+        const indices = pages.map(p => p - 1);
+        const copiedPages = await newDoc.copyPages(srcDoc, indices);
+        copiedPages.forEach(page => newDoc.addPage(page));
+        const pdfBytes = await newDoc.save();
+
+        const baseName = currentFileName.replace('.pdf', '');
+        const fileName = `${baseName}_pages_${pages.join('-')}.pdf`;
+        tools.downloadPDF(pdfBytes, fileName);
+
+        addEditToHistory(`Extracted pages ${pages.join(', ')}`);
+        showNotification(`${pages.length} pages extracted! Check downloads.`, 'success');
+    } catch (error) {
+        console.error('Split failed:', error);
+        showNotification('Failed to extract pages: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Delete selected pages from the PDF via nav panel action bar
+ * @param {number[]} pages - 1-based page numbers to delete
+ */
+async function executeDeleteSelected(pages) {
+    if (!currentPDFData || !pages || pages.length === 0) return;
+
+    if (pages.length >= viewer.totalPages) {
+        showNotification('Cannot delete all pages', 'warning');
+        return;
+    }
+
+    // Confirm deletion
+    const pageText = pages.length === 1 ? 'page ' + pages[0] : pages.length + ' pages';
+    if (!confirm(`Delete ${pageText}? This cannot be undone.`)) return;
+
+    try {
+        showNotification(`Deleting ${pageText}...`, 'info', 60000);
+
+        const srcDoc = await PDFLib.PDFDocument.load(currentPDFData.slice(0));
+        // Remove pages in reverse order to preserve indices
+        const sortedDesc = [...pages].sort((a, b) => b - a);
+        sortedDesc.forEach(p => srcDoc.removePage(p - 1));
+        const pdfBytes = await srcDoc.save();
+
+        const newArray = new Uint8Array(pdfBytes);
+        currentPDFData = newArray.buffer;
+
+        const activeDoc = getActiveDocument();
+        if (activeDoc) activeDoc.pdfData = currentPDFData.slice(0);
+
+        if (currentCacheId && currentPDFData) {
+            await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
+        }
+
+        viewer.clearPageSelection();
+        await viewer.loadPDF(currentPDFData.slice(0));
+
+        if (viewer.navPanelOpen) {
+            await viewer.generateThumbnails(true);
+        }
+
+        addEditToHistory(`Deleted ${pageText}`);
+        showNotification(`${pageText} deleted!`, 'success');
+    } catch (error) {
+        console.error('Delete failed:', error);
+        showNotification('Failed to delete pages: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Duplicate selected pages (insert copies after the last selected page)
+ * @param {number[]} pages - 1-based page numbers to duplicate
+ */
+async function executeDuplicatePages(pages) {
+    if (!currentPDFData || !pages || pages.length === 0) return;
+
+    try {
+        showNotification('Duplicating ' + pages.length + ' page(s)...', 'info', 60000);
+
+        const srcDoc = await PDFLib.PDFDocument.load(currentPDFData.slice(0));
+        const indices = pages.map(p => p - 1);
+        const copiedPages = await srcDoc.copyPages(srcDoc, indices);
+
+        // Insert copies after the last selected page
+        const insertAfter = Math.max(...pages);
+        copiedPages.reverse().forEach(page => {
+            srcDoc.insertPage(insertAfter, page);
+        });
+
+        const pdfBytes = await srcDoc.save();
+        const newArray = new Uint8Array(pdfBytes);
+        currentPDFData = newArray.buffer;
+
+        const activeDoc = getActiveDocument();
+        if (activeDoc) activeDoc.pdfData = currentPDFData.slice(0);
+
+        if (currentCacheId) {
+            await pdfCache.updatePDF(currentCacheId, currentPDFData, currentPDFData.byteLength);
+        }
+
+        await viewer.loadPDF(currentPDFData.slice(0));
+        await viewer.goToPage(insertAfter);
+
+        if (viewer.navPanelOpen) {
+            await viewer.generateThumbnails(true);
+        }
+
+        addEditToHistory('Duplicated ' + pages.length + ' page(s)');
+        showNotification(pages.length + ' page(s) duplicated!', 'success');
+    } catch (error) {
+        console.error('Duplicate failed:', error);
+        showNotification('Failed to duplicate pages: ' + error.message, 'error');
     }
 }
 

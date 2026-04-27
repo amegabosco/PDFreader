@@ -1,48 +1,90 @@
 /**
- * Worker Manager - Manages Web Workers for PDF operations
+ * Worker Manager - Pool de Web Workers pour les operations PDF
+ * Caporal DJOSSOU Yves - Transformation single worker -> pool de workers
  */
 
 class WorkerManager {
     constructor() {
-        this.worker = null;
+        this.poolSize = Math.min(navigator.hardwareConcurrency || 4, 4);
+        this.workers = [];
+        this.available = [];
+        this.queue = [];
         this.pendingOperations = new Map();
         this.nextId = 1;
-        this.workerAvailable = false;
+        this.workersAvailable = false;
     }
 
     /**
-     * Initialize worker
+     * Initialize worker pool
      */
     init() {
-        if (this.worker) return;
+        if (this.workers.length > 0) return;
 
         try {
-            this.worker = new Worker('js/pdfWorker.js');
+            for (let i = 0; i < this.poolSize; i++) {
+                const worker = new Worker('js/pdfWorker.js');
 
-            this.worker.addEventListener('message', (e) => {
-                this.handleWorkerMessage(e.data);
-            });
+                worker.addEventListener('message', (e) => {
+                    this.handleMessage(e, worker);
+                });
 
-            this.worker.addEventListener('error', (e) => {
-                console.error('Worker error:', e);
-                this.workerAvailable = false;
-            });
+                worker.addEventListener('error', (e) => {
+                    console.error(`Worker ${i} error:`, e);
+                    // Remove worker from available pool on error
+                    const idx = this.available.indexOf(worker);
+                    if (idx !== -1) {
+                        this.available.splice(idx, 1);
+                    }
+                    // Reject all pending operations assigned to this worker
+                    for (const [id, op] of this.pendingOperations.entries()) {
+                        if (op.worker === worker) {
+                            op.reject(new Error('Worker crashed'));
+                            this.pendingOperations.delete(id);
+                            this.hideProgress(id);
+                        }
+                    }
+                    // Try to replace the crashed worker
+                    try {
+                        const replacement = new Worker('js/pdfWorker.js');
+                        replacement.addEventListener('message', (ev) => {
+                            this.handleMessage(ev, replacement);
+                        });
+                        replacement.addEventListener('error', (ev) => {
+                            console.error('Replacement worker error:', ev);
+                            const rIdx = this.available.indexOf(replacement);
+                            if (rIdx !== -1) this.available.splice(rIdx, 1);
+                        });
+                        const wIdx = this.workers.indexOf(worker);
+                        if (wIdx !== -1) this.workers[wIdx] = replacement;
+                        this.available.push(replacement);
+                        this.processQueue();
+                    } catch (err) {
+                        console.warn('Could not replace crashed worker:', err.message);
+                    }
+                });
 
-            this.workerAvailable = true;
+                this.workers.push(worker);
+                this.available.push(worker);
+            }
+
+            this.workersAvailable = true;
+            console.log(`Worker pool initialized: ${this.poolSize} workers`);
         } catch (error) {
             console.warn('Workers not available (file:// protocol?), using fallback:', error.message);
-            this.workerAvailable = false;
-            this.worker = null;
+            this.workersAvailable = false;
+            this.workers = [];
+            this.available = [];
         }
     }
 
     /**
-     * Handle message from worker
+     * Handle message from a specific worker
      */
-    handleWorkerMessage(data) {
+    handleMessage(e, worker) {
+        const data = e.data;
         const { id, success, result, error, progress, message } = data;
 
-        // Handle progress updates
+        // Handle progress updates — worker stays busy
         if (progress !== undefined) {
             this.updateProgress(id, progress, message);
             return;
@@ -60,45 +102,83 @@ class WorkerManager {
 
         this.pendingOperations.delete(id);
         this.hideProgress(id);
+
+        // Return worker to available pool and process queue
+        this.available.push(worker);
+        this.processQueue();
     }
 
     /**
-     * Execute operation in worker (or fallback to sync)
+     * Execute operation in worker pool (or fallback to sync)
      */
     async execute(operation, data) {
-        if (!this.worker) {
+        if (this.workers.length === 0) {
             this.init();
         }
 
-        // Fallback to synchronous operations if worker not available
-        if (!this.workerAvailable) {
+        // Fallback to synchronous operations if workers not available
+        if (!this.workersAvailable) {
             return this.executeFallback(operation, data);
         }
 
         const id = this.nextId++;
 
         return new Promise((resolve, reject) => {
-            this.pendingOperations.set(id, { resolve, reject, operation });
+            const task = { id, operation, data, resolve, reject };
 
-            // Show progress
-            this.showProgress(id, operation);
-
-            // Send to worker with Transferable Objects for zero-copy performance
-            const transferables = [];
-            if (data && data.pdfData instanceof ArrayBuffer) {
-                transferables.push(data.pdfData);
+            if (this.available.length > 0) {
+                this.dispatch(task);
+            } else {
+                // All workers busy — enqueue
+                this.queue.push(task);
             }
-            this.worker.postMessage({ id, operation, data }, transferables);
-
-            // Timeout after 2 minutes
-            setTimeout(() => {
-                if (this.pendingOperations.has(id)) {
-                    this.pendingOperations.delete(id);
-                    this.hideProgress(id);
-                    reject(new Error('Operation timeout'));
-                }
-            }, 120000);
         });
+    }
+
+    /**
+     * Dispatch a task to an available worker
+     */
+    dispatch(task) {
+        const { id, operation, data, resolve, reject } = task;
+        const worker = this.available.pop();
+
+        this.pendingOperations.set(id, { resolve, reject, operation, worker });
+
+        // Show progress
+        this.showProgress(id, operation);
+
+        // Send to worker with Transferable Objects for zero-copy performance
+        const transferables = [];
+        if (data && data.pdfData instanceof ArrayBuffer) {
+            transferables.push(data.pdfData);
+        }
+        worker.postMessage({ id, operation, data }, transferables);
+
+        // Timeout after 2 minutes
+        setTimeout(() => {
+            if (this.pendingOperations.has(id)) {
+                const op = this.pendingOperations.get(id);
+                this.pendingOperations.delete(id);
+                this.hideProgress(id);
+                op.reject(new Error('Operation timeout'));
+
+                // Return the worker to available pool even on timeout
+                if (op.worker && !this.available.includes(op.worker)) {
+                    this.available.push(op.worker);
+                    this.processQueue();
+                }
+            }
+        }, 120000);
+    }
+
+    /**
+     * Process the queue — dispatch pending tasks to available workers
+     */
+    processQueue() {
+        while (this.queue.length > 0 && this.available.length > 0) {
+            const task = this.queue.shift();
+            this.dispatch(task);
+        }
     }
 
     /**
@@ -142,25 +222,50 @@ class WorkerManager {
      */
     showProgress(id, operation) {
         const progressId = `worker-progress-${id}`;
+        const title = this.getOperationTitle(operation);
 
-        // Create progress element
+        // Create progress element using safe DOM methods
         const progressEl = document.createElement('div');
         progressEl.id = progressId;
         progressEl.className = 'worker-progress';
-        progressEl.innerHTML = `
-            <div class="worker-progress-content">
-                <div class="worker-progress-spinner">
-                    <i class="ti ti-loader-2"></i>
-                </div>
-                <div class="worker-progress-text">
-                    <div class="worker-progress-title">${this.getOperationTitle(operation)}</div>
-                    <div class="worker-progress-message" id="${progressId}-message">Processing...</div>
-                    <div class="worker-progress-bar">
-                        <div class="worker-progress-bar-fill" id="${progressId}-bar" style="width: 0%"></div>
-                    </div>
-                </div>
-            </div>
-        `;
+
+        const content = document.createElement('div');
+        content.className = 'worker-progress-content';
+
+        const spinner = document.createElement('div');
+        spinner.className = 'worker-progress-spinner';
+        const icon = document.createElement('i');
+        icon.className = 'ti ti-loader-2';
+        spinner.appendChild(icon);
+
+        const textWrapper = document.createElement('div');
+        textWrapper.className = 'worker-progress-text';
+
+        const titleEl = document.createElement('div');
+        titleEl.className = 'worker-progress-title';
+        titleEl.textContent = title;
+
+        const messageEl = document.createElement('div');
+        messageEl.className = 'worker-progress-message';
+        messageEl.id = `${progressId}-message`;
+        messageEl.textContent = 'Processing...';
+
+        const barContainer = document.createElement('div');
+        barContainer.className = 'worker-progress-bar';
+
+        const barFill = document.createElement('div');
+        barFill.className = 'worker-progress-bar-fill';
+        barFill.id = `${progressId}-bar`;
+        barFill.style.width = '0%';
+
+        barContainer.appendChild(barFill);
+        textWrapper.appendChild(titleEl);
+        textWrapper.appendChild(messageEl);
+        textWrapper.appendChild(barContainer);
+
+        content.appendChild(spinner);
+        content.appendChild(textWrapper);
+        progressEl.appendChild(content);
 
         document.body.appendChild(progressEl);
         setTimeout(() => progressEl.classList.add('show'), 10);
@@ -211,14 +316,22 @@ class WorkerManager {
     }
 
     /**
-     * Terminate worker
+     * Terminate all workers and clear state
      */
     terminate() {
-        if (this.worker) {
-            this.worker.terminate();
-            this.worker = null;
-            this.pendingOperations.clear();
+        for (const worker of this.workers) {
+            worker.terminate();
         }
+        this.workers = [];
+        this.available = [];
+        this.queue = [];
+        // Reject any pending operations
+        for (const [id, op] of this.pendingOperations.entries()) {
+            op.reject(new Error('Worker pool terminated'));
+            this.hideProgress(id);
+        }
+        this.pendingOperations.clear();
+        this.workersAvailable = false;
     }
 }
 

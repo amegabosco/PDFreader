@@ -2180,6 +2180,228 @@ textarea.text-input {
     font-weight: 700;
 }
 
+/* ===================================
+   Thumbnail Selection Checkbox
+   =================================== */
+
+.nav-thumbnail-check {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 12;
+    opacity: 0;
+    transform: scale(0.7);
+    transition: all var(--duration-fast) var(--ease-spring);
+}
+
+.nav-thumbnail-check i {
+    font-size: 0.75rem;
+    color: white;
+    opacity: 0;
+    transform: scale(0);
+    transition: all var(--duration-fast) var(--ease-spring);
+}
+
+/* Show checkbox on hover */
+.nav-thumbnail:hover .nav-thumbnail-check {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Always show when selected */
+.nav-thumbnail.selected .nav-thumbnail-check {
+    opacity: 1;
+    transform: scale(1);
+    background: var(--primary);
+    border-color: var(--primary);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+}
+
+.nav-thumbnail.selected .nav-thumbnail-check i {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Checkbox hover effect */
+.nav-thumbnail-check:hover {
+    border-color: var(--primary);
+    background: rgba(37, 99, 235, 0.15);
+    transform: scale(1.15);
+}
+
+.nav-thumbnail.selected .nav-thumbnail-check:hover {
+    background: var(--primary-hover);
+    transform: scale(1.15);
+}
+
+/* Selected card enhanced visual */
+.nav-thumbnail.selected {
+    border-color: var(--primary);
+    background: rgba(37, 99, 235, 0.04);
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.2),
+                inset 0 0 0 1px rgba(37, 99, 235, 0.1);
+}
+
+.nav-thumbnail.selected .nav-thumbnail-wrapper canvas {
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+}
+
+/* ===================================
+   Selection Counter Badge
+   =================================== */
+
+.nav-selection-counter {
+    display: inline-flex;
+    align-items: center;
+    background: var(--primary);
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 0.2rem 0.5rem;
+    border-radius: 10px;
+    margin-left: 0.5rem;
+    opacity: 0;
+    transform: scale(0.7);
+    transition: all var(--duration-normal) var(--ease-spring);
+    letter-spacing: 0.3px;
+}
+
+.nav-selection-counter.show {
+    opacity: 1;
+    transform: scale(1);
+    animation: popIn var(--duration-moderate) var(--ease-spring);
+}
+
+/* ===================================
+   Selection Action Bar
+   =================================== */
+
+.nav-selection-actions {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--white);
+    border-top: 2px solid var(--primary);
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    z-index: 100;
+    opacity: 0;
+    transform: translateY(100%);
+    transition: all var(--duration-moderate) var(--ease-spring);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.nav-selection-actions.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.nav-selection-info {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: center;
+    padding-bottom: 0.25rem;
+}
+
+.nav-selection-btn-row {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.nav-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.4rem 0.5rem;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--text);
+    transition: all var(--duration-fast) var(--ease-out);
+    white-space: nowrap;
+}
+
+.nav-action-btn i {
+    font-size: 0.85rem;
+}
+
+.nav-action-btn span {
+    font-size: 0.6rem;
+}
+
+.nav-action-btn:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+.nav-action-btn:active {
+    transform: translateY(0) scale(0.95);
+    transition-duration: var(--duration-instant);
+}
+
+.nav-action-btn.danger {
+    color: #EF4444;
+    border-color: #FECACA;
+    background: #FEF2F2;
+}
+
+.nav-action-btn.danger:hover {
+    background: #EF4444;
+    color: white;
+    border-color: #EF4444;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.nav-action-btn.clear-btn {
+    background: transparent;
+    border-color: transparent;
+    color: var(--text-muted);
+}
+
+.nav-action-btn.clear-btn:hover {
+    background: var(--background-darker);
+    color: var(--text);
+    border-color: var(--border);
+}
+
+.nav-action-separator {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+    margin: 0 0.125rem;
+    flex-shrink: 0;
+}
+
+/* Adjust thumbnails padding when action bar is visible */
+.nav-panel:has(.nav-selection-actions.show) .nav-thumbnails {
+    padding-bottom: 100px;
+}
+
 /* Adjust main content when nav panel is visible */
 .app-container {
     transition: padding-right 0.3s ease;
@@ -3474,6 +3696,136 @@ textarea.text-input {
 
 .recent-doc-menu .menu-item:hover {
     padding-left: 1rem;
+}
+
+/* ===================================
+   Page Selection in Main Viewer
+   =================================== */
+
+.scroll-page-wrapper {
+    transition: box-shadow var(--duration-normal) var(--ease-out),
+                border-color var(--duration-normal) var(--ease-out);
+}
+
+.scroll-page-wrapper.page-selected {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2),
+                0 4px 16px rgba(37, 99, 235, 0.15) !important;
+    position: relative;
+}
+
+.scroll-page-wrapper.page-selected::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(37, 99, 235, 0.03);
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* ===================================
+   Context Menu
+   =================================== */
+
+.pdf-context-menu {
+    position: fixed;
+    z-index: 99999;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15),
+                0 2px 8px rgba(0, 0, 0, 0.08);
+    min-width: 200px;
+    padding: 0.375rem;
+    animation: fadeInScale var(--duration-fast) var(--ease-spring);
+    backdrop-filter: blur(12px);
+    overflow: hidden;
+}
+
+.ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text);
+    transition: all var(--duration-fast) var(--ease-out);
+    white-space: nowrap;
+}
+
+.ctx-item i {
+    font-size: 1rem;
+    color: var(--text-muted);
+    width: 1.25rem;
+    text-align: center;
+    flex-shrink: 0;
+    transition: color var(--duration-fast) var(--ease-out);
+}
+
+.ctx-item:hover {
+    background: var(--primary);
+    color: white;
+}
+
+.ctx-item:hover i {
+    color: white;
+}
+
+.ctx-item:active {
+    transform: scale(0.97);
+    transition-duration: var(--duration-instant);
+}
+
+.ctx-header {
+    font-weight: 700;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: default;
+    padding: 0.375rem 0.75rem;
+}
+
+.ctx-header:hover {
+    background: transparent;
+    color: var(--text-muted);
+}
+
+.ctx-header:hover i {
+    color: var(--primary);
+}
+
+.ctx-header i {
+    color: var(--primary);
+}
+
+.ctx-separator {
+    height: 1px;
+    background: var(--border);
+    margin: 0.25rem 0.5rem;
+}
+
+.ctx-danger {
+    color: #EF4444;
+}
+
+.ctx-danger i {
+    color: #EF4444;
+}
+
+.ctx-danger:hover {
+    background: #EF4444;
+    color: white;
+}
+
+.ctx-danger:hover i {
+    color: white;
 }
 
 /* ===================================

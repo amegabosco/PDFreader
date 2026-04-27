@@ -11,49 +11,37 @@ Notre système de versionnage suit le modèle **Semantic Versioning** avec des n
 - **PATCH** (0.0.X) : Corrections de bugs, petites améliorations, optimisations
 
 ### 🍌 Noms de Code (par ordre alphabétique de fruits/emojis fun)
+- **Apricot** 🍑 : Corrections rotation annotations
 - **Banane** 🍌 : Version initiale (Prototype fonctionnel)
+- **Blueberry** 🫐 : Fix viewport annotations multi-pages
 - **Cacao** 🍫 : Refonte interface + Navigation avancée
-- **Datte** 🍯 : *Future - Focus sur la performance*
+- **Coconut** 🥥 : Amélioration qualité signatures
+- **Dragonfruit** 🐉 : Optimisations performance + Nettoyage UI
 - **Érable** 🍁 : *Future - Collaboration et partage*
 - **Fraise** 🍓 : *Future - Mobile responsive*
 
 ---
 
-## 🔥 Version Actuelle : **Cacao 1.0.0** 🍫
+## 🔥 Version Actuelle : **Dragonfruit 2.3.40** 🐉
 
-**Date de release** : 31 Octobre 2025
-**Nom de code** : Cacao
+**Date de release** : 09 Novembre 2025
+**Nom de code** : Dragonfruit
 
-### 🎉 Changements Majeurs (1.0.0)
+### 🎉 Changements Majeurs (2.3.40)
 
-#### 🎨 Refonte Complète de l'Interface
-- Tous les outils déplacés dans la barre supérieure
-- Sidebar simplifiée (Upload + Documents récents)
-- Organisation logique avec séparateurs visuels
-- Interface plus compacte et professionnelle
+#### ⚡ Optimisations & Nettoyage
+- **Suppression Recent Files Panel** : Interface plus épurée
+- **Lazy Loading** : Chargement différé des modules non-critiques
+- **Refactoring Architecture** : Code modulaire (Modules JS séparés)
 
-#### 🖱️ Navigation Avancée
-- **Navigation par molette** : Scroller passe automatiquement aux pages suivantes/précédentes
-- Gestion intelligente du scroll horizontal/vertical
-- Transitions fluides avec positionnement auto
+#### 🥥 Améliorations Précédentes (Coconut 2.3.39)
+- **Signatures HD** : Résolution canvas x3
+- **Lissage Bézier** : Courbes parfaites pour les signatures
+- **Upscaling PNG** : Qualité x5 pour l'insertion
 
-#### ✨ Système de Panneaux Flottants
-- Nouveau système FloatingPanel draggable
-- Panneaux qui ne bloquent pas la vue du PDF
-- Minimisable, refermable, animé
-- Meilleure expérience multi-outils
-
-#### 🔧 Améliorations Fonctionnelles
-- **Zoom-to-fit** : Bouton pour ajuster la page à la fenêtre
-- **Synchronisation overlay** : Insertion précise à tous les niveaux de zoom
-- **Objets déplaçables** : Redimensionner et déplacer avant validation
-- **Thumbnails dynamiques** : Rafraîchissement après rotation et réorganisation
-
-#### ⚡ Optimisations de Performance
-- Réduction échelle thumbnails (0.5 → 0.3)
-- Suppression fichiers dupliqués
-- Meilleure gestion mémoire
-- Logs de débogage
+#### 🫐 Corrections (Blueberry 2.3.38)
+- **Fix Annotations** : Correction viewport multi-pages
+- **Rotation** : Gestion correcte des pages pivotées
 
 ---
 
